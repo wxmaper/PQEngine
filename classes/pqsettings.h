@@ -7,20 +7,20 @@
 class PQSettings;
 class PQSettings : public QSettings {
     Q_OBJECT
-    PQ_OBJECT
+    PQ_OBJECT_EX(QSettings)
 
 public:
     Q_INVOKABLE explicit PQSettings(QObject *parent = 0);
     Q_INVOKABLE explicit PQSettings(const QString &organization,
                                     const QString &application = QString(),
                                     QObject *parent = 0);
-    Q_INVOKABLE PQSettings(int scope, const QString &organization,
+    Q_INVOKABLE explicit PQSettings(int scope, const QString &organization,
                            const QString &application = QString(),
                            QObject *parent = 0);
-    Q_INVOKABLE PQSettings(int format, int scope, const QString &organization,
+    Q_INVOKABLE explicit PQSettings(int format, int scope, const QString &organization,
                            const QString &application = QString(),
                            QObject *parent = 0);
-    Q_INVOKABLE PQSettings(const QString &fileName, int format,
+    Q_INVOKABLE explicit PQSettings(const QString &fileName, int format,
                            QObject *parent = 0);
     virtual ~PQSettings();
 
@@ -34,6 +34,8 @@ public:
     Q_INVOKABLE QString	organizationName() const;
     Q_INVOKABLE void remove(const QString &key);
     Q_INVOKABLE int scope();
+    /*
+    Q_INVOKABLE void setValue(const QString &key, const QByteArray &value);
     Q_INVOKABLE void setValue(const QString &key, const QString &value);
     Q_INVOKABLE void setValue(const QString &key, bool &value);
     Q_INVOKABLE void setValue(const QString &key, int &value);
@@ -43,6 +45,11 @@ public:
     Q_INVOKABLE QVariant value(const QString &key, bool defaultValue) const;
     Q_INVOKABLE QVariant value(const QString &key, int defaultValue) const;
     Q_INVOKABLE QVariant value(const QString &key, double defaultValue) const;
+    */
+
+    Q_INVOKABLE void setValue(const QString &key, const QVariant &value);
+    Q_INVOKABLE QVariant value(const QString &key, const QVariant &defaultValue = QVariant());
+
     Q_INVOKABLE int status();
     Q_INVOKABLE void sync();
 

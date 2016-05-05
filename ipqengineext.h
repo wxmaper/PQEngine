@@ -5,105 +5,14 @@
 #include <QMetaObject>
 #include <QMetaMethod>
 
+#define PQENGINEEXT_MAJOR_VERSION 0
+#define PQENGINEEXT_MINOR_VERSION 5
+#define PQENGINEEXT_RELEASE_VERSION 0
+#define PQENGINEEXT_VERSION "0.5"
+#define PQENGINEEXT_VERSION_ID 50
+
 class IPQExtension;
 class QMetaObjectList : public QList<QMetaObject> {};
-
-/*
-#define PQEXT(classname) classname::getPQExtension()
-
-#define IPQEXT_INIT(extname) \
-class extname : public IPQExtension {\
-public:\
-    static use_instance() { getPQExtension().this_appInstance = true; }\
-    static use_ub_write() { getPQExtension().this_ub_write = true; }\
-    static use_pre() { getPQExtension().this_pre = true; }\
-    static QMetaObjectList classes();\
-    static bool start();\
-    static bool finalize();\
-    \
-    static PQExtension getPQExtension() {\
-        PQEXT_ENTRY_START_EX(extname)
-
-#define PQEXT_ENTRY_START
-#define PQEXT_ENTRY_START_EX(extname)\
-    static PQExtension pqExtensionInstance = {\
-        extname::classes,\
-        extname::start,\
-        extname::finalize,\
-        #extname,
-
-#define PQEXT_FULLNAME(fullName) fullName,
-#define PQEXT_AUTHOR(author) author,
-#define PQEXT_VERSION(version) version,
-#define PQEXT_DESC(desc) desc,
-#define PQEXT_LIBS(libs) libs,
-#define PQEXT_QTDEPENDS(qtdepends) qtdepends,
-#define PQEXT_INCLUDES(includes) includes,
-#define PQEXT_CONFIG(config) config,
-
-#define PQEXT_ENTRY_END \
-    }; return pqExtensionInstance; }
-
-#define IPQEXT_END };
-
-#define IPQEXT_NO_INSTANCE \
-    QCoreApplication *appInstance() { return 0; }
-
-#define IPQEXT_NO_UB_WRITE \
-    static void ub_write(const QString &msg) {}
-
-#define IPQEXT_NO_PRE \
-    static void pre(const QString &msg, const QString &title) {}
-
-#define IPQEXT_INSTANCE \
-    static QCoreApplication *appInstance(int argc, char** argv);
-
-#define IPQEXT_UB_WRITE \
-    static void ub_write(const QString &msg);
-
-#define IPQEXT_PRE \
-    static void pre(const QString &msg, const QString &title);
-
-#define PQEXT_NO_INSTANCE 0, false, 0,
-#define PQEXT_NO_UB_WRITE 0, false, 0,
-#define PQEXT_NO_PRE 0, false, 0,
-
-#define PQEXT_INSTANCE(extname) 1, false, extname::appInstance,
-#define PQEXT_UB_WRITE(extname) 1, false, extname::ub_write,
-#define PQEXT_PRE(extname) 1, false, extname::pre,
-
-typedef struct ipqengineext {
-    QMetaObjectList (*classes)(); // classes
-    bool (*start)(); // init *
-    bool (*finalize)(); // finalize *
-
-    const char *fullName; // fullName *
-    const char *author; // author *
-    const char *version; // version *
-    const char *description; // descriptin *
-    const char *libs; // libs *
-    const char *qtdepends; // qtdepends *
-    const char *includes; // includes *
-    const char *config; // config *
-
-    bool have_appInstance; // have_appInstance *
-    bool this_appInstance; // this_appInstance *
-    QCoreApplication* (*appInstance)(int argc, char** argv); // appInstance *
-
-    bool have_ub_write; // have_ub_write *
-    bool this_ub_write; // this_ub_write *
-    void (*ub_write)(const QString &msg); // ub_write *
-   // static_cast<void (PQComboBox::*)(int)>(&PQComboBox::currentIndexChanged),
-
-    bool have_pre; // have_pre *
-    bool this_pre; // this_pre *
-    void (*pre)(const QString &msg, const QString &title); // pre *
-} PQExtension;
-
-
-*/
-
-#define PQEXT_INSTANCE(extname) extname::instance
 
 typedef struct pqext_entry {
     const char *fullName;
@@ -158,6 +67,5 @@ public:
 };
 
 class PQExtensionList : public QList<IPQExtension*> {};
-class PQExtensionHash : public QHash<QString, IPQExtension*> {};
 
 #endif // IPQENGINEEXT_H

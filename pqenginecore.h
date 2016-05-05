@@ -3,7 +3,7 @@
 
 #include "pqengine.h"
 
-class PQEngineCore : public IPQExtension {
+class PQDLAPI PQEngineCore : public IPQExtension {
 public:
     QMetaObjectList classes();
     bool start();
@@ -20,7 +20,7 @@ public:
     PQEXT_ENTRY_START(PQEngineCore)
         PQEXT_INSTANCE(PQEngineCore)
         PQEXT_UB_WRITE(PQEngineCore)
-        PQEXT_NO_PRE
+        PQEXT_PRE(PQEngineCore)
     PQEXT_ENTRY_END
 };
 

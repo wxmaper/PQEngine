@@ -1,4 +1,7 @@
 #include "pqsettings.h"
+#include "pqobject_private.h"
+
+PQOBJECT_STANDARD_METHODS(QSettings,QSettings)
 
 PQSettings::PQSettings(QObject *parent)
     : QSettings(parent)
@@ -88,6 +91,17 @@ int PQSettings::scope()
     return QSettings::scope();
 }
 
+void PQSettings::setValue(const QString &key, const QVariant &value)
+{
+    QSettings::setValue(key, value);
+}
+
+QVariant PQSettings::value(const QString &key, const QVariant &defaultValue)
+{
+    return QSettings::value(key, defaultValue);
+}
+
+/*
 void PQSettings::setValue(const QString &key, const QString &value)
 {
     QSettings::setValue(key, value);
@@ -132,7 +146,7 @@ QVariant PQSettings::value(const QString &key, double defaultValue) const
 {
     return QSettings::value(key, defaultValue);
 }
-
+*/
 int PQSettings::status()
 {
     return QSettings::status();

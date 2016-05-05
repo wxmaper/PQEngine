@@ -7,10 +7,16 @@ int PQEnginePrivate::php_pqengine_startup(sapi_module_struct *sapi_module)
     PQDBG("PQEnginePrivate::php_pqengine_startup()");
 #endif
 
-    return php_module_startup(sapi_module, PHPQt5::phpqt5_module_entry(), 1);
+    /*
+    if (php_module_startup(sapi_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
+        return FAILURE;
+    }
+    */
+
+    return SUCCESS;
 }
 
-int PQEnginePrivate::php_pqengine_deactivate(TSRMLS_D)
+int PQEnginePrivate::php_pqengine_deactivate()
 {
 #ifdef PQDEBUG
     PQDBG("PQEnginePrivate::php_pqengine_deactivate()");
@@ -19,14 +25,16 @@ int PQEnginePrivate::php_pqengine_deactivate(TSRMLS_D)
     return SUCCESS;
 }
 
-int PQEnginePrivate::php_pqengine_ub_write(const char *str, uint str_length TSRMLS_DC)
+size_t PQEnginePrivate::php_pqengine_ub_write(const char *str, size_t str_length)
 {
 #ifdef PQDEBUG
-    PQDBG2("PQEnginePrivate::php_pqengine_ub_write()", str);
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("[%1]: %2").arg(str_length).arg(str));
 #endif
 
     pq_ub_write(PHPQt5::toUTF8(str));
 
+    PQDBG_LVL_DONE();
     return str_length;
 }
 
@@ -48,10 +56,10 @@ void PQEnginePrivate::php_pqengine_flush(void *server_context)
 
     Q_UNUSED(server_context)
 
-    php_handle_aborted_connection();
+  //  php_handle_aborted_connection();
 }
 
-void PQEnginePrivate::php_pqengine_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC)
+void PQEnginePrivate::php_pqengine_send_header(sapi_header_struct *sapi_header, void *server_context)
 {
 #ifdef PQDEBUG
     PQDBG("PQEnginePrivate::php_pqengine_send_header()");
@@ -61,13 +69,13 @@ void PQEnginePrivate::php_pqengine_send_header(sapi_header_struct *sapi_header, 
     Q_UNUSED(server_context)
 }
 
-void PQEnginePrivate::php_pqengine_register_variables(zval *track_vars_array TSRMLS_DC)
+void PQEnginePrivate::php_pqengine_register_variables(zval *track_vars_array)
 {
 #ifdef PQDEBUG
     PQDBG("PQEnginePrivate::php_pqengine_register_variables()");
 #endif
 
-    php_register_variable("PHP_SELF", "-", NULL TSRMLS_CC);
+    php_register_variable((char*)"PHP_SELF", (char*)"-", NULL);
 
     char buf[128];
     char **env, *p, *t = buf;
@@ -86,18 +94,18 @@ void PQEnginePrivate::php_pqengine_register_variables(zval *track_vars_array TSR
         }
         memcpy(t, *env, nlen);
         t[nlen] = '\0';
-        php_register_variable(t, p + 1, track_vars_array TSRMLS_CC);
+        php_register_variable(t, p + 1, track_vars_array);
     }
     if (t != buf && t != NULL) {
         efree(t);
     }
 }
-
-void PQEnginePrivate::php_pqengine_log_message(char *message TSRMLS_DC)
+#include <QTextCodec>
+void PQEnginePrivate::php_pqengine_log_message(char *message)
 {
 #ifdef PQDEBUG
     PQDBG2("PQEnginePrivate::php_pqengine_log_message()", message);
 #endif
 
-    pq_ub_write(message);
+    pq_ub_write(PHPQt5::toUTF8(message));
 }

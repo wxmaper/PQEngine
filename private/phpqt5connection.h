@@ -2,56 +2,121 @@
 #define PHPQT5_CONNECTION_H
 
 #include "phpqt5objectfactory.h"
+#include <QObject>
+
+#define C_TYPE_UNKNOWN 0
+#define C_TYPE_CLOSURE 1
+#define C_TYPE_QOBJECT_METHOD 2
+#define C_TYPE_PHPOBJECT_METHOD 3
+#define C_TYPE_PHPOBJECT_SIGNAL_METHOD 4
+#define C_TYPE_THREADED 5
 
 typedef struct _pq_connect_entry {
-    zval *zo_sender;
+    zend_object *zo_sender;
     const QObject *qo_sender;
     QByteArray signal_signature;
-    zval *zo_receiver;
+    zend_object *zo_receiver;
+    const QObject *qo_receiver;
     QByteArray slot_signature;
     QByteArray slot_name;
     int argc;
-    int zo_sender_handle;
-    int zo_receiver_handle;
-    bool zo_receiver_is_closure;
+    uint zo_sender_handle;
+    uint zo_receiver_handle;
+    int connection_type;
 } pq_connect_entry;
 
-extern void PHPQt5Connection_invoke(const QObject *qo_sender, const QByteArray signalSignature, QVariantList args);
 
-class PHPQt5Connection
+class PQDLAPI PHPQt5ConnectionWorker : public QObject
 {
+    Q_OBJECT
+
 public:
-    PHPQt5Connection(TSRMLS_D);
+    PHPQt5ConnectionWorker();
+    PHPQt5ConnectionWorker(zend_object *zo_sender,
+                           zend_object *zo_receiver,
+                           const QByteArray slotName,
+                           int argc,
+                           QVariantList args,
+                           bool createNewCtx);
 
-    void                        removeConnections(const QObject *qo);
+    ~PHPQt5ConnectionWorker(){}
 
-    void                        removePHPConnection(const QObject *qo_sender,
-                                                    const QByteArray qSignalSignature_ba,
-                                                    const QByteArray qSlotSignature_ba
-                                                    TSRMLS_DC);
+    void doProcess(zend_object *zo_sender,
+                   zend_object *zo_receiver,
+                   const QByteArray slotName,
+                   int argc,
+                   QVariantList args,
+                   bool createNewCtx);
 
-    void                        removePHPConnection(const QByteArray connectKey,
-                                                    const QByteArray qSignalSignature_ba,
-                                                    const QByteArray pslotSignature_ba);
 
-    bool                        createPHPConnection(zval *zo_sender,
-                                                    const QObject *qo_sender,
-                                                    const QByteArray qSignalSignature_ba,
-                                                    zval *zo_receiver,
-                                                    const QByteArray qSlotSignature_ba
-                                                    TSRMLS_DC);
+    zend_object *zo_sender;
+    zend_object *zo_receiver;
+    QByteArray slotName;
+    int argc;
+    QVariantList args;
+    bool createNewCtx;
 
-    static void                 call_php_funtion(zval *zo_sender,
+    void *ctx = nullptr;
+
+public slots:
+    Q_INVOKABLE void process();
+    void setReady();
+    void setReady(zend_object *zo_sender,
+                  zend_object *zo_receiver,
+                  const QByteArray slotName,
+                  int argc,
+                  QVariantList args,
+                  bool createNewCtx);
+
+signals:
+    void ready();
+    void finished();
+    void finishedWithDestroy(PHPQt5ConnectionWorker*);
+};
+
+class PQDLAPI PHPQt5Connection : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit PHPQt5Connection(PQDBG_LVL_D);
+
+    void                        removeConnections(const QObject *qo
+                                                  PQDBG_LVL_DC);
+
+    void                        removeConnection(const QObject *qo_sender,
+                                                 const QByteArray qSignalSignature_ba,
+                                                 const QByteArray qSlotSignature_ba
+                                                 PQDBG_LVL_DC);
+
+    void                        removeConnection(const QByteArray connectKey,
+                                                 const QByteArray qSignalSignature_ba,
+                                                 const QByteArray pslotSignature_ba
+                                                 PQDBG_LVL_DC);
+
+    bool                        createConnection(zval *zo_sender,
+                                                 const QObject *qo_sender,
+                                                 const QByteArray qSignalSignature_ba,
                                                  zval *zo_receiver,
+                                                 const QObject *qo_receiver,
+                                                 const QByteArray qSlotSignature_ba
+                                                 PQDBG_LVL_DC);
+
+    static void                 call_php_funtion(zend_object *zo_sender,
+                                                 zend_object *zo_receiver,
                                                  const QByteArray slotName,
                                                  int argc,
-                                                 QVariantList args);
+                                                 QVariantList args
+                                                 PQDBG_LVL_DC);
 
     static QByteArray           generateConnectKey(const QObject *qo_sender,
-                                                   const QByteArray signalSignature);
+                                                   const QByteArray signalSignature
+                                                   PQDBG_LVL_DC);
 
-    static void ***thread_ctx;
     static QHash<QByteArray, QList<pq_connect_entry> > pq_connections;
+
+public slots:
+    void deleteConnectionWorker(PHPQt5ConnectionWorker* w);
 };
 
 #endif // PHPQT5_CONNECTION_H

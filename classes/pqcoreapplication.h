@@ -7,7 +7,7 @@
 class PQCoreApplication;
 class PQCoreApplication : public QCoreApplication {
     Q_OBJECT
-    PQ_OBJECT
+    PQ_OBJECT_EX(QCoreApplication)
 
 public:
     Q_INVOKABLE explicit PQCoreApplication(int argc, char **argv);

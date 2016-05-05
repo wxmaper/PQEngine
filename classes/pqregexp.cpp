@@ -1,4 +1,7 @@
 #include "pqregexp.h"
+#include "pqobject_private.h"
+
+PQOBJECT_STANDARD_METHODS(QRegExp,QObject)
 
 PQRegExp::PQRegExp(const QString &pattern, QObject *parent)
     : QRegExp(pattern), QObject(parent)

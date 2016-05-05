@@ -1,4 +1,7 @@
 #include "pqcoreapplication.h"
+#include "pqobject_private.h"
+
+PQOBJECT_STANDARD_METHODS(QCoreApplication,QCoreApplication)
 
 PQCoreApplication::PQCoreApplication(int argc, char **argv) :
     QCoreApplication(argc, argv)

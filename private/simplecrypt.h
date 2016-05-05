@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QVector>
 #include <QFlags>
 
-#define PQ_APPEND_KEY "b1"
+#define PQ_APPEND_KEY "a3"
 
 /**
   @short Simple encryption and decryption of strings and byte arrays

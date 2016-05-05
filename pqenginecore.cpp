@@ -5,17 +5,25 @@ QMetaObjectList PQEngineCore::classes() {
     QMetaObjectList classes;
 
     classes << PQCoreApplication::staticMetaObject
+            << PQEvent::staticMetaObject
+            << PQLibrary::staticMetaObject
             << PQObject::staticMetaObject
-            //<< PQProcess::staticMetaObject
             << PQRegExp::staticMetaObject
             << PQSettings::staticMetaObject
-            //<< PQThread::staticMetaObject
-            << PQTimer::staticMetaObject;
+            << PQStandardPaths::staticMetaObject
+            << PQTimer::staticMetaObject
+            << PQThread::staticMetaObject;
 
     return classes;
 }
 
 bool PQEngineCore::start() {
+    qRegisterMetaType<PQEvent*>("PQEvent*");
+    qRegisterMetaType<PQObject*>("PQObject*");
+    qRegisterMetaType<QThread*>("QThread*");
+    qRegisterMetaType<PQThread*>("PQThread*");
+
+    return true;
 }
 
 bool PQEngineCore::finalize() {
@@ -23,158 +31,10 @@ bool PQEngineCore::finalize() {
      * Константы Qt
      */
     pq_register_extra_zend_ce("Qt");
-    pq_register_long_constant_ex("Qt", "LeftDockWidgetArea", Qt::LeftDockWidgetArea, "Qt");
-    pq_register_long_constant_ex("Qt", "TopDockWidgetArea", Qt::TopDockWidgetArea, "Qt");
-    pq_register_long_constant_ex("Qt", "RightDockWidgetArea", Qt::RightDockWidgetArea, "Qt");
-    pq_register_long_constant_ex("Qt", "BottomDockWidgetArea", Qt::BottomDockWidgetArea, "Qt");
-    pq_register_long_constant_ex("Qt", "AllDockWidgetAreas", Qt::AllDockWidgetAreas, "Qt");
-    pq_register_long_constant_ex("Qt", "NoDockWidgetArea", Qt::NoDockWidgetArea, "Qt");
 
-    pq_register_long_constant_ex("Qt", "LeftToolBarArea", Qt::LeftToolBarArea, "Qt");
-    pq_register_long_constant_ex("Qt", "RightToolBarArea", Qt::RightToolBarArea, "Qt");
-    pq_register_long_constant_ex("Qt", "TopToolBarArea", Qt::TopToolBarArea, "Qt");
-    pq_register_long_constant_ex("Qt", "BottomToolBarArea", Qt::BottomToolBarArea, "Qt");
-    pq_register_long_constant_ex("Qt", "AllToolBarAreas", Qt::AllToolBarAreas, "Qt");
-    pq_register_long_constant_ex("Qt", "NoToolBarArea", Qt::NoToolBarArea, "Qt");
-
-    pq_register_long_constant_ex("Qt", "ToolButtonIconOnly", Qt::ToolButtonIconOnly, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonTextOnly", Qt::ToolButtonTextOnly, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonTextBesideIcon", Qt::ToolButtonTextBesideIcon, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonTextUnderIcon", Qt::ToolButtonTextUnderIcon, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonFollowStyle", Qt::ToolButtonFollowStyle, "Qt");
-
-    pq_register_long_constant_ex("Qt", "Widget", Qt::Widget, "Qt");
-    pq_register_long_constant_ex("Qt", "Window", Qt::Window, "Qt");
-    pq_register_long_constant_ex("Qt", "Dialog", Qt::Dialog, "Qt");
-    pq_register_long_constant_ex("Qt", "Sheet", Qt::Sheet, "Qt");
-    pq_register_long_constant_ex("Qt", "Drawer", Qt::Drawer, "Qt");
-    pq_register_long_constant_ex("Qt", "Popup", Qt::Popup, "Qt");
-    pq_register_long_constant_ex("Qt", "Tool", Qt::Tool, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolTip", Qt::ToolTip, "Qt");
-    pq_register_long_constant_ex("Qt", "SplashScreen", Qt::SplashScreen, "Qt");
-    pq_register_long_constant_ex("Qt", "Desktop", Qt::Desktop, "Qt");
-    pq_register_long_constant_ex("Qt", "SubWindow", Qt::SubWindow, "Qt");
-    pq_register_long_constant_ex("Qt", "ForeignWindow", Qt::ForeignWindow, "Qt");
-    pq_register_long_constant_ex("Qt", "CoverWindow", Qt::CoverWindow, "Qt");
-
-    pq_register_long_constant_ex("Qt", "MSWindowsFixedSizeDialogHint", Qt::MSWindowsFixedSizeDialogHint, "Qt");
-    pq_register_long_constant_ex("Qt", "MSWindowsOwnDC", Qt::MSWindowsOwnDC, "Qt");
-    pq_register_long_constant_ex("Qt", "BypassWindowManagerHint", Qt::BypassWindowManagerHint, "Qt");
-    pq_register_long_constant_ex("Qt", "FramelessWindowHint", Qt::FramelessWindowHint, "Qt");
-    pq_register_long_constant_ex("Qt", "NoDropShadowWindowHint", Qt::NoDropShadowWindowHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowStaysOnTopHint", Qt::WindowStaysOnTopHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowCloseButtonHint", Qt::WindowCloseButtonHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowCancelButtonHint", Qt::WindowCancelButtonHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowMinimizeButtonHint", Qt::WindowMinimizeButtonHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowMaximizeButtonHint", Qt::WindowMaximizeButtonHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowMinMaxButtonsHint", Qt::WindowMinMaxButtonsHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WA_TranslucentBackground", Qt::WA_TranslucentBackground, "Qt");
-    pq_register_long_constant_ex("Qt", "WA_NoSystemBackground", Qt::WA_NoSystemBackground, "Qt");
-    pq_register_long_constant_ex("Qt", "WA_AlwaysStackOnTop", Qt::WA_AlwaysStackOnTop, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowSystemMenuHint", Qt::WindowSystemMenuHint, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowTitleHint", Qt::WindowTitleHint, "Qt");
-    pq_register_long_constant_ex("Qt", "CustomizeWindowHint", Qt::CustomizeWindowHint, "Qt");
-
-    pq_register_long_constant_ex("Qt", "WA_DeleteOnClose", Qt::WA_DeleteOnClose, "Qt");
-    pq_register_long_constant_ex("Qt", "WA_QuitOnClose", Qt::WA_QuitOnClose, "Qt");
-
-    pq_register_long_constant_ex("Qt", "NonModal", Qt::NonModal, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowModal", Qt::WindowModal, "Qt");
-    pq_register_long_constant_ex("Qt", "ApplicationModal", Qt::ApplicationModal, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowNoState", Qt::WindowNoState, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowMinimized", Qt::WindowMinimized, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowMaximized", Qt::WindowMaximized, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowFullScreen", Qt::WindowFullScreen, "Qt");
-    pq_register_long_constant_ex("Qt", "WindowActive", Qt::WindowActive, "Qt");
-    pq_register_long_constant_ex("Qt", "Horizontal", Qt::Horizontal, "Qt");
-    pq_register_long_constant_ex("Qt", "Vertical", Qt::Vertical, "Qt");
-    pq_register_long_constant_ex("Qt", "ScrollBarAsNeeded", Qt::ScrollBarAsNeeded, "Qt");
-    pq_register_long_constant_ex("Qt", "ScrollBarAlwaysOff", Qt::ScrollBarAlwaysOff, "Qt");
-    pq_register_long_constant_ex("Qt", "ScrollBarAlwaysOn", Qt::ScrollBarAlwaysOn, "Qt");
-
-    // Курсоры
-    pq_register_long_constant_ex("Qt", "ArrowCursor", Qt::ArrowCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "UpArrowCursor", Qt::UpArrowCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "CrossCursor", Qt::CrossCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "WaitCursor", Qt::WaitCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "IBeamCursor", Qt::IBeamCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SizeVerCursor", Qt::SizeVerCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SizeHorCursor", Qt::SizeHorCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SizeBDiagCursor", Qt::SizeBDiagCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SizeFDiagCursor", Qt::SizeFDiagCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SizeAllCursor", Qt::SizeAllCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "BlankCursor", Qt::BlankCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SplitVCursor", Qt::SplitVCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "SplitHCursor", Qt::SplitHCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "PointingHandCursor", Qt::PointingHandCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "ForbiddenCursor", Qt::ForbiddenCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "OpenHandCursor", Qt::OpenHandCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "ClosedHandCursor", Qt::ClosedHandCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "WhatsThisCursor", Qt::WhatsThisCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "BusyCursor", Qt::BusyCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "DragMoveCursor", Qt::DragMoveCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "DragCopyCursor", Qt::DragCopyCursor, "Qt");
-    pq_register_long_constant_ex("Qt", "DragLinkCursor", Qt::DragLinkCursor, "Qt");
-
-    // Кнопки мышки
-    pq_register_long_constant_ex("Qt", "NoButton", Qt::NoButton, "Qt");
-    pq_register_long_constant_ex("Qt", "AllButtons", Qt::AllButtons, "Qt");
-    pq_register_long_constant_ex("Qt", "LeftButton", Qt::LeftButton, "Qt");
-    pq_register_long_constant_ex("Qt", "RightButton", Qt::RightButton, "Qt");
-    pq_register_long_constant_ex("Qt", "MidButton", Qt::MidButton, "Qt");
-    pq_register_long_constant_ex("Qt", "MiddleButton", Qt::MiddleButton, "Qt");
-    pq_register_long_constant_ex("Qt", "BackButton", Qt::BackButton, "Qt");
-    pq_register_long_constant_ex("Qt", "BackButton", Qt::BackButton, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton1", Qt::ExtraButton1, "Qt");
-    pq_register_long_constant_ex("Qt", "ForwardButton", Qt::ForwardButton, "Qt");
-    pq_register_long_constant_ex("Qt", "XButton2", Qt::XButton2, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton2", Qt::ExtraButton2, "Qt");
-    pq_register_long_constant_ex("Qt", "TaskButton", Qt::TaskButton, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton3", Qt::ExtraButton3, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton4", Qt::ExtraButton4, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton5", Qt::ExtraButton5, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton6", Qt::ExtraButton6, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton7", Qt::ExtraButton7, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton8", Qt::ExtraButton8, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton9", Qt::ExtraButton9, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton10", Qt::ExtraButton10, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton11", Qt::ExtraButton11, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton12", Qt::ExtraButton12, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton13", Qt::ExtraButton13, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton14", Qt::ExtraButton14, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton15", Qt::ExtraButton15, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton16", Qt::ExtraButton16, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton17", Qt::ExtraButton17, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton18", Qt::ExtraButton18, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton19", Qt::ExtraButton19, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton20", Qt::ExtraButton20, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton21", Qt::ExtraButton21, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton22", Qt::ExtraButton22, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton23", Qt::ExtraButton23, "Qt");
-    pq_register_long_constant_ex("Qt", "ExtraButton24", Qt::ExtraButton24, "Qt");
-
-    // ToolButtonStyle
-    pq_register_long_constant_ex("Qt", "ToolButtonIconOnly", Qt::ToolButtonIconOnly, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonTextOnly", Qt::ToolButtonTextOnly, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonTextBesideIcon", Qt::ToolButtonTextBesideIcon, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonTextUnderIcon", Qt::ToolButtonTextUnderIcon, "Qt");
-    pq_register_long_constant_ex("Qt", "ToolButtonFollowStyle", Qt::ToolButtonFollowStyle, "Qt");
-
-    // LayoutDerection
-    pq_register_long_constant_ex("Qt", "LeftToRight", Qt::LeftToRight, "Qt");
-    pq_register_long_constant_ex("Qt", "RightToLeft", Qt::RightToLeft, "Qt");
-    pq_register_long_constant_ex("Qt", "LayoutDirectionAuto", Qt::LayoutDirectionAuto, "Qt");
-
-    // PenStyle
-    pq_register_long_constant_ex("Qt", "NoPen", Qt::NoPen, "Qt");
-    pq_register_long_constant_ex("Qt", "SolidLine", Qt::SolidLine, "Qt");
-    pq_register_long_constant_ex("Qt", "DashLine", Qt::DashLine, "Qt");
-    pq_register_long_constant_ex("Qt", "DotLine", Qt::DotLine, "Qt");
-    pq_register_long_constant_ex("Qt", "DashDotLine", Qt::DashDotLine, "Qt");
-    pq_register_long_constant_ex("Qt", "DashDotDotLine", Qt::DashDotDotLine, "Qt");
-    pq_register_long_constant_ex("Qt", "CustomDashLine", Qt::CustomDashLine, "Qt");
-
-    // Клавиши
+    /*
+     * Клавиши
+     */
     pq_register_long_constant_ex("Qt", "Key_Escape", Qt::Key_Escape, "Qt");
     pq_register_long_constant_ex("Qt", "Key_Tab", Qt::Key_Tab, "Qt");
     pq_register_long_constant_ex("Qt", "Key_Backtab", Qt::Key_Backtab, "Qt");
@@ -615,9 +475,22 @@ bool PQEngineCore::finalize() {
     pq_register_long_constant_ex("Qt", "Key_CameraFocus", Qt::Key_CameraFocus, "Qt");
     pq_register_long_constant_ex("Qt", "Key_unknown", Qt::Key_unknown, "Qt");
 
+    pq_register_long_constant_ex("Qt", "AlignLeft", Qt::AlignLeft, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignRight", Qt::AlignRight, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignHCenter", Qt::AlignHCenter, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignJustify", Qt::AlignJustify, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignTop", Qt::AlignTop, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignBottom", Qt::AlignBottom, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignVCenter", Qt::AlignVCenter, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignBaseline", Qt::AlignBaseline, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignCenter", Qt::AlignCenter, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignAbsolute", Qt::AlignAbsolute, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignLeading", Qt::AlignLeading, "Qt");
+    pq_register_long_constant_ex("Qt", "AlignTrailing", Qt::AlignTrailing, "Qt");
+
     /*
      * Qt::KeyboardModifiers
-     *
+     */
     pq_register_long_constant_ex("Qt", "NoModifier", Qt::NoModifier, "Qt");
     pq_register_long_constant_ex("Qt", "ShiftModifier", Qt::ShiftModifier, "Qt");
     pq_register_long_constant_ex("Qt", "ControlModifier", Qt::ControlModifier, "Qt");
@@ -641,62 +514,168 @@ bool PQEngineCore::finalize() {
     /*
      * Константы QEvent
      */
+    //pq_register_qevent_zend_ce("QEvent");
+    pq_register_long_constant("QEvent", "ActionAdded", QEvent::ActionAdded);
+    pq_register_long_constant("QEvent", "ActionChanged", QEvent::ActionChanged);
+    pq_register_long_constant("QEvent", "ActionRemoved", QEvent::ActionRemoved);
+    pq_register_long_constant("QEvent", "ActivationChange", QEvent::ActivationChange);
+    pq_register_long_constant("QEvent", "ApplicationActivate", QEvent::ApplicationActivate);
+    pq_register_long_constant("QEvent", "ApplicationActivated", QEvent::ApplicationActivated);
+    pq_register_long_constant("QEvent", "ApplicationDeactivate", QEvent::ApplicationDeactivate);
+    pq_register_long_constant("QEvent", "ApplicationFontChange", QEvent::ApplicationFontChange);
+    pq_register_long_constant("QEvent", "ApplicationLayoutDirectionChange", QEvent::ApplicationLayoutDirectionChange);
+    pq_register_long_constant("QEvent", "ApplicationPaletteChange", QEvent::ApplicationPaletteChange);
+    pq_register_long_constant("QEvent", "ApplicationStateChange", QEvent::ApplicationStateChange);
+    pq_register_long_constant("QEvent", "ApplicationWindowIconChange", QEvent::ApplicationWindowIconChange);
+    pq_register_long_constant("QEvent", "ChildAdded", QEvent::ChildAdded);
+    pq_register_long_constant("QEvent", "ChildPolished", QEvent::ChildPolished);
+    pq_register_long_constant("QEvent", "ChildRemoved", QEvent::ChildRemoved);
+    pq_register_long_constant("QEvent", "Clipboard", QEvent::Clipboard);
+    pq_register_long_constant("QEvent", "Close", QEvent::Close);
+    pq_register_long_constant("QEvent", "CloseSoftwareInputPanel", QEvent::CloseSoftwareInputPanel);
+    pq_register_long_constant("QEvent", "ContentsRectChange", QEvent::ContentsRectChange);
+    pq_register_long_constant("QEvent", "ContextMenu", QEvent::ContextMenu);
+    pq_register_long_constant("QEvent", "CursorChange", QEvent::CursorChange);
+    pq_register_long_constant("QEvent", "DeferredDelete", QEvent::DeferredDelete);
+    pq_register_long_constant("QEvent", "DragEnter", QEvent::DragEnter);
+    pq_register_long_constant("QEvent", "DragLeave", QEvent::DragLeave);
+    pq_register_long_constant("QEvent", "DragMove", QEvent::DragMove);
+    pq_register_long_constant("QEvent", "Drop", QEvent::Drop);
+    pq_register_long_constant("QEvent", "DynamicPropertyChange", QEvent::DynamicPropertyChange);
+    pq_register_long_constant("QEvent", "EnabledChange", QEvent::EnabledChange);
+    pq_register_long_constant("QEvent", "Enter", QEvent::Enter);
+    //pq_register_long_constant("QEvent", "EnterEditFocus", QEvent::EnterEditFocus);
+    pq_register_long_constant("QEvent", "EnterWhatsThisMode", QEvent::EnterWhatsThisMode);
+    pq_register_long_constant("QEvent", "Expose", QEvent::Expose);
+    pq_register_long_constant("QEvent", "FileOpen", QEvent::FileOpen);
+    pq_register_long_constant("QEvent", "FocusIn", QEvent::FocusIn);
+    pq_register_long_constant("QEvent", "FocusOut", QEvent::FocusOut);
+    pq_register_long_constant("QEvent", "FocusAboutToChange", QEvent::FocusAboutToChange);
+    pq_register_long_constant("QEvent", "FontChange", QEvent::FontChange);
+    pq_register_long_constant("QEvent", "Gesture", QEvent::Gesture);
+    pq_register_long_constant("QEvent", "GestureOverride", QEvent::GestureOverride);
+    pq_register_long_constant("QEvent", "GrabKeyboard", QEvent::GrabKeyboard);
+    pq_register_long_constant("QEvent", "GrabMouse", QEvent::GrabMouse);
+    pq_register_long_constant("QEvent", "GraphicsSceneContextMenu", QEvent::GraphicsSceneContextMenu);
+    pq_register_long_constant("QEvent", "GraphicsSceneDragEnter", QEvent::GraphicsSceneDragEnter);
+    pq_register_long_constant("QEvent", "GraphicsSceneDragLeave", QEvent::GraphicsSceneDragLeave);
+    pq_register_long_constant("QEvent", "GraphicsSceneDragMove", QEvent::GraphicsSceneDragMove);
+    pq_register_long_constant("QEvent", "GraphicsSceneDrop", QEvent::GraphicsSceneDrop);
+    pq_register_long_constant("QEvent", "GraphicsSceneHelp", QEvent::GraphicsSceneHelp);
+    pq_register_long_constant("QEvent", "GraphicsSceneHoverEnter", QEvent::GraphicsSceneHoverEnter);
+    pq_register_long_constant("QEvent", "GraphicsSceneHoverLeave", QEvent::GraphicsSceneHoverLeave);
+    pq_register_long_constant("QEvent", "GraphicsSceneHoverMove", QEvent::GraphicsSceneHoverMove);
+    pq_register_long_constant("QEvent", "GraphicsSceneMouseDoubleClick", QEvent::GraphicsSceneMouseDoubleClick);
+    pq_register_long_constant("QEvent", "GraphicsSceneMouseMove", QEvent::GraphicsSceneMouseMove);
+    pq_register_long_constant("QEvent", "GraphicsSceneMousePress", QEvent::GraphicsSceneMousePress);
+    pq_register_long_constant("QEvent", "GraphicsSceneMouseRelease", QEvent::GraphicsSceneMouseRelease);
+    pq_register_long_constant("QEvent", "GraphicsSceneMove", QEvent::GraphicsSceneMove);
+    pq_register_long_constant("QEvent", "GraphicsSceneResize", QEvent::GraphicsSceneResize);
+    pq_register_long_constant("QEvent", "GraphicsSceneWheel", QEvent::GraphicsSceneWheel);
+    pq_register_long_constant("QEvent", "Hide", QEvent::Hide);
+    pq_register_long_constant("QEvent", "HideToParent", QEvent::HideToParent);
+    pq_register_long_constant("QEvent", "HoverEnter", QEvent::HoverEnter);
+    pq_register_long_constant("QEvent", "HoverLeave", QEvent::HoverLeave);
+    pq_register_long_constant("QEvent", "HoverMove", QEvent::HoverMove);
+    pq_register_long_constant("QEvent", "IconDrag", QEvent::IconDrag);
+    pq_register_long_constant("QEvent", "IconTextChange", QEvent::IconTextChange);
+    pq_register_long_constant("QEvent", "InputMethod", QEvent::InputMethod);
+    pq_register_long_constant("QEvent", "InputMethodQuery", QEvent::InputMethodQuery);
+    pq_register_long_constant("QEvent", "KeyboardLayoutChange", QEvent::KeyboardLayoutChange);
+    pq_register_long_constant("QEvent", "KeyPress", QEvent::KeyPress);
+    pq_register_long_constant("QEvent", "KeyRelease", QEvent::KeyRelease);
+    pq_register_long_constant("QEvent", "LanguageChange", QEvent::LanguageChange);
+    pq_register_long_constant("QEvent", "LayoutDirectionChange", QEvent::LayoutDirectionChange);
+    pq_register_long_constant("QEvent", "LayoutRequest", QEvent::LayoutRequest);
+    pq_register_long_constant("QEvent", "Leave", QEvent::Leave);
+    //pq_register_long_constant("QEvent", "LeaveEditFocus", QEvent::LeaveEditFocus);
+    pq_register_long_constant("QEvent", "LeaveWhatsThisMode", QEvent::LeaveWhatsThisMode);
+    pq_register_long_constant("QEvent", "LocaleChange", QEvent::LocaleChange);
+    pq_register_long_constant("QEvent", "NonClientAreaMouseButtonDblClick", QEvent::NonClientAreaMouseButtonDblClick);
+    pq_register_long_constant("QEvent", "NonClientAreaMouseButtonPress", QEvent::NonClientAreaMouseButtonPress);
+    pq_register_long_constant("QEvent", "NonClientAreaMouseButtonRelease", QEvent::NonClientAreaMouseButtonRelease);
+    pq_register_long_constant("QEvent", "NonClientAreaMouseMove", QEvent::NonClientAreaMouseMove);
+    pq_register_long_constant("QEvent", "MacSizeChange", QEvent::MacSizeChange);
+    pq_register_long_constant("QEvent", "MetaCall", QEvent::MetaCall);
+    pq_register_long_constant("QEvent", "ModifiedChange", QEvent::ModifiedChange);
+    pq_register_long_constant("QEvent", "MouseButtonDblClick", QEvent::MouseButtonDblClick);
+    pq_register_long_constant("QEvent", "MouseButtonPress", QEvent::MouseButtonPress);
+    pq_register_long_constant("QEvent", "MouseButtonRelease", QEvent::MouseButtonRelease);
+    pq_register_long_constant("QEvent", "MouseMove", QEvent::MouseMove);
+    pq_register_long_constant("QEvent", "MouseTrackingChange", QEvent::MouseTrackingChange);
+    pq_register_long_constant("QEvent", "Move", QEvent::Move);
+    pq_register_long_constant("QEvent", "NativeGesture", QEvent::NativeGesture);
+    pq_register_long_constant("QEvent", "OrientationChange", QEvent::OrientationChange);
+    pq_register_long_constant("QEvent", "Paint", QEvent::Paint);
+    pq_register_long_constant("QEvent", "PaletteChange", QEvent::PaletteChange);
+    pq_register_long_constant("QEvent", "ParentAboutToChange", QEvent::ParentAboutToChange);
+    pq_register_long_constant("QEvent", "ParentChange", QEvent::ParentChange);
+    pq_register_long_constant("QEvent", "PlatformPanel", QEvent::PlatformPanel);
+    pq_register_long_constant("QEvent", "PlatformSurface", QEvent::PlatformSurface);
+    pq_register_long_constant("QEvent", "Polish", QEvent::Polish);
+    pq_register_long_constant("QEvent", "PolishRequest", QEvent::PolishRequest);
+    pq_register_long_constant("QEvent", "QueryWhatsThis", QEvent::QueryWhatsThis);
+    pq_register_long_constant("QEvent", "ReadOnlyChange", QEvent::ReadOnlyChange);
+    pq_register_long_constant("QEvent", "RequestSoftwareInputPanel", QEvent::RequestSoftwareInputPanel);
+    pq_register_long_constant("QEvent", "Resize", QEvent::Resize);
+    pq_register_long_constant("QEvent", "ScrollPrepare", QEvent::ScrollPrepare);
+    pq_register_long_constant("QEvent", "Scroll", QEvent::Scroll);
+    pq_register_long_constant("QEvent", "Shortcut", QEvent::Shortcut);
+    pq_register_long_constant("QEvent", "ShortcutOverride", QEvent::ShortcutOverride);
+    pq_register_long_constant("QEvent", "Show", QEvent::Show);
+    pq_register_long_constant("QEvent", "ShowToParent", QEvent::ShowToParent);
+    pq_register_long_constant("QEvent", "SockAct", QEvent::SockAct);
+    pq_register_long_constant("QEvent", "StateMachineSignal", QEvent::StateMachineSignal);
+    pq_register_long_constant("QEvent", "StateMachineWrapped", QEvent::StateMachineWrapped);
+    pq_register_long_constant("QEvent", "StatusTip", QEvent::StatusTip);
+    pq_register_long_constant("QEvent", "StyleChange", QEvent::StyleChange);
+    pq_register_long_constant("QEvent", "TabletMove", QEvent::TabletMove);
+    pq_register_long_constant("QEvent", "TabletPress", QEvent::TabletPress);
+    pq_register_long_constant("QEvent", "TabletRelease", QEvent::TabletRelease);
+    pq_register_long_constant("QEvent", "OkRequest", QEvent::OkRequest);
+    pq_register_long_constant("QEvent", "TabletEnterProximity", QEvent::TabletEnterProximity);
+    pq_register_long_constant("QEvent", "TabletLeaveProximity", QEvent::TabletLeaveProximity);
+    pq_register_long_constant("QEvent", "ThreadChange", QEvent::ThreadChange);
+    pq_register_long_constant("QEvent", "Timer", QEvent::Timer);
+    pq_register_long_constant("QEvent", "ToolBarChange", QEvent::ToolBarChange);
+    pq_register_long_constant("QEvent", "ToolTip", QEvent::ToolTip);
+    pq_register_long_constant("QEvent", "ToolTipChange", QEvent::ToolTipChange);
+    pq_register_long_constant("QEvent", "TouchBegin", QEvent::TouchBegin);
+    pq_register_long_constant("QEvent", "TouchCancel", QEvent::TouchCancel);
+    pq_register_long_constant("QEvent", "TouchEnd", QEvent::TouchEnd);
+    pq_register_long_constant("QEvent", "TouchUpdate", QEvent::TouchUpdate);
+    pq_register_long_constant("QEvent", "UngrabKeyboard", QEvent::UngrabKeyboard);
+    pq_register_long_constant("QEvent", "UngrabMouse", QEvent::UngrabMouse);
+    pq_register_long_constant("QEvent", "UpdateLater", QEvent::UpdateLater);
+    pq_register_long_constant("QEvent", "UpdateRequest", QEvent::UpdateRequest);
+    pq_register_long_constant("QEvent", "WhatsThis", QEvent::WhatsThis);
+    pq_register_long_constant("QEvent", "WhatsThisClicked", QEvent::WhatsThisClicked);
+    pq_register_long_constant("QEvent", "Wheel", QEvent::Wheel);
+    pq_register_long_constant("QEvent", "WinEventAct", QEvent::WinEventAct);
+    pq_register_long_constant("QEvent", "WindowActivate", QEvent::WindowActivate);
+    pq_register_long_constant("QEvent", "WindowBlocked", QEvent::WindowBlocked);
+    pq_register_long_constant("QEvent", "WindowDeactivate", QEvent::WindowDeactivate);
+    pq_register_long_constant("QEvent", "WindowIconChange", QEvent::WindowIconChange);
+    pq_register_long_constant("QEvent", "WindowStateChange", QEvent::WindowStateChange);
+    pq_register_long_constant("QEvent", "WindowTitleChange", QEvent::WindowTitleChange);
+    pq_register_long_constant("QEvent", "WindowUnblocked", QEvent::WindowUnblocked);
+    pq_register_long_constant("QEvent", "WinIdChange", QEvent::WinIdChange);
+    pq_register_long_constant("QEvent", "ZOrderChange", QEvent::ZOrderChange);
+
+
+    /*
     pq_register_extra_zend_ce("QEvent");
-    pq_register_long_constant_ex("QEvent", "ActionAdded", QEvent::ActionAdded, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ActionChanged", QEvent::ActionChanged, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ActionRemoved", QEvent::ActionRemoved, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ActivationChange", QEvent::ActivationChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ApplicationActivate", QEvent::ApplicationActivate, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ApplicationActivated", QEvent::ApplicationActivated, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ApplicationDeactivate", QEvent::ApplicationDeactivate, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ApplicationStateChange", QEvent::ApplicationStateChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ApplicationWindowIconChange", QEvent::ApplicationWindowIconChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ChildAdded", QEvent::ChildAdded, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ChildRemoved", QEvent::ChildRemoved, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Clipboard", QEvent::Clipboard, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Close", QEvent::Close, "QEvent");
-    pq_register_long_constant_ex("QEvent", "CloseSoftwareInputPanel", QEvent::CloseSoftwareInputPanel, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ContentsRectChange", QEvent::ContentsRectChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ContextMenu", QEvent::ContextMenu, "QEvent");
-    pq_register_long_constant_ex("QEvent", "DragEnter", QEvent::DragEnter, "QEvent");
-    pq_register_long_constant_ex("QEvent", "DragLeave", QEvent::DragLeave, "QEvent");
-    pq_register_long_constant_ex("QEvent", "DragMove", QEvent::DragMove, "QEvent");
-    pq_register_long_constant_ex("QEvent", "EnabledChange", QEvent::EnabledChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Enter", QEvent::Enter, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Expose", QEvent::Expose, "QEvent");
-    pq_register_long_constant_ex("QEvent", "FileOpen", QEvent::FileOpen, "QEvent");
-    pq_register_long_constant_ex("QEvent", "FocusIn", QEvent::FocusIn, "QEvent");
-    pq_register_long_constant_ex("QEvent", "FocusOut", QEvent::FocusOut, "QEvent");
-    pq_register_long_constant_ex("QEvent", "HideToParent", QEvent::HideToParent, "QEvent");
-    pq_register_long_constant_ex("QEvent", "HoverEnter", QEvent::HoverEnter, "QEvent");
-    pq_register_long_constant_ex("QEvent", "HoverLeave", QEvent::HoverLeave, "QEvent");
-    pq_register_long_constant_ex("QEvent", "HoverMove", QEvent::HoverMove, "QEvent");
-    pq_register_long_constant_ex("QEvent", "IconTextChange", QEvent::IconTextChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "KeyboardLayoutChange", QEvent::KeyboardLayoutChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "KeyPress", QEvent::KeyPress, "QEvent");
-    pq_register_long_constant_ex("QEvent", "KeyRelease", QEvent::KeyRelease, "QEvent");
-    pq_register_long_constant_ex("QEvent", "LanguageChange", QEvent::LanguageChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Leave", QEvent::Leave, "QEvent");
-    pq_register_long_constant_ex("QEvent", "MouseButtonDblClick", QEvent::MouseButtonDblClick, "QEvent");
-    pq_register_long_constant_ex("QEvent", "MouseButtonPress", QEvent::MouseButtonPress, "QEvent");
-    pq_register_long_constant_ex("QEvent", "MouseButtonRelease", QEvent::MouseButtonRelease, "QEvent");
-    pq_register_long_constant_ex("QEvent", "MouseMove", QEvent::MouseMove, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Move", QEvent::Move, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ParentChange", QEvent::ParentChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ReadOnlyChange", QEvent::ReadOnlyChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Resize", QEvent::Resize, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ScrollPrepare", QEvent::ScrollPrepare, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Scroll", QEvent::Scroll, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Show", QEvent::Show, "QEvent");
-    pq_register_long_constant_ex("QEvent", "ShowToParent", QEvent::ShowToParent, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowActivate", QEvent::WindowActivate, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowBlocked", QEvent::WindowBlocked, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowDeactivate", QEvent::WindowDeactivate, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowIconChange", QEvent::WindowIconChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowStateChange", QEvent::WindowStateChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowTitleChange", QEvent::WindowTitleChange, "QEvent");
-    pq_register_long_constant_ex("QEvent", "WindowUnblocked", QEvent::WindowUnblocked, "QEvent");
-    pq_register_long_constant_ex("QEvent", "Paint", QEvent::Paint, "QEvent");
+    PQ_REGISTER_ZEND_CE(QEvent);
+    PQ_REGISTER_ZEND_CE(QMouseEvent);
+    PQ_REGISTER_ZEND_CE(QKeyEvent);
+    PQ_REGISTER_ZEND_CE(QResizeEvent);
+    PQ_REGISTER_ZEND_CE(QMoveEvent);
+    PQ_REGISTER_ZEND_CE(QHoverEvent);
+    PQ_REGISTER_ZEND_CE(QFocusEvent);
+    PQ_REGISTER_ZEND_CE(QEnterEvent);
+    PQ_REGISTER_ZEND_CE(QContextMenuEvent);
+    PQ_REGISTER_ZEND_CE(QTimerEvent);
+    */
 
     /*
      * Константы QSettings
@@ -711,12 +690,39 @@ bool PQEngineCore::finalize() {
     pq_register_long_constant("QSettings", "FormatError", QSettings::FormatError);
 
 
-  //  pq_register_extra_zend_ce("QDir");
-  //  pq_register_string_constant_ex("QDir", "RootPath", toW(QDir::rootPath().toUtf8()).constData(), "QDir");
-  //  pq_register_string_constant_ex("QDir", "HomePath", toW(QDir::homePath().toUtf8()).constData(), "QDir");
-  //  pq_register_string_constant_ex("QDir", "TempPath", toW(QDir::tempPath().toUtf8()).constData(), "QDir");
-  //  pq_register_string_constant_ex("QDir", "CurrentPath", toW(QDir::currentPath().toUtf8()).constData(), "QDir");
+    /*
+     * Константы QStandardPaths
+     */
+    pq_register_long_constant("QStandardPaths", "LocateFile", QStandardPaths::LocateFile);
+    pq_register_long_constant("QStandardPaths", "LocateDirectory", QStandardPaths::LocateDirectory);
+    pq_register_long_constant("QStandardPaths", "DesktopLocation", QStandardPaths::DesktopLocation);
+    pq_register_long_constant("QStandardPaths", "DocumentsLocation", QStandardPaths::DocumentsLocation);
+    pq_register_long_constant("QStandardPaths", "FontsLocation", QStandardPaths::FontsLocation);
+    pq_register_long_constant("QStandardPaths", "ApplicationsLocation", QStandardPaths::ApplicationsLocation);
+    pq_register_long_constant("QStandardPaths", "MusicLocation", QStandardPaths::MusicLocation);
+    pq_register_long_constant("QStandardPaths", "MoviesLocation", QStandardPaths::MoviesLocation);
+    pq_register_long_constant("QStandardPaths", "PicturesLocation", QStandardPaths::PicturesLocation);
+    pq_register_long_constant("QStandardPaths", "TempLocation", QStandardPaths::TempLocation);
+    pq_register_long_constant("QStandardPaths", "HomeLocation", QStandardPaths::HomeLocation);
+    pq_register_long_constant("QStandardPaths", "DataLocation", QStandardPaths::DataLocation);
+    pq_register_long_constant("QStandardPaths", "CacheLocation", QStandardPaths::CacheLocation);
+    pq_register_long_constant("QStandardPaths", "GenericCacheLocation", QStandardPaths::GenericCacheLocation);
+    pq_register_long_constant("QStandardPaths", "GenericDataLocation", QStandardPaths::GenericDataLocation);
+    pq_register_long_constant("QStandardPaths", "RuntimeLocation", QStandardPaths::RuntimeLocation);
+    pq_register_long_constant("QStandardPaths", "ConfigLocation", QStandardPaths::ConfigLocation);
+    pq_register_long_constant("QStandardPaths", "DownloadLocation", QStandardPaths::DownloadLocation);
+    pq_register_long_constant("QStandardPaths", "GenericConfigLocation", QStandardPaths::GenericConfigLocation);
+    pq_register_long_constant("QStandardPaths", "AppDataLocation", QStandardPaths::AppDataLocation);
+    pq_register_long_constant("QStandardPaths", "AppLocalDataLocation", QStandardPaths::AppLocalDataLocation);
+    pq_register_long_constant("QStandardPaths", "AppConfigLocation", QStandardPaths::AppConfigLocation);
 
+    pq_register_long_constant("QLibrary", "ResolveAllSymbolsHint", QLibrary::ResolveAllSymbolsHint);
+    pq_register_long_constant("QLibrary", "ExportExternalSymbolsHint", QLibrary::ExportExternalSymbolsHint);
+    pq_register_long_constant("QLibrary", "LoadArchiveMemberHint", QLibrary::LoadArchiveMemberHint);
+    pq_register_long_constant("QLibrary", "PreventUnloadHint", QLibrary::PreventUnloadHint);
+    pq_register_long_constant("QLibrary", "DeepBindHint", QLibrary::DeepBindHint);
+
+    return true;
 }
 
 QCoreApplication *PQEngineCore::instance(int argc, char** argv) {

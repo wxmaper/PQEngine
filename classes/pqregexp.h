@@ -5,10 +5,9 @@
 #include <QRegExp>
 
 class PQRegExp;
-class PQRegExp : public QObject, QRegExp
-{
+class PQRegExp : public QObject, public QRegExp {
     Q_OBJECT
-    PQ_OBJECT
+    PQ_OBJECT_EX(QObject)
 
     Q_PROPERTY(int matchedLength READ matchedLength)
     Q_PROPERTY(int captureCount READ captureCount)

@@ -1,9 +1,12 @@
 #include "pqtimer.h"
+#include "pqobject_private.h"
+
+PQOBJECT_STANDARD_METHODS(QTimer,QTimer)
 
 PQTimer::PQTimer(QObject *parent) :
     QTimer(parent)
 {
-    mEnabledOnSignals.insert("onTimeout", "timeout()");
+    declareOnSignals();
 }
 
 PQTimer::~PQTimer() {}
@@ -18,6 +21,11 @@ bool PQTimer::isActive() {
 
 bool PQTimer::isRunning() {
     return QTimer::isActive();
+}
+
+bool PQTimer::isSingleShot()
+{
+    return QTimer::isSingleShot();
 }
 
 void PQTimer::setInterval(int interval) {
@@ -36,14 +44,19 @@ void PQTimer::stop() {
     QTimer::stop();
 }
 
-bool PQTimer::setRunning(bool running)
+void PQTimer::setRunning(bool running)
 {
     running ? this->start() : this->stop();
 }
 
-bool PQTimer::setActive(bool active)
+void PQTimer::setActive(bool active)
 {
     active ? this->start() : this->stop();
+}
+
+void PQTimer::setSingleShot(bool on)
+{
+    QTimer::setSingleShot(on);
 }
 
 void PQTimer::timeout_pslot()

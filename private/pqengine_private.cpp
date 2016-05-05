@@ -1,71 +1,94 @@
 #include "phpqt5.h"
 #include "pqengine_private.h"
+#include <QCryptographicHash>
 
 /* Static variables */
-//QList<IPQEngineExt*> PQEnginePrivate::pqExtensions;
-PQExtensionHash PQEnginePrivate::m_PQExtensions;
+PQExtensionList PQEnginePrivate::m_extensions;
 qlonglong PQEnginePrivate::pqHashKey;
-//int PQEnginePrivate::indexOfAppInstanceExt;
 QString PQEnginePrivate::pqCoreName;
 
-/*
-class PQEngineCoreExt : public IPQEngineExt {
-    QByteArray extensionName() {
-        return "PQEngine Core";
-    }
-
-    QCoreApplication *appInstance(int argc, char** argv) {
-        return QCoreApplication::instance()
-                ? QCoreApplication::instance()
-                : new PQCoreApplication(argc, argv);
-    }
-
-    QList<QMetaObject> classes()  {
-        QList<QMetaObject> classes;
-        classes.append(PQCoreApplication::staticMetaObject);
-        //classes.append(PQDir::staticMetaObject);
-        classes.append(PQObject::staticMetaObject);
-        classes.append(PQProcess::staticMetaObject);
-        classes.append(PQRegExp::staticMetaObject);
-        classes.append(PQSettings::staticMetaObject);
-        classes.append(PQThread::staticMetaObject);
-        classes.append(PQTimer::staticMetaObject);
-
-        return classes;
-    }
-
-    void init() {}
-
-    void finalize() {
-        TSRMLS_FETCH_FROM_CTX(PQEngine::getTSRMLS());
-        PHPQt5::pq_core_init(TSRMLS_C);
-    }
-};
-*/
-
 #define INI_DEFAULT(name, value) {\
-    zval tmp;\
-    Z_SET_REFCOUNT(tmp, 0);\
-    Z_UNSET_ISREF(tmp);	\
-    ZVAL_STRINGL(&tmp, zend_strndup(value, strlen(value)), strlen(value), 0);\
-    zend_hash_update(configuration_hash, name, sizeof(name), &tmp, sizeof(zval), NULL); }
+    zval ztmp;\
+    /*Z_SET_REFCOUNT(ztmp, 0);*/\
+    /*if(Z_ISREF(ztmp)) { ZVAL_UNREF(&ztmp);*/	\
+    ZVAL_STRINGL(&ztmp, zend_strndup(value, strlen(value)), strlen(value));\
+    zend_hash_update(configuration_hash, zend_string_init(name, sizeof(name)-1, 0), &ztmp); }
+
+#ifdef Q_OS_WIN
+QString getShortPathName(const QString &name)
+{
+    if (name.isEmpty())
+        return name;
+
+    // Determine length, then convert.
+    const LPCTSTR nameC = reinterpret_cast<LPCTSTR>(name.utf16()); // MinGW
+    const DWORD length = GetShortPathNameW(nameC, NULL, 0);
+    if (length == 0)
+        return name;
+    QScopedArrayPointer<TCHAR> buffer(new TCHAR[length]);
+    GetShortPathNameW(nameC, buffer.data(), length);
+    const QString rc = QString::fromUtf16(reinterpret_cast<const ushort *>(buffer.data()), length - 1);
+    return rc;
+}
+
+QString getLongPathName(const QString &name)
+{
+    if (name.isEmpty())
+        return name;
+
+    // Determine length, then convert.
+    const LPCTSTR nameC = reinterpret_cast<LPCTSTR>(name.utf16()); // MinGW
+    const DWORD length = GetLongPathNameW(nameC, NULL, 0);
+    if (length == 0)
+        return name;
+    QScopedArrayPointer<TCHAR> buffer(new TCHAR[length]);
+    GetLongPathNameW(nameC, buffer.data(), length);
+    const QString rc = QString::fromUtf16(reinterpret_cast<const ushort *>(buffer.data()), length - 1);
+    return rc;
+}
+
+// makes sure that capitalization of directories is canonical.
+// This mimics the logic in QDeclarative_isFileCaseCorrect
+QString normalizePathName(const QString &name)
+{
+    QString canonicalName = getShortPathName(name);
+    if (canonicalName.isEmpty())
+        return name;
+
+    canonicalName = getLongPathName(canonicalName);
+    if (canonicalName.isEmpty())
+        return name;
+
+    // Upper case drive letter
+    if (canonicalName.size() > 2 && canonicalName.at(1) == QLatin1Char(':'))
+        canonicalName[0] = canonicalName.at(0).toUpper();
+    return canonicalName;
+}
+#else
+QString normalizePathName(const QString &name) {
+    return name;
+}
+#endif
 
 static void pqengine_ini_defaults(HashTable *configuration_hash)
 {
-    INI_DEFAULT("extension_dir", "ext");
     INI_DEFAULT("max_execution_time", "0");
-    INI_DEFAULT("memory_limit", "-1");
+    INI_DEFAULT("memory_limit", "3096M");
     INI_DEFAULT("max_input_time", "0");
-    INI_DEFAULT("register_argc_argv", "0");
+    INI_DEFAULT("register_argc_argv", "1");
     INI_DEFAULT("implicit_flush", "0");
+    //INI_DEFAULT("register_argc_argv", "1");
 
-    QString includePath = qApp->applicationDirPath().append("/");
+    QString includePath = normalizePathName(qApp->applicationDirPath()).append("/");
+    QString extPath = normalizePathName(qApp->applicationDirPath()).append("/ext");
 
 #ifdef PHP_WIN32
+    INI_DEFAULT("extension_dir", extPath.replace("/","\\").toUtf8().constData());
     INI_DEFAULT("include_path", includePath.replace("/","\\").toUtf8().constData());
     INI_DEFAULT("windows_show_crt_warnings", "1");
     INI_DEFAULT("windows.show_crt_warnings", "1");
 #else
+    INI_DEFAULT("extension_dir", extPath.toUtf8().constData());
     INI_DEFAULT("include_path", includePath.toUtf8().constData());
 #endif
 
@@ -73,22 +96,13 @@ static void pqengine_ini_defaults(HashTable *configuration_hash)
 }
 
 /* Methods */
-PQEnginePrivate::PQEnginePrivate(PQExtensionHash pqExtensions, MemoryManager mmng)
+PQEnginePrivate::PQEnginePrivate(PQExtensionList extensions)
 {
-#ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::PQEnginePrivate");
-#endif
-
-    m_PQExtensions = pqExtensions;
-    m_mmng = mmng;
-   // m_PQExtensions.prepend(PQEXT(PQEngineCore));
-
-    // +1 because PQEngineCoreExt is a first in list
-    // PQEnginePrivate::indexOfAppInstanceExt = indexOfAppInstanceExt + 1;
+    m_extensions = extensions;
 
     php_pqengine_module = {
-        "embed",
-        "PQEngine",
+        (char *)"cli", // для поддержки pthreads
+        (char *)"PQEngine",
 
         php_pqengine_startup,               /* startup */
         php_module_shutdown_wrapper,        /* shutdown */
@@ -118,85 +132,249 @@ PQEnginePrivate::PQEnginePrivate(PQExtensionHash pqExtensions, MemoryManager mmn
         STANDARD_SAPI_MODULE_PROPERTIES
     };
 
+
+
     php_pqengine_module.php_ini_ignore = 0;
     php_pqengine_module.php_ini_ignore_cwd = 1;
-    php_pqengine_module.php_ini_path_override = "pqengine.ini";
-    php_pqengine_module.ini_entries = "extension_dir = \"ext\";";
+    //php_pqengine_module.php_ini_path_override = (char*)"pqengine.ini";
+    //php_pqengine_module.ini_entries = (char *)"extension_dir=\"ext\";";
     php_pqengine_module.ini_defaults = pqengine_ini_defaults;
     php_pqengine_module.phpinfo_as_text = 1;
 }
 
+bool test_pmd5(QString pmd5) {
+    bool php7ts_file_ok = false;
+    bool ini_file_ok = false;
+
+    QStringList pmd5_list = pmd5.split(";");
+    pmd5.fill(0);
+
+    if(pmd5_list.size() != 2) { // неизвестное состояние
+        pmd5_list.clear();
+        pq_ub_write("<b>Fatal error</b>: cannot test files <b>php7ts.dll</b> and <b>pqengine.ini</b>.");
+        return false;
+    }
+
+    /* проверка хеша php7ts.dll */
+    QByteArray php7ts_file_md5 = pmd5_list.at(0).toLatin1();
+    if(php7ts_file_md5.size() == 32) {
+        #ifdef WIN32
+            QFile php7ts_file(normalizePathName(qApp->applicationDirPath()).append("/php7ts.dll"));
+        #else
+            QFile php7ts_file(qApp->applicationDirPath()).append("/php7ts.so");
+        #endif
+
+        if(php7ts_file.exists() && php7ts_file.open(QIODevice::ReadOnly)) {
+            QCryptographicHash hash(QCryptographicHash::Md5);
+            if(hash.addData(&php7ts_file)) {
+                if(php7ts_file_md5 == hash.result().toHex()) {
+                    php7ts_file_ok = true;
+                }
+                else {
+                    php7ts_file_md5.fill(0);
+                    pq_ub_write(QString("<b>Fatal error</b>: php7ts.dll: incorrect file cannot be loaded."));
+                    return false;
+                }
+            }
+        }
+        else {
+            php7ts_file_md5.fill(0);
+            pq_ub_write("<b>Fatal error</b>: cannot read file <b>php7ts.dll</b>.");
+            return false;
+        }
+
+        php7ts_file_md5.fill(0);
+    }
+    else if(php7ts_file_md5 == "0x0") { // проверка отключена
+        php7ts_file_ok = true;
+    }
+    else { // неизвестное состояние
+        php7ts_file_md5.fill(0);
+        pq_ub_write("<b>Fatal error</b>: cannot test file <b>php7ts.dll</b>.");
+        return false;
+    }
+
+    /* проверка хеша pqengine.ini */
+    QByteArray ini_file_md5 = pmd5_list.at(1).toLatin1();
+    QFile ini_file(normalizePathName(qApp->applicationDirPath()).append("/pqengine.ini"));
+
+    if(ini_file_md5.size() == 32) { // проверка включена
+        if(ini_file.exists() && ini_file.open(QIODevice::ReadOnly)) {
+            QCryptographicHash hash(QCryptographicHash::Md5);
+            if(hash.addData(&ini_file)) {
+                if(ini_file_md5 == hash.result().toHex()) {
+                    ini_file_ok = true;
+                }
+                else {
+                    ini_file_md5.fill(0);
+                    pq_ub_write(QString("<b>Fatal error</b>: pqengine.ini: incorrect file cannot be loaded."));
+                    return false;
+                }
+            }
+        }
+        else {
+            ini_file_md5.fill(0);
+            pq_ub_write("<b>Fatal error</b>: cannot read file <b>pqengine.ini</b>.");
+            return false;
+        }
+    }
+    else if(ini_file_md5 == "0x1") { // проверка включена, ini файл запрещён
+        if(ini_file.exists()) {
+            ini_file_md5.fill(0);
+            pq_ub_write(QString("<b>Fatal error</b>: cannot use forbidden file <b>pqengine.ini</b>."));
+            return false;
+        }
+        else ini_file_ok = true;
+    }
+    else if(ini_file_md5 == "0x0") { // проверка отключена
+        ini_file_ok = true;
+    }
+    else { // неизвестное состояние
+        ini_file_md5.fill(0);
+        pq_ub_write("<b>Fatal error</b>: cannot test file <b>pqengine.ini</b>.");
+        return false;
+    }
+
+    ini_file_md5.fill(0);
+    pmd5_list.clear();
+
+    return php7ts_file_ok && ini_file_ok;
+}
+
 bool PQEnginePrivate::init(int argc,
                            char **argv,
-                           const char *coreName,
-                           const char *hashKey,
-                           const char *appName,
-                           const char *appVersion,
-                           const char *orgName,
-                           const char *orgDomain)
+                           QString pmd5,
+                           const QString &coreName,
+                           bool checkName,
+                           const QString &hashKey,
+                           const QString &appName,
+                           const QString &appVersion,
+                           const QString &orgName,
+                           const QString &orgDomain)
 {
 #ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::init()");
+    PQDBG_LVL_D = 0;
 #endif
 
-    QCoreApplication *app = 0;
 
-   // if(m_PQExtensions.size() > indexOfAppInstanceExt) {
-    //    app = pqExtensions.at(indexOfAppInstanceExt)->appInstance(argc, argv);
-    //}
     bool use_instance = false;
 
-    foreach(IPQExtension *pqExtension, m_PQExtensions.values()) {
+    foreach(IPQExtension *extension, m_extensions) {
         if(!use_instance
-                && pqExtension->entry().use_instance) {
+                && extension->entry().use_instance) {
             use_instance = true;
-            app = pqExtension->entry().instance(argc, argv);
+            extension->entry().instance(argc, argv); // init qApp()
         }
     }
 
-    if(!qApp) {
-        app = new PQCoreApplication(argc, argv);
+    if(!qApp)
+        new PQCoreApplication(argc, argv);
+
+    QCoreApplication::setApplicationName(appName);
+    QCoreApplication::setApplicationVersion(appVersion);
+    QCoreApplication::setOrganizationName(orgName);
+    QCoreApplication::setOrganizationDomain(orgDomain);
+
+    if(!test_pmd5(pmd5)) {
+        return false;
     }
 
-    qApp->setApplicationName(appName);
-    qApp->setApplicationVersion(appVersion);
-    qApp->setOrganizationName(orgName);
-    qApp->setOrganizationDomain(orgDomain);
+    pmd5.fill(0);
 
-    PHPQt5::pq_prepare_args(argc, argv);
-    PHPQt5::setMemoryManager(m_mmng);
+#ifdef PQDEBUG
+    QString filename = normalizePathName(qApp->applicationDirPath()) + "/pqdebug.log";
 
-    QByteArray hashKey_ba(hashKey);
+    QFile file(filename);
+    if ( file.open(QIODevice::ReadWrite | QIODevice::Truncate | QIODevice::Text) )
+    {
+        QTextStream stream( &file );
+        stream << "Logging started..." << endl;
+        stream.flush();
+        file.close();
+    }
+
+    PQDBGL(__FUNCTION__);
+#endif
+
+    QByteArray hashKey_ba(hashKey.toUtf8());
     hashKey_ba.append(PQ_APPEND_KEY);
     pqHashKey = strtoll(hashKey_ba.constData(), 0, 16);
     pqCoreName = QString(coreName);
 
-    if(sapi_init()) {
-        TSRMLS_FETCH_FROM_CTX(PQEngine::getTSRMLS());
+    php_pqengine_module.executable_location = QByteArray(normalizePathName(qApp->applicationDirPath()).toUtf8()).data();
 
-        zend_class_entry *qApp_ce = PHPQt5::objectFactory()->getClassEntry(QString(qApp->metaObject()->className()));
+    QByteArray iniPath = normalizePathName(qApp->applicationDirPath()).append("/pqengine.ini").toUtf8();
+   // pq_pre(iniPath, "php_ini_path_override");
+#ifdef WIN32
+    php_pqengine_module.php_ini_path_override = iniPath.replace("/","\\").data();
+#else
+    php_pqengine_module.php_ini_path_override = iniPath.data();
+#endif
 
-        zval *pzval = NULL;
-        MAKE_STD_ZVAL(pzval);
-        object_init_ex(pzval, qApp_ce);
+    if(sapi_init(PQDBG_LVL_C)) {
+        PHPQt5::pq_prepare_args(argc, argv PQDBG_LVL_CC);
 
-        Z_ADDREF_P(pzval);
-        PHPQt5::objectFactory()->registerObject(pzval, qApp);
+        if(checkName) {
+            QString appFileName_t = QFileInfo(normalizePathName(qApp->applicationFilePath())).fileName();
+            QString appFileName = appFileName_t.toLower();
 
+#ifdef PQDEBUG
+            PQDBGLPUP("Check the application filename...");
+            PQDBGLPUP(normalizePathName(qApp->applicationFilePath()));
+#endif
+
+#ifdef WIN32
+            QString extname = QString(coreName).append(".exe");
+#ifdef PQDEBUG
+            PQDBGLPUP(QString("%1 : %2").arg(appFileName).arg(extname));
+#endif
+            if(appFileName != QString(coreName).append(".exe")) {
+#else
+            PQDBGLPUP(QString("%1 : %2").arg(appFileName).arg(coreName));
+            if(appFileName != coreName) {
+#endif
+                pq_ub_write("Please don't change the filename of this application.");
+                delete qApp; // Will cause a segmentation fault
+
+                // if not :)
+                php_error(E_ERROR, "Application terminated...");
+                return false;
+            }
+        }
+
+        zend_class_entry *qApp_ce = PHPQt5::objectFactory()->getClassEntry(QString(qApp->metaObject()->className()) PQDBG_LVL_CC);
+        zval pzval;
+
+#ifdef PQDEBUG
+        PQDBGLPUP(QString("Init %1").arg(qApp_ce->name->val));
+#endif
+
+        object_init_ex(&pzval, qApp_ce);
+
+#ifdef PQDEBUG
+        PQDBGLPUP(QString("%1 initialized").arg(qApp_ce->name->val));
+#endif
+
+        Z_ADDREF(pzval);
+        PHPQt5::objectFactory()->registerObject(&pzval, qApp PQDBG_LVL_CC);
+
+        PQDBG_LVL_DONE();
         return true;
     }
 
+    PQDBG_LVL_DONE();
     return false;
 }
 
-bool PQEnginePrivate::sapi_init()
+bool PQEnginePrivate::sapi_init(PQDBG_LVL_D)
 {
 #ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::sapi_init()");
+    PQDBG_LVL_UP();
+    PQDBGL(__FUNCTION__);
 #endif
 
     tsrm_startup(128, 1, 0, NULL);
-    TSRMLS_D = (void***) ts_resource(0);
+    ts_resource(0);
 
     sapi_startup(&php_pqengine_module);
 
@@ -204,79 +382,112 @@ bool PQEnginePrivate::sapi_init()
         return false;
     }
 
-    if(php_request_startup(TSRMLS_C) == FAILURE) {
+    if(php_module_startup(&php_pqengine_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
+        return false;
+    }
+
+    if(php_request_startup() == FAILURE) {
         return false;
     }
 
     return true;
 }
 
-int PQEnginePrivate::exec(const char *script)
+#include "zend_exceptions.h"
+int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::exec()");
+    PQDBG_LVL_UP();
+    PQDBGL(__FUNCTION__);
 #endif
 
-    QDir::setCurrent(qApp->applicationDirPath());
+    QDir::setCurrent(normalizePathName(qApp->applicationDirPath()));
 
     if(QString(script) == "-") {
-        return execpq();
+        return execpq(PQDBG_LVL_C);
     }
 
     QFile file(script);
     if(file.exists()) {
-        TSRMLS_FETCH();
-
         zend_file_handle file_handle;
         file_handle.type = ZEND_HANDLE_FILENAME;
         file_handle.filename = script;
         file_handle.free_filename = 0;
         file_handle.opened_path = NULL;
 
-        return php_execute_script(&file_handle TSRMLS_CC);
+
+       // zval ret;
+       // zend_try {
+      //  php_execute_simple_script(&file_handle, &ret);
+      //  } zend_end_try();
+        if(php_execute_script(&file_handle) == SUCCESS)
+            return 0;
+        else
+            return 1;
+
+
+      //  zend_replace_error_handling();
+       //php_request_shutdown((void *) 0);
+
+
+
+        //if(Z_TYPE(ret) == IS_LONG) return Z_LVAL(ret);
+       // else return 1;
+      // return 1;
     }
     else {
-        pq_ub_write("php script not exists");
+        pq_ub_write(QString("<b>%1</b>: <font color='red'>file not found</font> \n<br>in %2")
+                    .arg(script)
+                    .arg(normalizePathName(qApp->applicationDirPath())));
         return 1;
     }
 }
 
-QByteArray PQEnginePrivate::pqe_unpack(const QByteArray &pqeData, qlonglong key)
+QByteArray *PQEnginePrivate::pqe_unpack(const QByteArray &pqeData, qlonglong key)
 {
-    SimpleCrypt crypto(key);
+    SimpleCrypt *crypto = new SimpleCrypt(key);
+    crypto->setCompressionMode(SimpleCrypt::CompressionNever);
 
     QByteArray base64_ba = qUncompress(pqeData);
+
     QByteArray encrypted_ba = QByteArray::fromBase64(base64_ba);
-    QByteArray decrypted_ba = crypto.decryptToByteArray(encrypted_ba);
+    base64_ba.fill(0);
+    base64_ba.clear();
 
-    return decrypted_ba;
+    //QByteArray *decrypted_ba = crypto->decryptToByteArray(encrypted_ba);
+    //QByteArray ba = ;
+    QByteArray decrypted_ba = crypto->decryptToByteArray(encrypted_ba);
+    QByteArray *ret_ba = new QByteArray(decrypted_ba);
+
+    decrypted_ba.fill(0);
+    decrypted_ba.clear();
+    encrypted_ba.clear();
+    delete crypto;
+    memset(crypto, 0, sizeof(SimpleCrypt*));
+
+    return ret_ba;
 }
 
-void ***PQEnginePrivate::getTSRMLS()
-{
-    TSRMLS_FETCH();
-    return TSRMLS_C;
-}
-
-QByteArray PQEnginePrivate::readMainFile()
+QByteArray *PQEnginePrivate::readMainFile(PQDBG_LVL_D)
 {
 #ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::readMainFile()");
+    PQDBGL(__FUNCTION__);
 #endif
 
-    QByteArray data_ba;
+    QByteArray *data_ba;
 
     qlonglong nullKey = strtoll(PQ_APPEND_KEY, 0, 16);
 
     if(pqHashKey == nullKey) {
         #ifdef PQDEBUG
-            PQDBG("PQEnginePrivate::readMainFile() : no HK");
+            PQDBGLPUP("no HK");
         #endif
 
         QFile file(QString(":/%1/main.php").arg(pqCoreName));
 
         if(file.open(QIODevice::ReadOnly)) {
-            data_ba = file.readAll();
+            data_ba = new QByteArray(file.readAll());
+            file.close();
         }
         else {
             php_error(E_ERROR, QString("failed to open stream: %1").arg(file.errorString()).toUtf8().constData());
@@ -284,46 +495,71 @@ QByteArray PQEnginePrivate::readMainFile()
     }
     else {
         #ifdef PQDEBUG
-            PQDBG("PQEnginePrivate::readMainFile() : with HK");
+            PQDBGLPUP("with HK");
         #endif
 
         QFile file(QString(":/%1/main.pqe").arg(pqCoreName));
 
         if(file.open(QIODevice::ReadOnly)) {
             data_ba = pqe_unpack(file.readAll(), pqHashKey);
+            file.close();
         }
         else {
             php_error(E_ERROR, QString("failed to open stream: %1").arg(file.errorString()).toUtf8().constData());
         }
     }
 
+    PQDBG_LVL_DONE();
     return data_ba;
 }
 
-int PQEnginePrivate::execpq()
+int PQEnginePrivate::execpq(PQDBG_LVL_D)
 {
 #ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::execpq()");
+    PQDBGL(__FUNCTION__);
 #endif
 
-    TSRMLS_FETCH();
+    QByteArray *data = readMainFile(PQDBG_LVL_C);
+    QDataStream dataStream(data, QIODevice::ReadOnly);
 
-    Q_INIT_RESOURCE(res);
+    zend_op_array *op;
 
-    QDataStream dataStream( readMainFile() );
+    {
+        zend_stream zs;
+        zs.reader = pq_stream_reader;
+        zs.closer = pq_stream_closer;
+        zs.fsizer = pq_stream_fsizer;
+        zs.handle = &dataStream;
 
-    zend_stream zs;
-    zs.reader = pq_stream_reader;
-    zs.closer = pq_stream_closer;
-    zs.fsizer = pq_stream_fsizer;
-    zs.handle = &dataStream;
+        zend_file_handle file_handle;
+        file_handle.type = ZEND_HANDLE_STREAM;
+        file_handle.filename = "-";
+        file_handle.free_filename = 0;
+        file_handle.opened_path = NULL;
+        file_handle.handle.stream = zs;
 
-    zend_file_handle file_handle;
-    file_handle.type = ZEND_HANDLE_STREAM;
-    file_handle.filename = "-";
-    file_handle.free_filename = 0;
-    file_handle.opened_path = NULL;
-    file_handle.handle.stream = zs;
+        op = zend_compile_file(&file_handle, 0);
 
-    return php_execute_script(&file_handle TSRMLS_CC);
+        dataStream.device()->close();
+        dataStream.unsetDevice();
+        data->fill(0);
+        data->clear();
+
+        memset(file_handle.handle.stream.mmap.buf, 0, file_handle.handle.stream.mmap.len);
+
+        delete data;
+        data = nullptr;
+    }
+
+    zval retVal;
+    ZVAL_UNDEF(&retVal);
+    zend_execute(op, &retVal);
+
+    int ret = 1;
+    if(Z_TYPE(retVal) == IS_LONG) {
+        ret = Z_LVAL(retVal);
+    }
+
+    PQDBG_LVL_DONE();
+    return ret;
 }

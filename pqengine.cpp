@@ -1,58 +1,130 @@
 #include <QTextStream>
-#include <QTextDocument>
+#include "pqtypes.h"
 #include "pqengine.h"
 #include "pqengine_private.h"
 
 /* Static vars */
-PQEnginePrivate *pqe;
+PQEnginePrivate *m_engine;
 bool PQEngine::pqeInitialized = false;
-PQExtensionHash PQEngine::m_PQExtensions;
-
+PQExtensionList PQEngine::m_extensions;
+QByteArray m_corename;
+#include <QtGlobal>
 /* PQEngine class */
-PQEngine::PQEngine(PQExtensionHash pqExtensions, MemoryManager mmng)
+PQEngine::PQEngine(PQExtensionList extensions)
 {
-    m_PQExtensions = pqExtensions;
-    m_mmng = mmng;
+    m_extensions = extensions;
 }
 
 bool PQEngine::init(int argc,
                     char **argv,
-                    const char *coreName,
-                    const char *hashKey,
-                    const char *appName,
-                    const char *appVersion,
-                    const char *orgName,
-                    const char *orgDomain)
+                    QString pmd5,
+                    const QString &coreName,
+                    bool checkName,
+                    const QString &hashKey,
+                    const QString &appName,
+                    const QString &appVersion,
+                    const QString &orgName,
+                    const QString &orgDomain)
 {
-    pqe = new PQEnginePrivate(m_PQExtensions, m_mmng);
-    pqeInitialized = pqe->init(argc, argv, coreName, hashKey, appName, appVersion, orgName, orgDomain);
+    qRegisterMetaType<PQClosure>("PQClosure");
+    //qRegisterMetaType<PQClosure*>("PQClosure*");
+
+    m_corename = coreName.toUtf8();
+    m_engine = new PQEnginePrivate(m_extensions);
+
+    pqeInitialized = m_engine->init(argc, argv, pmd5, coreName, checkName, hashKey, appName, appVersion, orgName, orgDomain);
+    pmd5.fill(0);
+
     return pqeInitialized;
 }
 
 int PQEngine::exec(const char *script)
 {
     if(pqeInitialized) {
-        return pqe->exec(script);
+#ifdef PQDEBUG
+        return m_engine->exec(script, 0);
+#else
+        return m_engine->exec(script);
+#endif
     }
 
     return 1;
 }
 
-void ***PQEngine::getTSRMLS()
-{
-    return pqe->getTSRMLS();
+QString cleanTag(QString body) {
+    body.replace("&nbsp;"," ");
+    body.replace("<br>","##%break%##");
+    body.replace("</br>","##%break%##");
+    body.replace("</p>","##%break%##");
+    body.replace("</td>","##%break%##");
+    body.replace("\r\n","##%break%##");
+    body.replace("\n","##%break%##");
+
+    body.remove(QRegExp("<head>(.*)</head>",Qt::CaseInsensitive));
+    body.remove(QRegExp("<form(.)[^>]*</form>",Qt::CaseInsensitive));
+    body.remove(QRegExp("<script(.)[^>]*</script>",Qt::CaseInsensitive));
+    body.remove(QRegExp("<style(.)[^>]*</style>",Qt::CaseInsensitive));
+    body.remove(QRegExp("<(.)[^>]*>"));
+
+    body.replace("##%break%##", "\n");
+
+    return body;
 }
 
 void default_ub_write(const QString &msg, const QString &title)
 {
-    QTextDocument m;
-    m.setHtml(msg);
+    QString m = cleanTag(msg);
+
+/*
+#ifdef PQDEBUG
+    QString filename = qApp->applicationDirPath() + "/pqdebug.log";
+
+    QFile file(filename);
+    if ( file.open(QIODevice::ReadWrite | QIODevice::Append | QIODevice::Text) )
+    {
+        QTextStream stream(&file);
+        stream << m.toUtf8().constData() << endl;
+        stream.flush();
+        file.close();
+    }
+#endif
+*/
 
     if(title.length()) {
-        QTextStream( stdout ) << title << m.toPlainText().toUtf8().constData() << endl;
+        QTextStream( stdout ) << title << m.toUtf8().constData() << endl;
     }
     else {
-        QTextStream( stdout ) << m.toPlainText().toUtf8().constData() << endl;
+        QTextStream( stdout ) << m.toUtf8().constData() << endl;
     }
 }
 
+#ifdef PQDEBUG
+int __pqdbg_current_d_lvl = 0;
+int __pqdbg_current_d_line = 0;
+
+int pqdbg_get_current_lvl() {
+    return __pqdbg_current_d_lvl;
+}
+
+QString pqdbg_get_current_line() {
+    QString line = QString::number(__pqdbg_current_d_line);
+
+    while(line.length() < 5) {
+        line.prepend("0");
+    }
+
+    return line;
+}
+
+void pqdbg_current_line_inc() {
+    __pqdbg_current_d_line++;
+}
+
+void pqdbg_set_current_lvl(int lvl) {
+    __pqdbg_current_d_lvl = lvl;
+}
+#endif
+
+QByteArray getCorename() {
+    return m_corename;
+}

@@ -182,11 +182,11 @@ QByteArray SimpleCrypt::decryptToByteArray(QByteArray cypher)
         m_lastError = ErrorNoKeySet;
         return QByteArray();
     }
-
     QByteArray ba = cypher;
 
     if( cypher.count() < 3 )
         return QByteArray();
+    cypher.fill(0);
 
     char version = ba.at(0);
 
@@ -210,32 +210,52 @@ QByteArray SimpleCrypt::decryptToByteArray(QByteArray cypher)
         ++pos;
     }
 
-    ba = ba.mid(1); //chop off the random number at the start
+    QByteArray cba1 = ba.mid(1); //chop off the random number at the start
+    QByteArray cba2;
+    ba.fill(0);
+    ba.clear();
 
     bool integrityOk(true);
     if (flags.testFlag(CryptoFlagChecksum)) {
-        if (ba.length() < 2) {
+        if (cba1.length() < 2) {
             m_lastError = ErrorIntegrityFailed;
             return QByteArray();
         }
         quint16 storedChecksum;
+
         {
-            QDataStream s(&ba, QIODevice::ReadOnly);
+            QDataStream s(&cba1, QIODevice::ReadOnly);
             s >> storedChecksum;
+            s.device()->close();
         }
-        ba = ba.mid(2);
-        quint16 checksum = qChecksum(ba.constData(), ba.length());
+
+        cba2 = cba1.mid(2);
+        cba1.fill(0);
+        cba1.clear();
+
+        quint16 checksum = qChecksum(cba2.constData(), cba2.length());
         integrityOk = (checksum == storedChecksum);
-    } else if (flags.testFlag(CryptoFlagHash)) {
-        if (ba.length() < 20) {
+    }
+    else
+    if (flags.testFlag(CryptoFlagHash)) {
+        if (cba1.length() < 20) {
             m_lastError = ErrorIntegrityFailed;
             return QByteArray();
         }
-        QByteArray storedHash = ba.left(20);
-        ba = ba.mid(20);
+
+        QByteArray storedHash = cba1.left(20);
+
+        cba2 = cba1.mid(20);
+        cba1.fill(0);
+        cba2.fill(0);
+
         QCryptographicHash hash(QCryptographicHash::Sha1);
-        hash.addData(ba);
+        hash.addData(cba2);
+
         integrityOk = (hash.result() == storedHash);
+
+        hash.reset();
+        storedHash.fill(0);
     }
 
     if (!integrityOk) {
@@ -243,9 +263,15 @@ QByteArray SimpleCrypt::decryptToByteArray(QByteArray cypher)
         return QByteArray();
     }
 
+    QByteArray rba;
     if (flags.testFlag(CryptoFlagCompression))
-        ba = qUncompress(ba);
+        rba = qUncompress(cba2);
+    else rba = cba2;
+
+    cba2.fill(0);
+    cba2.clear();
 
     m_lastError = ErrorNoError;
-    return ba;
+
+    return rba;
 }

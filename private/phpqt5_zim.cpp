@@ -331,16 +331,18 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
     if(qo != nullptr) {
         switch(Z_TYPE_P(pzval)) {
         case IS_TRUE: {
-            if(!qo->setProperty(property, true)) {
-                pq_set_user_property(qo, QString(property), true PQDBG_LVL_CC);
-            }
+            qo->setProperty(property, true);
+            //if(!qo->setProperty(property, true)) {
+            //    pq_set_user_property(qo, QString(property), true PQDBG_LVL_CC);
+            //}
             break;
         }
 
         case IS_FALSE: {
-            if(!qo->setProperty(property, false)) {
-                pq_set_user_property(qo, QString(property), false PQDBG_LVL_CC);
-            }
+            qo->setProperty(property, false);
+            //if(!qo->setProperty(property, false)) {
+            //    pq_set_user_property(qo, QString(property), false PQDBG_LVL_CC);
+            //}
             break;
         }
 
@@ -350,39 +352,43 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
             //if(!qo->setProperty(property, QString(toUTF8(strval)))) {
             //    pq_set_user_property(qo, QString(property), strval PQDBG_LVL_CC);
             //}
-
-            if(!qo->setProperty(property, strval)) {
-                pq_set_user_property(qo, QString(property), strval PQDBG_LVL_CC);
-            }
+            qo->setProperty(property, strval);
+            //if(!qo->setProperty(property, strval)) {
+            //    pq_set_user_property(qo, QString(property), strval PQDBG_LVL_CC);
+            //}
             break;
         }
 
         case IS_LONG: {
             int lval = Z_LVAL_P(pzval);
-            if(!qo->setProperty(property, lval)) {
-                pq_set_user_property(qo, QString(property), lval PQDBG_LVL_CC);
-            }
+            qo->setProperty(property, lval);
+            //if(!qo->setProperty(property, lval)) {
+            //    pq_set_user_property(qo, QString(property), lval PQDBG_LVL_CC);
+            //}
             break;
         }
 
         case IS_DOUBLE: {
             double dval = Z_DVAL_P(pzval);
-            if(!qo->setProperty(property, dval)) {
-                pq_set_user_property(qo, QString(property), dval PQDBG_LVL_CC);
-            }
+            qo->setProperty(property, dval);
+            //if(!qo->setProperty(property, dval)) {
+            //    pq_set_user_property(qo, QString(property), dval PQDBG_LVL_CC);
+            //}
             break;
         }
 
         case IS_NULL:
-            if(!qo->setProperty(property, 0)) {
-                pq_set_user_property(qo, QString(property), 0 PQDBG_LVL_CC);
-            }
+            qo->setProperty(property, 0);
+            //if(!qo->setProperty(property, 0)) {
+            //    pq_set_user_property(qo, QString(property), 0 PQDBG_LVL_CC);
+            //}
             break;
 
         case IS_OBJECT: {
             QString qosignal = property;
 
-            if(pq_create_php_slot(qo, qosignal, pzval PQDBG_LVL_CC)) {
+            if(qosignal.mid(0,2) == "on"
+                && pq_create_php_slot(qo, qosignal, pzval PQDBG_LVL_CC)) {
                 PQDBG_LVL_DONE();
                 RETURN_TRUE;
             }
@@ -394,7 +400,8 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
                     bool before_have_parent = arg_qo->parent() ? true : false;
                     bool this_before_have_parent = qo->parent() ? true : false;
 
-                    if(qo->setProperty(property, QVariant::fromValue<QObject*>(arg_qo))) {
+                    //if(qo->setProperty(property, QVariant::fromValue<QObject*>(arg_qo))) {
+                    qo->setProperty(property, QVariant::fromValue<QObject*>(arg_qo));
                         bool after_have_parent = arg_qo->parent() ? true : false;
                         bool this_after_have_parent = qo->parent() ? true : false;
 
@@ -420,8 +427,10 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
                             Z_DELREF_P(getThis());
                         }
                         break;
-                    }
-                    else {
+                    //}
+
+                    /*
+                     else {
                         php_error(E_WARNING,
                                   QString("PQEngine: %1::%2: Cannot set property.")
                                   .arg(Z_OBJCE_P(getThis())->name->val)
@@ -430,6 +439,7 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
                         PQDBG_LVL_DONE();
                         RETURN_FALSE;
                     }
+                    */
                 }
             }
             else {
@@ -497,21 +507,15 @@ void PHPQt5::zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS)
         QVariant retVal;
 
         int indexOfProperty = qo->metaObject()->indexOfProperty(property);
-        if(indexOfProperty != -1) {
+        if(indexOfProperty >= 0
+                || qo->dynamicPropertyNames().contains(property)) {
             retVal = qo->property(property);
         }
-        else {
-            QString s_property = QString(property);
-            if(!qo->metaObject()->invokeMethod(qo, "getUserProperty",
-                                              Q_RETURN_ARG(QVariant, retVal),
-                                              Q_ARG(QString, s_property))) {
-                php_error(E_WARNING,
-                          QString("Can't get object property `%1`")
-                          .arg(property).toUtf8().constData());
-            }
-        }
 
-        if(!retVal.isValid()) {
+        if(retVal.isValid()) {
+            ret_pzval = pq_cast_to_zval(retVal, false PQDBG_LVL_CC);
+        }
+        else {
             PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
             if(pqobject->isinit) {
                 php_error(E_NOTICE,
@@ -519,9 +523,6 @@ void PHPQt5::zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS)
                           .arg(Z_OBJCE_P(getThis())->name->val)
                           .arg(property).toUtf8().constData());
             }
-        }
-        else {
-            ret_pzval = pq_cast_to_zval(retVal, false PQDBG_LVL_CC);
         }
     }
 

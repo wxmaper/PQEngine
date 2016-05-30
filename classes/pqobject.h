@@ -81,7 +81,6 @@ enum PQEventTypes {
     Q_PROPERTY( QString objectName READ objectName WRITE setObjectName ) \
 public: \
     Q_INVOKABLE QString objectName();\
-    Q_INVOKABLE void setUserProperty(const QString &property, const QVariant &value);\
     Q_INVOKABLE QObject* sender();\
     Q_INVOKABLE void removeEventListenerType(int eventType);\
     Q_INVOKABLE void clearEventListenerTypes();\
@@ -97,15 +96,15 @@ public: \
     Q_INVOKABLE void decConnection(const QByteArray &signalName);\
     Q_INVOKABLE bool event(PQObject *event);\
     Q_INVOKABLE bool parentEvent(PQObject *event);\
+    Q_INVOKABLE QVariant property(const QString &name);\
     bool event(QEvent *event);\
     \
 public Q_SLOTS: \
     Q_INVOKABLE void setObjectName(QString objectName);\
-    Q_INVOKABLE QVariant getUserProperty(const QString &property);\
+    Q_INVOKABLE bool setProperty(const QString &name, const QVariant &value);\
 private:\
     void declareOnSignal(const QString &pslot);\
     \
-    QHash<QString, QVariant> m_userProps;\
     QMap<QByteArray,QByteArray> m_enabledOnSignals;\
     QList<int> m_eventListenerTypes;\
     QHash<QByteArray,int> m_signals;\

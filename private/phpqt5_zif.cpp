@@ -66,9 +66,7 @@ void PHPQt5::zif_emit(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    int error = 0;
     QString className = "";
-
 
     void *TSRMLS_CACHE = tsrm_get_ls_cache();
 
@@ -121,7 +119,6 @@ void PHPQt5::zif_emit(INTERNAL_FUNCTION_PARAMETERS)
                     RETURN_NULL();
                 }
 
-
                 if(QMetaObject::invokeMethod(qo,
                                              "haveSignalConnection",
                                              Qt::DirectConnection,
@@ -149,20 +146,14 @@ void PHPQt5::zif_emit(INTERNAL_FUNCTION_PARAMETERS)
                 }
                 #endif
             }
-
         }
         else {
-            error = 2;
+            pq_php_error("Call EMIT from non QObject object!");
         }
     }
     else {
-        error = 1;
+        pq_php_error("Call EMIT without object!");
     }
-
-
-
-    pq_pre(QString("error: %1\nclassName: %2").arg(error).arg(className), "");
-
 }
 
 void PHPQt5::zif_SIGNAL(INTERNAL_FUNCTION_PARAMETERS)

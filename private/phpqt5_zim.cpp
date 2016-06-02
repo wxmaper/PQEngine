@@ -293,7 +293,7 @@ void PHPQt5::zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS)
 
         if(qo) {
             pq_call_with_return(qo,
-                                QByteArray(method).append("static_").constData(),
+                                QByteArray(method).prepend("static_").constData(),
                                 pzval,
                                 INTERNAL_FUNCTION_PARAM_PASSTHRU
                                 PQDBG_LVL_CC);

@@ -116,7 +116,7 @@ class PQObject : public QObject {
     PQ_OBJECT_EX(QObject)
 
 public:
-    Q_INVOKABLE explicit PQObject(QObject *parent = 0);
+    Q_INVOKABLE explicit PQObject(QObject *parent = Q_NULLPTR);
     virtual ~PQObject();
 };
 

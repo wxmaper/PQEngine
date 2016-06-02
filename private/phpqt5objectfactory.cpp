@@ -171,6 +171,12 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
                 PQDBGLPUP("creating qobject");
                 #endif
 
+               // qDebug() << args.at(0).data();
+               // qDebug() << convertedArgs;
+               // qDebug() << preparedArgs.value(0).data();
+               // qDebug() << preparedArgs.value(0).name();
+
+
                 qo = metaObject.newInstance(
                             preparedArgs.value(0),
                             preparedArgs.value(1),
@@ -594,7 +600,8 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
         QByteArray methodTypeName = methodTypes.at(i);
         QByteArray argTypeName = arg.typeName();
 
-        QVariant::Type methodType = QVariant::nameToType(methodTypeName);
+        // QVariant::Type methodType = QVariant::nameToType(methodTypeName);
+        int methodTypeId = QMetaType::type(methodTypeName);
 
         QVariant copy;
 
@@ -631,17 +638,28 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
         else {
             copy = QVariant(arg);
 
-            if (copy.type() != methodType) {
-                if (copy.canConvert(methodType)) {
-                    if (!copy.convert(methodType)) {
-                        qWarning() << "Cannot convert" << argTypeName
-                                   << "to" << methodTypeName;
+            if (copy.type() != methodTypeId) {
+                if (copy.canConvert(methodTypeId)) {
+                    if (!copy.convert(methodTypeId)) {
+                        //qMetaTypeId<QWidget*>() or QVariant::canConvert<QWidget*>() instead.
+                        //qWarning() << "Error converting" << argTypeName
+                        //           << "to" << methodTypeName;
+
+                        #ifdef PQDEBUG
+                            PQDBGLPUP(QString("Error converting %1 to %2").arg(copy.type()).arg(methodTypeId));
+                        #endif
 
                         PQDBG_LVL_DONE();
                         return false;
                     }
                 }
                 else {
+                    #ifdef PQDEBUG
+                        PQDBGLPUP(QString("Can't convert %1(%2) to %3(%4)")
+                                  .arg(argTypeName.constData()).arg(copy.type())
+                                  .arg(methodTypeName.constData()).arg(methodTypeId));
+                    #endif
+
                     if(methodTypeName == "QVariant") {
                         copy = arg;
                     }
@@ -659,6 +677,14 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
                     }
                     else if(methodTypeName.contains("*")
                             && argTypeName.contains("*")) {
+
+
+                       // copy = QVariant::fromValue(arg.value());
+                        #ifdef PQDEBUG
+                            PQDBGLPUP(QString("TODO: NOT SUPPORTED CONVERSION at line (%1)").arg(__LINE__));
+                            PQDBGLPUP("methodTypeName.contains(\"*\") && argTypeName.contains(\"*\")");
+                        #endif
+
                         //TODO: NOT SUPPORTED CONVERSION
                         //copy = QVariant::fromValue<QObject*>(arg);
                         //return false;

@@ -498,7 +498,7 @@ QByteArray *PQEnginePrivate::readMainFile(PQDBG_LVL_D)
             PQDBGLPUP("with HK");
         #endif
 
-        QFile file(QString(":/%1/main.pqe").arg(pqCoreName));
+        QFile file(QString(":/main.pqe").arg(pqCoreName));
 
         if(file.open(QIODevice::ReadOnly)) {
             data_ba = pqe_unpack(file.readAll(), pqHashKey);

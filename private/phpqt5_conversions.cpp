@@ -57,6 +57,22 @@ zval PHPQt5::pq_qpoint_to_ht(const QPoint &point PQDBG_LVL_DC)
     return array;
 }
 
+zval PHPQt5::pq_qpointf_to_ht(const QPointF &point PQDBG_LVL_DC)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_PROCEED(__FUNCTION__);
+#endif
+
+    zval array;
+    array_init(&array);
+
+    add_assoc_long(&array, "x", point.x());
+    add_assoc_long(&array, "y", point.y());
+
+    PQDBG_LVL_DONE();
+    return array;
+}
+
 zval PHPQt5::pq_qrect_to_ht(const QRect &rect PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG

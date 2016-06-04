@@ -101,6 +101,7 @@ public:
     static zval             pq_cast_to_zval(const QVariant &value, bool addref PQDBG_LVL_DC);
     static zval             pq_qstringlist_to_ht(QStringList stringList PQDBG_LVL_DC);
     static zval             pq_qpoint_to_ht(const QPoint &point PQDBG_LVL_DC);
+    static zval             pq_qpointf_to_ht(const QPointF &point PQDBG_LVL_DC);
     static zval             pq_qrect_to_ht(const QRect &rect PQDBG_LVL_DC);
     static zval             pq_qsize_to_ht(const QSize &size PQDBG_LVL_DC);
     static zval             pq_qevent_to_zobject(QEvent *event PQDBG_LVL_DC);

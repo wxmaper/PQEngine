@@ -813,6 +813,7 @@ QVariant PHPQt5::pq_call(QObject *qo,
      * Пытаемся найти метод
      */
     QMetaMethod qmm;
+    QByteArray static_method = QByteArray(method).prepend(PQ_STATIC_PREFIX);
 
     int parameterCount = args.size();
 
@@ -823,7 +824,7 @@ QVariant PHPQt5::pq_call(QObject *qo,
         qmm = qo->metaObject()->method(i);
 
         // ищем совпадение названия метода
-        if(qmm.name() == method) {
+        if(qmm.name() == method || qmm.name() == static_method) {
 
             // ищем совпадение количества параметров
             if(qmm.parameterCount() == parameterCount)
@@ -925,6 +926,11 @@ zval PHPQt5::pq_cast_to_zval(const QVariant &value,
 
         case QMetaType::QPoint:
             ret_zval = pq_qpoint_to_ht(r.toPoint() PQDBG_LVL_CC);
+            Z_DELREF(ret_zval);
+            break;
+
+        case QMetaType::QPointF:
+            ret_zval = pq_qpointf_to_ht(r.toPointF() PQDBG_LVL_CC);
             Z_DELREF(ret_zval);
             break;
 

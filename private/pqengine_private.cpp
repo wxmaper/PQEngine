@@ -254,21 +254,44 @@ bool PQEnginePrivate::init(int argc,
 {
 #ifdef PQDEBUG
     PQDBG_LVL_D = 0;
+    PQDBGL("Logging started...");
+    PQDBGL(__FUNCTION__);
 #endif
 
-
-    bool use_instance = false;
-
     foreach(IPQExtension *extension, m_extensions) {
-        if(!use_instance
-                && extension->entry().use_instance) {
-            use_instance = true;
+        #ifdef PQDEBUG
+        do {
+            QString dMsg = QString("Check QCoreApplication instance in %1... ").arg(extension->entry().fullName);
+
+            if(extension->entry().have_instance) {
+                dMsg.append("have constructor");
+            }
+            else {
+                dMsg.append("not have constructor");
+            }
+
+            PQDBGLPUP(dMsg);
+        } while(0);
+        #endif
+
+        if(extension->entry().use_instance) {
             extension->entry().instance(argc, argv); // init qApp()
+
+            #ifdef PQDEBUG
+                PQDBGLPUP(QString("Create QCoreApplication instance from %1...").arg(extension->entry().fullName));
+            #endif
+
+            break;
         }
     }
 
-    if(!qApp)
+    if(!qApp) {
+        #ifdef PQDEBUG
+            PQDBGLPUP("WARNING: QCoreApplication instance was not created!");
+        #endif
+
         new PQCoreApplication(argc, argv);
+    }
 
     QCoreApplication::setApplicationName(appName);
     QCoreApplication::setApplicationVersion(appVersion);
@@ -282,6 +305,7 @@ bool PQEnginePrivate::init(int argc,
     pmd5.fill(0);
 
 #ifdef PQDEBUG
+    /*
     QString filename = normalizePathName(qApp->applicationDirPath()) + "/pqdebug.log";
 
     QFile file(filename);
@@ -292,8 +316,7 @@ bool PQEnginePrivate::init(int argc,
         stream.flush();
         file.close();
     }
-
-    PQDBGL(__FUNCTION__);
+    */
 #endif
 
     QByteArray hashKey_ba(hashKey.toUtf8());

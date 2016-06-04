@@ -9,6 +9,8 @@ void PQEnginePrivate::pq_register_extensions(PQDBG_LVL_D)
     PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
+    PHPQt5::pq_core_init(PQDBG_LVL_C);
+
     foreach(IPQExtension *extension, m_extensions) {
         pq_register_extension(extension PQDBG_LVL_CC);
     }
@@ -21,9 +23,25 @@ void PQEnginePrivate::pq_register_extension(IPQExtension *extension PQDBG_LVL_DC
 #ifdef PQDEBUG
     PQDBG_LVL_PROCEED(__FUNCTION__);
     PQDBGLPUP(extension->entry().fullName);
-#endif
 
-    PHPQt5::pq_core_init(PQDBG_LVL_C);
+    if(extension->entry().have_instance) {
+        if(extension->entry().use_instance) { PQDBGLPUP("have instance; used"); }
+        else { PQDBGLPUP("have instance; not used"); }
+    }
+    else { PQDBGLPUP("not have instance"); }
+
+    if(extension->entry().have_pre) {
+        if(extension->entry().use_pre) { PQDBGLPUP("have pre; used"); }
+        else { PQDBGLPUP("have pre; not used"); }
+    }
+    else { PQDBGLPUP("not have pre"); }
+
+    if(extension->entry().have_ub_write) {
+        if(extension->entry().use_ub_write) { PQDBGLPUP("have ub_write; used"); }
+        else { PQDBGLPUP("have ub_write; not used"); }
+    }
+    else { PQDBGLPUP("not have ub_write"); }
+#endif
 
     /* Start extension */
     extension->start();

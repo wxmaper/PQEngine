@@ -11,8 +11,8 @@ DEFINES += WIN32
 #DEFINES += PTHREADS
 
 # use this define for debug messages
-DEFINES += PQDEBUG
-DEFINES += PQDETAILEDDEBUG
+#DEFINES += PQDEBUG
+#DEFINES += PQDETAILEDDEBUG
 DEFINES += PQSTATIC
 
 DEFINES += ZEND_ENABLE_STATIC_TSRMLS_CACHE
@@ -51,6 +51,9 @@ CONFIG += c++11 qt staticlib
 
 DEFINES += ZTS
 DEFINES += "ZEND_DEBUG=0" # need for PHP 5.4.45
+
+MOC_DIR = .moc
+OBJECTS_DIR = .obj
 
 SOURCES += \
     pqengine.cpp \

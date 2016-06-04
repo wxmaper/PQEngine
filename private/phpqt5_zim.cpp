@@ -110,10 +110,7 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
         PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(this_ptr));
         pqobject->isinit = false;
 
-        if(qo) {
-
-        }
-        else {
+        if(!qo) {
             QString constructors;
 
             QMetaObject metaObject
@@ -289,11 +286,11 @@ void PHPQt5::zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS)
     }
     else {
         QMetaObject mo = objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).value(QString("%1").arg(ce->name->val)).metaObject;
-        QObject *qo = (QObject*)(mo.newInstance());
+        QObject *qo = mo.newInstance();
 
         if(qo) {
             pq_call_with_return(qo,
-                                QByteArray(method).prepend("static_").constData(),
+                                QByteArray(method).prepend(PQ_STATIC_PREFIX).constData(),
                                 pzval,
                                 INTERNAL_FUNCTION_PARAM_PASSTHRU
                                 PQDBG_LVL_CC);
@@ -816,8 +813,10 @@ void PHPQt5::zim_pqobject_qobjMethods(INTERNAL_FUNCTION_PARAMETERS)
         for(int i = metaObject->methodOffset(); i < metaObject->methodCount(); ++i) {
             QMetaMethod metaMethod = metaObject->method(i);
 
-            if(metaMethod.methodSignature().mid(0,7) == "static_")
-                continue; // skip static methods
+            if(metaMethod.methodSignature().left(7) == PQ_STATIC_PREFIX // skip static methods
+                    || metaMethod.methodSignature().left(4) == "__pq_" // skip PQObject methods
+                    || metaMethod.methodSignature().right(6) == "_pslot") // skip *_pslot methods
+                continue;
 
             methods.insert(QString(metaMethod.methodSignature().constData()),
                            QString(metaMethod.typeName()));

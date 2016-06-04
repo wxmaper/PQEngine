@@ -77,7 +77,7 @@ enum PQEventTypes {
 
 #define PQ_ON_SIGNAL(s) declareOnSignal(#s)
 
-#define PQ_OBJECT_EX(T) \
+#define PQ_OBJECT_EX(Q) \
     Q_PROPERTY( QString objectName READ objectName WRITE setObjectName ) \
 public: \
     Q_INVOKABLE QString objectName();\
@@ -102,13 +102,15 @@ public: \
 public Q_SLOTS: \
     Q_INVOKABLE void setObjectName(QString objectName);\
     Q_INVOKABLE bool setProperty(const QString &name, const QVariant &value);\
+    Q_INVOKABLE void __pq_setThisPtr(QObject *o);\
 private:\
     void declareOnSignal(const QString &pslot);\
     \
     QMap<QByteArray,QByteArray> m_enabledOnSignals;\
     QList<int> m_eventListenerTypes;\
     QHash<QByteArray,int> m_signals;\
-    bool m_useEventListener = false;
+    bool m_useEventListener = false;\
+    static QObject *__pq_thisPtr;
 
 class PQObject;
 class PQObject : public QObject {

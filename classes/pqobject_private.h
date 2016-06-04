@@ -5,6 +5,11 @@
 #include "pqevent.h"
 
 #define PQOBJECT_STANDARD_METHODS(Q,QQ) \
+    QObject *P##Q::__pq_thisPtr = Q_NULLPTR;\
+    void P##Q::__pq_setThisPtr(QObject *o) {\
+        __pq_thisPtr = o;\
+    }\
+    \
     QString P##Q::objectName() \
     { \
         return QObject::objectName(); \

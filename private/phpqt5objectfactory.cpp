@@ -229,6 +229,8 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
     pqobject->isinit = true;
     pqobject->qo_sptr = qobject;
 
+    QMetaObject::invokeMethod(qobject, "__pq_setThis", Q_ARG(QObject*, qobject));
+
     connect(qobject, SIGNAL(destroyed(QObject*)),
             this, SLOT(s_freeObject(QObject*)));
 
@@ -241,7 +243,6 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
     }
 
     m_objects.insert(qobject, Z_OBJ_P(pzval));
-
     {
 #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
         PQDBGLPUP("update properties");
@@ -268,11 +269,8 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
         }
         */
 
-
-
         zval *zsignals, rv;
         zsignals = zend_read_property(Z_OBJCE_P(pzval), pzval, "signals", 7, 1, &rv);
-
 
         switch(Z_TYPE_P(zsignals)) {
         case IS_ARRAY: {

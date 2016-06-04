@@ -229,7 +229,7 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
     pqobject->isinit = true;
     pqobject->qo_sptr = qobject;
 
-    QMetaObject::invokeMethod(qobject, "__pq_setThis", Q_ARG(QObject*, qobject));
+    QMetaObject::invokeMethod(qobject, "__pq_setThisPtr", Q_ARG(QObject*, qobject));
 
     connect(qobject, SIGNAL(destroyed(QObject*)),
             this, SLOT(s_freeObject(QObject*)));

@@ -1,5 +1,4 @@
 PQ_PHP_VERSION=7.0.4
-#PHP_SRC_PATH="D:/php-sdk/phpdev/vc14/x86/php-$${PQ_PHP_VERSION}-src"
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 
 # for Windows only
@@ -11,8 +10,8 @@ DEFINES += WIN32
 #DEFINES += PTHREADS
 
 # use this define for debug messages
-#DEFINES += PQDEBUG
-#DEFINES += PQDETAILEDDEBUG
+DEFINES += PQDEBUG
+DEFINES += PQDETAILEDDEBUG
 DEFINES += PQSTATIC
 
 DEFINES += ZEND_ENABLE_STATIC_TSRMLS_CACHE
@@ -25,15 +24,9 @@ INCLUDEPATH += \
     $${PHP_SRC_PATH}/ext/standard\
     private
 
-#LIBS += "$${PHP_SRC_PATH}/Release_TS/php7ts.dll"
-#LIBS += -L"$${PHP_SRC_PATH}/Release_TS/" -lphp7ts
 LIBS += -L"$${PHP_SRC_PATH}/dev/" -lphp7ts
 INCLUDEPATH += "$${PHP_SRC_PATH}/dev"
 DEPENDPATH += "$${PHP_SRC_PATH}/dev"
-
-
-#INCLUDEPATH += D:/pqengine/extensions/pqengine-widgets
-#LIBS += -L"D:/pqengine/extensions/build-pqengine-widgets-Desktop_Qt_5_6_0_MSVC2015_32bit-Release/release" -lpqengine-widgets
 
 ##########################################
 ##########################################
@@ -50,7 +43,7 @@ TEMPLATE = lib
 CONFIG += c++11 qt staticlib
 
 DEFINES += ZTS
-DEFINES += "ZEND_DEBUG=0" # need for PHP 5.4.45
+DEFINES += "ZEND_DEBUG=0"
 
 MOC_DIR = .moc
 OBJECTS_DIR = .obj

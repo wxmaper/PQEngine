@@ -29,12 +29,6 @@ QList< QHash<QString, pq_access_function_entry> > PHPQt5::acceptedPHPSlots_list;
 QHash<int, pq_event_wrapper> PHPQt5::pq_eventHash;
 QStringList PHPQt5::mArguments;
 
-typedef struct _pq_call_qo_entry {
-    QObject *qo;
-    zval *zv;
-    bool before_have_parent;
-} pq_call_qo_entry;
-
 #define PQ_TEST_CLASS(classname) qo_sender->metaObject()->className() == QString(classname)
 #define PQ_CREATE_PHP_CONN(classname) phpqt5Connections->createPHPConnection<classname>(zo_sender, qo_sender, signal, z_receiver, slot)
 
@@ -682,7 +676,7 @@ PQAPI bool PHPQt5::pq_test_ce(zval *pzval PQDBG_LVL_DC)
     return false;
 }
 
-void PHPQt5::pq_call_with_return(QObject *qo,
+int PHPQt5::pq_call_with_return(QObject *qo,
                                  const char *method,
                                  zval *pzval,
                                  INTERNAL_FUNCTION_PARAMETERS
@@ -697,6 +691,8 @@ void PHPQt5::pq_call_with_return(QObject *qo,
     pq_return_qvariant(retVal, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
 
     PQDBG_LVL_DONE();
+
+    return SUCCESS;
 }
 
 QVariant PHPQt5::pq_call(QObject *qo,
@@ -1055,19 +1051,19 @@ void PHPQt5::pq_return_qvariant(const QVariant &retVal,
     RETVAL_ZVAL(&ret_pzval, 1, 0);
 }
 
-bool PHPQt5::pq_set_parent(QObject *qo, zval *pzval PQDBG_LVL_DC)
+bool PHPQt5::pq_set_parent(QObject *qo, zval *zobject_parent PQDBG_LVL_DC)
 {
-#ifdef PQDEBUG
-    PQDBG_LVL_PROCEED(__FUNCTION__);
-#endif
+    #ifdef PQDEBUG
+        PQDBG_LVL_PROCEED(__FUNCTION__);
+    #endif
 
-    HashPosition pos;
-    zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(pzval), &pos);
+   // HashPosition pos;
+   // zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(pzval), &pos);
 
-    zval *ppzval_object = zend_hash_get_current_data_ex(Z_ARRVAL_P(pzval), &pos);
+   // zval *ppzval_object = zend_hash_get_current_data_ex(Z_ARRVAL_P(pzval), &pos);
 
-    if(Z_TYPE_P(ppzval_object) == IS_OBJECT) {
-        zend_class_entry *parent_ce = Z_OBJCE_P(ppzval_object);
+    if(Z_TYPE_P(zobject_parent) == IS_OBJECT) {
+        zend_class_entry *parent_ce = Z_OBJCE_P(zobject_parent);
 
         while(!objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(parent_ce->name->val)
               && parent_ce->parent != NULL)
@@ -1076,23 +1072,24 @@ bool PHPQt5::pq_set_parent(QObject *qo, zval *pzval PQDBG_LVL_DC)
         }
 
         if(objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(parent_ce->name->val)) {
-            QObject *parent_qo = objectFactory()->getQObject(ppzval_object PQDBG_LVL_CC);
+            QObject *parent_qo = objectFactory()->getQObject(zobject_parent PQDBG_LVL_CC);
 
             if(parent_qo != nullptr) {
                 qo->setParent(parent_qo);
-
+                PQDBGLPUP("Set new parent");
                 PQDBG_LVL_DONE();
                 return true;
             }
             else {
-                qo->setParent(0);
+                PQDBGLPUP("Unset parent");
+                qo->setParent(Q_NULLPTR);
             }
         }
     }
-    else if(Z_TYPE_P(ppzval_object) == IS_LONG
-            || Z_TYPE_P(ppzval_object) == IS_NULL) {
-        qo->setParent(0);
-
+    else if((Z_TYPE_P(zobject_parent) == IS_LONG && Z_LVAL_P(zobject_parent) == 0)
+            || Z_TYPE_P(zobject_parent) == IS_NULL) {
+        qo->setParent(Q_NULLPTR);
+        PQDBGLPUP("Unset parent");
         PQDBG_LVL_DONE();
         return true;
     }
@@ -1293,22 +1290,22 @@ bool PHPQt5::pq_connect(zval *z_sender,
 }
 
 bool PHPQt5::pq_move_to_thread(QObject *qo,
-                               zval *pzval
+                               zval *zobject_thread
                                PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
-    HashPosition pos;
-    zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(pzval), &pos);
+   // HashPosition pos;
+   // zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(pzval), &pos);
 
     /*
      * Первый параметр должен быть объектом QThread
      */
-    zval *ppzval = zend_hash_get_current_data_ex(Z_ARRVAL_P(pzval), &pos);
-    if(Z_TYPE_P(ppzval) == IS_OBJECT) {
-        zend_class_entry *ce_thread = Z_OBJCE_P(ppzval);
+   // zval *ppzval = zend_hash_get_current_data_ex(Z_ARRVAL_P(pzval), &pos);
+    if(Z_TYPE_P(zobject_thread) == IS_OBJECT) {
+        zend_class_entry *ce_thread = Z_OBJCE_P(zobject_thread);
         QString qt_class_name = QString(ce_thread->name->val);
 
         if(qt_class_name != "QThread") {
@@ -1331,7 +1328,7 @@ bool PHPQt5::pq_move_to_thread(QObject *qo,
         return false;
     }
 
-    QObject *thread_qo = objectFactory()->getQObject(ppzval PQDBG_LVL_CC);
+    QObject *thread_qo = objectFactory()->getQObject(zobject_thread PQDBG_LVL_CC);
     if(thread_qo != nullptr)
     {
        // void *new_ctx;

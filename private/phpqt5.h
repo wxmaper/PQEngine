@@ -49,6 +49,12 @@ typedef struct pqobject_wrapper {
     zend_object zo;
 } PQObjectWrapper;
 
+typedef struct _pq_call_qo_entry {
+    QObject *qo;
+    zval *zv;
+    bool before_have_parent;
+} pq_call_qo_entry;
+
 typedef struct _pq_access_function_entry {
     QString fn_name;
     zval *zfn_name;
@@ -131,6 +137,9 @@ public:
     /* HANDLERS */
     static zend_object *    pqobject_create(zend_class_entry *class_type);
     static void             pqobject_free_storage(zend_object *object);
+    static int              pqobject_call_method(zend_string *method, zend_object *object, INTERNAL_FUNCTION_PARAMETERS);
+    static zend_function *  pqobject_get_method(zend_object **zobject, zend_string *method, const zval *key);
+
     static zval *           pqobject_get_property_ptr_ptr(zval *object,
                                                           zval *member,
                                                           int type,
@@ -271,7 +280,7 @@ public:
         static zend_function_entry instance[] = {
             ZEND_ME(pqobject, __construct, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __destruct, NULL, ZEND_ACC_PUBLIC)
-            ZEND_ME(pqobject, __call, phpqt5__call, ZEND_ACC_PUBLIC)
+            // ZEND_ME(pqobject, __call, phpqt5__call, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __set, phpqt5__set, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __get, phpqt5__get, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __toString, NULL, ZEND_ACC_PUBLIC)
@@ -279,13 +288,13 @@ public:
             ZEND_ME(pqobject, qobjInfo, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, qobjProperties, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, qobjMethods, NULL, ZEND_ACC_PUBLIC)
-            //ZEND_ME(pqobject, qobjSignals, NULL, ZEND_ACC_PUBLIC)
+            // ZEND_ME(pqobject, qobjSignals, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, qobjOnSignals, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, free, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, setEventListener, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, children, NULL, ZEND_ACC_PUBLIC)
-            //ZEND_ME(pqobject, emit, NULL, ZEND_ACC_PUBLIC)
-            //ZEND_FENTRY(emit, ZEND_MN(pqobject_emit), NULL, ZEND_ACC_PUBLIC)
+            // ZEND_ME(pqobject, emit, NULL, ZEND_ACC_PUBLIC)
+            // ZEND_FENTRY(emit, ZEND_MN(pqobject_emit), NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, declareSignal, NULL, ZEND_ACC_PUBLIC)
             { "emit", ZEND_MN(pqobject_emit), NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), ZEND_ACC_PUBLIC },
             ZEND_FE_END
@@ -365,15 +374,15 @@ public:
 private:
     static QVariant         pq_call(QObject *qo, const char *method, zval *pzval PQDBG_LVL_DC);
     static QVariant         pq_call(QObject *qo, const char *method, QVariantList args PQDBG_LVL_DC);
-    static void             pq_call_with_return(QObject *qo, const char *method, zval *pzval, INTERNAL_FUNCTION_PARAMETERS PQDBG_LVL_DC);
+    static int              pq_call_with_return(QObject *qo, const char *method, zval *pzval, INTERNAL_FUNCTION_PARAMETERS PQDBG_LVL_DC);
 
     static void             pq_return_qvariant(const QVariant &retVal, INTERNAL_FUNCTION_PARAMETERS PQDBG_LVL_DC);
     static void             pq_set_user_property(QObject *qo, const QString &property, const QVariant &value PQDBG_LVL_DC);
 
-    static bool             pq_set_parent(QObject *qo, zval *pzval PQDBG_LVL_DC);
+    static bool             pq_set_parent(QObject *qo, zval *zobject_parent PQDBG_LVL_DC);
     static bool             pq_connect_ex(zval *zobj_ptr, zval *pzval PQDBG_LVL_DC);
     static bool             pq_connect(zval *z_sender, zval *z_signal, zval *z_receiver, zval *z_slot, bool cDisconnect PQDBG_LVL_DC);
-    static bool             pq_move_to_thread(QObject *qo, zval *pzval PQDBG_LVL_DC);
+    static bool             pq_move_to_thread(QObject *qo, zval *zobject_thread PQDBG_LVL_DC);
     static zval             pq_get_child_objects(QObject *qo, zval *pzval PQDBG_LVL_DC);
     static void             pq_emit(QObject *qo, const QByteArray signalSignature, zval *args);
 
@@ -384,7 +393,7 @@ private:
 
     static void             zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___destruct(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS);
+    // static void             zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS);

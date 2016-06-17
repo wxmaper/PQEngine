@@ -214,7 +214,10 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     pqobject_handlers.offset = XtOffsetOf(PQObjectWrapper, zo);
 
     pqobject_handlers.free_obj = pqobject_free_storage;
+    pqobject_handlers.call_method = pqobject_call_method;
+    pqobject_handlers.get_method = pqobject_get_method;
     pqobject_handlers.clone_obj = NULL;
+
    // pqobject_handlers.get_property_ptr_ptr = pqobject_get_property_ptr_ptr;
 
    // pqobject_handlers.get_properties = pqobject_get_properties;

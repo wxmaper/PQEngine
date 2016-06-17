@@ -63,6 +63,211 @@ void PHPQt5::pqobject_free_storage(zend_object *object) {
     PQDBG_LVL_DONE();
 }
 
+int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTERNAL_FUNCTION_PARAMETERS)
+{
+    #ifdef PQDEBUG
+        PQDBG_LVL_START(__FUNCTION__);
+        PQDBGLPUP(QString("%1->%2").arg(Z_OBJCE_P(getThis())->name->val).arg(method->val));
+    #endif
+
+    QObject *qo = objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
+
+    const int argc = ZEND_NUM_ARGS();
+    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+
+    if(zend_get_parameters_array_ex(argc, args) == FAILURE)
+    {
+        efree(args);
+        zend_wrong_param_count();
+        return FAILURE;
+    }
+
+    QList<pq_call_qo_entry> arg_qos;
+    bool this_before_have_parent = qo->parent() ? true : false;
+
+    // Список "опасных" методов: moveToThread, getChildObjects
+    // В версии 0.3.* вызывали падение при обращении напрямую,
+    // В новых версиях не тестировалось :-)
+    // connect() - вспомогательный
+
+    /*
+     * Вызов метода moveToThread( ... )
+     */
+    if(method->val == QString("moveToThread")) {
+        if(argc != 1) {
+            efree(args);
+            zend_wrong_param_count();
+            PQDBG_LVL_DONE();
+            return FAILURE;
+        }
+
+        RETVAL_BOOL( pq_move_to_thread(qo, &args[0] PQDBG_LVL_CC) );
+        PQDBG_LVL_DONE();
+        return SUCCESS;
+    }
+
+    /*
+     * Вызов метода getChildObjects()
+     */
+    else if(method->val == QString("getChildObjects")) {
+        if(argc != 0) {
+            efree(args);
+            zend_wrong_param_count();
+            PQDBG_LVL_DONE();
+            return FAILURE;
+        }
+
+        zval z_childs = pq_get_child_objects(qo, &args[0] PQDBG_LVL_CC);
+        RETVAL_ZVAL(&z_childs, 1, 0);
+        PQDBG_LVL_DONE();
+        return SUCCESS;
+    }
+
+    /*
+     * Вызов метода connect( ... )
+     */
+    else if(method->val == QString("connect")) {
+        if(argc != 4) {
+            efree(args);
+            zend_wrong_param_count();
+
+            PQDBG_LVL_DONE();
+            return FAILURE;
+        }
+
+        bool ok = pq_connect(&args[0], &args[1], &args[2], &args[3], false PQDBG_LVL_CC);
+        RETVAL_BOOL(ok);
+        PQDBG_LVL_DONE();
+        return SUCCESS;
+    }
+
+    /*
+     * Вызов иного метода
+     */
+    else {
+
+        QVariantList vargs;
+
+        for(int i = 0; i < argc; i++) {
+            switch(Z_TYPE(args[i])) {
+            case IS_TRUE:
+                vargs << QVariant( true );
+                break;
+
+            case IS_FALSE:
+                vargs << QVariant( false );
+                break;
+
+            case IS_STRING: {
+                // определение типа данных
+                QString str = QString::fromLatin1(Z_STRVAL(args[i]));
+
+                if(str.length() == Z_STR(args[i])->len)
+                    vargs << QString::fromUtf8(Z_STRVAL(args[i])); // возврат к utf8
+                else
+                    vargs << QByteArray::fromRawData(Z_STRVAL(args[i]), Z_STR(args[i])->len);
+                break;
+            }
+
+            case IS_LONG:
+                vargs << QVariant( (int) Z_LVAL(args[i]) );
+                break;
+
+            case IS_DOUBLE:
+                vargs << QVariant( Z_DVAL(args[i]) );
+                break;
+
+            case IS_OBJECT: {
+                if(pq_test_ce(&args[i] PQDBG_LVL_CC)) {
+                    QObject *arg_qo = objectFactory()->getQObject(&args[i] PQDBG_LVL_CC);
+                    vargs << QVariant::fromValue<QObject*>( arg_qo );
+
+                    bool before_have_parent = arg_qo->parent() ? true : false;
+                    arg_qos << pq_call_qo_entry { arg_qo, &args[i], before_have_parent };
+                }
+                else {
+                    zend_function *closure = zend_get_closure_invoke_method(Z_OBJ(args[i]));
+
+                    Z_ADDREF(args[i]);
+                    if(closure) {
+                        PQClosure pqc = { reinterpret_cast<void*>( Z_OBJ(args[i]) ) };
+                        vargs << QVariant::fromValue<PQClosure>( pqc );
+                    }
+                    else php_error(E_ERROR, QString("Unknown type of argument %1").arg(i).toUtf8().constData());
+                }
+
+                break;
+            }
+
+            case IS_ARRAY:
+                vargs << pq_ht_to_qstringlist(&args[i] PQDBG_LVL_CC);
+                break;
+
+            case IS_NULL: {
+                pq_nullptr nptr;
+                vargs << QVariant::fromValue<pq_nullptr>(nptr);
+                break;
+            }
+
+            default:
+                php_error(E_ERROR, QString("Unknown type of argument %1").arg(i).toUtf8().constData());
+            }
+        }
+
+        QVariant retVal = pq_call(qo, method->val, vargs PQDBG_LVL_CC);
+        pq_return_qvariant(retVal, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
+    }
+
+    arg_qos << pq_call_qo_entry { qo, getThis(), this_before_have_parent };
+
+    foreach(pq_call_qo_entry cqe, arg_qos) {
+        bool after_have_parent = cqe.qo->parent();
+        bool before_have_parent = cqe.before_have_parent;
+
+        // не было родителя и появился
+        if(!before_have_parent && after_have_parent) {
+            Z_ADDREF_P(cqe.zv);
+        }
+        // был родитель и не стало
+        else if(before_have_parent && !after_have_parent) {
+            Z_DELREF_P(cqe.zv);
+        }
+    }
+
+    PQDBG_LVL_DONE();
+    return SUCCESS;
+}
+
+zend_function *PHPQt5::pqobject_get_method(zend_object **zobject, zend_string *method, const zval *key)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("%1->%2").arg((*zobject)->ce->name->val).arg(method->val));
+#endif
+
+    zend_internal_function f, *fptr = NULL;
+    zend_function *func;
+
+    func = zend_get_std_object_handlers()->get_method(zobject, method, key);
+    if(!func) {
+        f.type = ZEND_OVERLOADED_FUNCTION;
+        f.num_args = 0;
+        f.arg_info = NULL;
+        f.scope = (*zobject)->ce;
+        f.fn_flags = ZEND_ACC_CALL_VIA_HANDLER;
+        f.function_name = zend_string_copy(method);
+        zend_set_function_arg_flags(((zend_function*)&f));
+        fptr = &f;
+
+        func = (zend_function*) emalloc(sizeof(*fptr));
+        memcpy(func, fptr, sizeof(*fptr));
+    }
+
+    PQDBG_LVL_DONE();
+
+    return func;
+}
+
 
 zval *PHPQt5::pqobject_get_property_ptr_ptr(zval *object,
                                             zval *member,

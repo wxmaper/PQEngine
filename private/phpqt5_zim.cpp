@@ -183,6 +183,8 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
 #endif
 }
 
+/*
+ * Похоже, что устарело...
 void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
 {
 #ifdef PQDEBUG
@@ -210,7 +212,7 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
     if(qo != nullptr) {
         /*
          * Вызов метода setParent( ... )
-         */
+         *
         if(method == QString("setParent")) {
             PQDBG_LVL_DONE();
             RETURN_BOOL( pq_set_parent(qo, pzval PQDBG_LVL_CC) );
@@ -218,7 +220,7 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
 
         /*
          * Вызов метода connect( ... )
-         */
+         *
         if(method == QString("connect")) {
             PQDBG_LVL_DONE();
             RETURN_BOOL( pq_connect_ex(getThis(), pzval PQDBG_LVL_CC) )
@@ -226,7 +228,7 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
 
         /*
          * Вызов метода moveToThread( ... )
-         */
+         *
         else if(method == QString("moveToThread")) {
             PQDBG_LVL_DONE();
             RETURN_BOOL( pq_move_to_thread(qo, pzval PQDBG_LVL_CC) )
@@ -234,7 +236,7 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
 
         /*
          * Вызов метода getChildObjects()
-         */
+         *
         else if(method == QString("getChildObjects")) {
             zval z_childs = pq_get_child_objects(qo, pzval PQDBG_LVL_CC);
             #ifdef PQDEBUG
@@ -246,7 +248,7 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
 
         /*
          * Вызов иного метода....
-         */
+         *
         else {
             pq_call_with_return(qo, method, pzval, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
         }
@@ -259,7 +261,7 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
     }
 
     PQDBG_LVL_DONE();
-}
+}*/
 
 void PHPQt5::zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS)
 {

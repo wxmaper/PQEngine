@@ -17,14 +17,6 @@
 #include "pqclasses.h"
 #include "phpqt5.h"
 
-/*
-QHash<QObject*, int> PHPQt5::acceptedPHPSlots_indexes;
-QList< QHash<QString, pq_access_function_entry> > PHPQt5::acceptedPHPSlots_list;
-QHash<int, pq_event_wrapper> PHPQt5::pq_eventHash;
-QHash<QString, pq_access_function_entry> PHPQt5::acceptedPHPFunctions;
-QStringList PHPQt5::mArguments;
-*/
-
 QHash<QObject*,EventListenerEntry> PHPQt5::eventListeners;
 
 void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
@@ -183,86 +175,6 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
 #endif
 }
 
-/*
- * Похоже, что устарело...
-void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
-{
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-#endif
-
-    char* method;
-    int method_len;
-    zval *pzval;
-
-    if (zend_parse_parameters(ZEND_NUM_ARGS(), "sz", &method, &method_len, &pzval) == FAILURE) {
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
-
-        return;
-    }
-
-#ifdef PQDEBUG
-    PQDBGLPUP(QString("%1->%2").arg(Z_OBJCE_P(getThis())->name->val).arg(method));
-#endif
-
-    QObject *qo = objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
-
-    if(qo != nullptr) {
-        /*
-         * Вызов метода setParent( ... )
-         *
-        if(method == QString("setParent")) {
-            PQDBG_LVL_DONE();
-            RETURN_BOOL( pq_set_parent(qo, pzval PQDBG_LVL_CC) );
-        }
-
-        /*
-         * Вызов метода connect( ... )
-         *
-        if(method == QString("connect")) {
-            PQDBG_LVL_DONE();
-            RETURN_BOOL( pq_connect_ex(getThis(), pzval PQDBG_LVL_CC) )
-        }
-
-        /*
-         * Вызов метода moveToThread( ... )
-         *
-        else if(method == QString("moveToThread")) {
-            PQDBG_LVL_DONE();
-            RETURN_BOOL( pq_move_to_thread(qo, pzval PQDBG_LVL_CC) )
-        }
-
-        /*
-         * Вызов метода getChildObjects()
-         *
-        else if(method == QString("getChildObjects")) {
-            zval z_childs = pq_get_child_objects(qo, pzval PQDBG_LVL_CC);
-            #ifdef PQDEBUG
-                PQDBG_LVL_DONE();
-            #endif
-
-            RETURN_ZVAL(&z_childs, 1, 0);
-        }
-
-        /*
-         * Вызов иного метода....
-         *
-        else {
-            pq_call_with_return(qo, method, pzval, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
-        }
-    }
-    else {
-#ifdef PQDEBUG
-        PQDBGLPUP("ERROR: NULL POINT OF QOBJECT");
-        ZVAL_NULL(return_value);
-#endif
-    }
-
-    PQDBG_LVL_DONE();
-}*/
-
 void PHPQt5::zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS)
 {
 #ifdef PQDEBUG
@@ -417,31 +329,32 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
 
                     //if(qo->setProperty(property, QVariant::fromValue<QObject*>(arg_qo))) {
                     qo->setProperty(property, QVariant::fromValue<QObject*>(arg_qo));
-                        bool after_have_parent = arg_qo->parent() ? true : false;
-                        bool this_after_have_parent = qo->parent() ? true : false;
+                    bool after_have_parent = arg_qo->parent() ? true : false;
+                    bool this_after_have_parent = qo->parent() ? true : false;
 
-                        // не было родителя и появился
-                        if(!before_have_parent
-                                && after_have_parent) {
-                            Z_ADDREF_P(pzval);
-                        }
-                        // был родитель и не стало
-                        else if(before_have_parent
-                                && !after_have_parent) {
-                            Z_DELREF_P(pzval);
-                        }
+                    // не было родителя и появился
+                    if(!before_have_parent
+                            && after_have_parent) {
+                        Z_ADDREF_P(pzval);
+                    }
+                    // был родитель и не стало
+                    else if(before_have_parent
+                            && !after_have_parent) {
+                        Z_DELREF_P(pzval);
+                    }
 
-                        // не было родителя и появился
-                        if(!this_before_have_parent
-                                && this_after_have_parent) {
-                            Z_ADDREF_P(getThis());
-                        }
-                        // был родитель и не стало
-                        else if(this_before_have_parent
-                                && !this_after_have_parent) {
-                            Z_DELREF_P(getThis());
-                        }
-                        break;
+                    // не было родителя и появился
+                    if(!this_before_have_parent
+                            && this_after_have_parent) {
+                        Z_ADDREF_P(getThis());
+                    }
+                    // был родитель и не стало
+                    else if(this_before_have_parent
+                            && !this_after_have_parent) {
+                        Z_DELREF_P(getThis());
+                    }
+
+                    break;
                     //}
 
                     /*
@@ -466,6 +379,7 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
                 PQDBG_LVL_DONE();
                 RETURN_FALSE;
             }
+
             break;
         }
 
@@ -628,7 +542,6 @@ void PHPQt5::zim_pqobject___destruct(INTERNAL_FUNCTION_PARAMETERS)
               .arg(Z_OBJ_HANDLE_P(getThis())));
 #endif
 
-    //zim_pqobject_free(INTERNAL_FUNCTION_PARAM_PASSTHRU);
     if(zend_parse_parameters(ZEND_NUM_ARGS(), "")) {
         PQDBG_LVL_DONE();
         return;
@@ -929,7 +842,6 @@ void PHPQt5::zim_pqobject_free(INTERNAL_FUNCTION_PARAMETERS)
               .arg(Z_OBJ_HANDLE_P(getThis())));
 #endif
 
-    //zval_dtor(getThis());
     zim_pqobject___destruct(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 
     PQDBG_LVL_DONE();
@@ -1031,12 +943,8 @@ void PHPQt5::zim_pqobject_children(INTERNAL_FUNCTION_PARAMETERS)
 
             zval pzval = objectFactory()->getZObject(child PQDBG_LVL_CC);
             if(Z_TYPE(pzval) == IS_OBJECT) {
-
-            //if(pzval != NULL) {
-               // add_index_zval(&array, index, &pzval);
                 add_next_index_zval(&array, &pzval);
                 index++;
-            //}
             }
         }
     }

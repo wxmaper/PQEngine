@@ -166,10 +166,8 @@ public:
     static void             zif_connect(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_disconnect(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_c(INTERNAL_FUNCTION_PARAMETERS);
-    //static void             zif_widgetAt(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_tr(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS);
-   // static void             zif_mousePos(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_setQStringCodePage(INTERNAL_FUNCTION_PARAMETERS);
 
@@ -205,7 +203,6 @@ public:
             PHP_FE(c, NULL)
             PHP_FE(tr, NULL)
             PHP_FE(set_tr_lang, NULL)
-            //PHP_FE(mousePos, NULL)
             PHP_FE(setQStringCodePage, NULL)
             PHP_FE(aboutPQ, NULL)
             PHP_FE(pqread, NULL)
@@ -256,17 +253,6 @@ public:
         return instance;
     }
 
-    /*
-    static zend_function_entry *phpqt5_qobjectlist_methods() {
-        static zend_function_entry instance[] = {
-            ZEND_ME(qobjectlist, __call, NULL, ZEND_ACC_PUBLIC)
-            ZEND_ME(qobjectlist, __set, NULL, ZEND_ACC_PUBLIC)
-            ZEND_FE_END
-        };
-        return instance;
-    }
-    */
-
     static zend_function_entry *phpqt5_qApp_methods() {
         static zend_function_entry instance[] = {
             ZEND_ME(qApp, __callStatic, phpqt5__call, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
@@ -280,7 +266,6 @@ public:
         static zend_function_entry instance[] = {
             ZEND_ME(pqobject, __construct, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __destruct, NULL, ZEND_ACC_PUBLIC)
-            // ZEND_ME(pqobject, __call, phpqt5__call, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __set, phpqt5__set, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __get, phpqt5__get, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __toString, NULL, ZEND_ACC_PUBLIC)
@@ -293,67 +278,14 @@ public:
             ZEND_ME(pqobject, free, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, setEventListener, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, children, NULL, ZEND_ACC_PUBLIC)
-            // ZEND_ME(pqobject, emit, NULL, ZEND_ACC_PUBLIC)
-            // ZEND_FENTRY(emit, ZEND_MN(pqobject_emit), NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, declareSignal, NULL, ZEND_ACC_PUBLIC)
             { "emit", ZEND_MN(pqobject_emit), NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), ZEND_ACC_PUBLIC },
             ZEND_FE_END
         };
 
-
-//#define ZEND_FENTRY(zend_name, name, arg_info, flags)
-     //   { #zend_name, name, arg_info, (uint32_t) (sizeof(arg_info)/sizeof(struct _zend_internal_arg_info)-1), flags },
-
-//#define ZEND_ME(classname, name, arg_info, flags)
-//        ZEND_FENTRY(name, ZEND_MN(classname##_##name), arg_info, flags)
-
         return instance;
     }
 
-/*
-    static php_stream_wrapper_ops *qrc_wops() {
-        static php_stream_wrapper_ops wrapper_ops = {
-            qrc_opener,
-            NULL, //* close
-            NULL, //* fstat
-            NULL, //* stat
-            NULL, //* opendir
-            "qrc wrapper",
-            NULL, //* unlink
-            NULL, //* rename
-            NULL, //* mkdir
-            NULL  //* rmdir
-        };
-
-        return &wrapper_ops;
-    }
-
-    static php_stream_wrapper *qrc_wrapper() {
-        static php_stream_wrapper wrapper = {
-            qrc_wops(),
-            NULL,
-            0
-        };
-
-        return &wrapper;
-    }
-
-    static php_stream_ops *qrc_ops() {
-        php_stream_ops stream_ops = {
-            php_qrc_write,
-            php_qrc_read,
-            php_qrc_close,
-            php_qrc_flush,
-            "qrc",
-            NULL,
-            NULL,
-            NULL,
-            NULL
-        };
-
-        return &stream_ops;
-    }
-*/
     static size_t php_qrc_read(php_stream *stream, char *buf, size_t count);
 
     static int php_qrc_close(php_stream *stream, int close_handle);
@@ -393,7 +325,6 @@ private:
 
     static void             zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___destruct(INTERNAL_FUNCTION_PARAMETERS);
-    // static void             zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS);

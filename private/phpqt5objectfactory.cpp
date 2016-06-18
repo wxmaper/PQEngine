@@ -267,26 +267,18 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
         zend_update_property_long(Z_OBJCE_P(pzval), pzval, "uid", sizeof("uid")-1, reinterpret_cast<quint64>(qobject));
         zend_update_property_long(Z_OBJCE_P(pzval), pzval, "zhandle", sizeof("zhandle")-1, Z_OBJ_HANDLE_P(pzval));
 
-        /*
-        {
-            int is_tmp;
-            HashTable *objht = Z_OBJDEBUG_P(pzval, is_tmp);
-
-            zval uid;
-            ZVAL_LONG(&uid, reinterpret_cast<quint32>(qobject));
-            zend_string *uid_str = zend_string_init("uid", sizeof("uid")-1, 0);
-
-            zval zhandle;
-            ZVAL_LONG(&zhandle, Z_OBJ_HANDLE_P(pzval));
-            zend_string *zhandle_str = zend_string_init("zhandle", sizeof("zhandle")-1, 0);
-
-            zend_hash_add(objht, uid_str, &uid);
-            zend_hash_add(objht, zhandle_str, &zhandle);
-        }
-        */
-
         zval *zsignals, rv;
         zsignals = zend_read_property(Z_OBJCE_P(pzval), pzval, "signals", 7, 1, &rv);
+
+        /*
+        zval member;
+        ZVAL_STRINGL(&member, "signals", 7);
+        zend_object_handlers *std_hnd = zend_get_std_object_handlers();
+        zsignals = std_hnd->read_property(pzval, &member, BP_VAR_IS, NULL, &rv);
+        zval_ptr_dtor(&member);
+        */
+
+        zval_ptr_dtor(&rv);
 
         switch(Z_TYPE_P(zsignals)) {
         case IS_ARRAY: {
@@ -300,7 +292,7 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
                 else {
                     zend_wrong_paramer_type_error(index, zend_expected_type(IS_STRING), zsignal);
                     php_error(E_ERROR, QString("Error loading signals for `<b>%1</b>`%2"
-                                               "%3::signals expects value %4 to be String")
+                                               "%3::signals expects value %4 to be string")
                               .arg(Z_OBJCE_P(pzval)->name->val)
                               .arg(PHP_EOL)
                               .arg(Z_OBJCE_P(pzval)->name->val)
@@ -316,7 +308,7 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
 
         default:
             php_error(E_ERROR, QString("Cannot prepare signals for `<b>%1</b>`%2"
-                                       "%3::signals expects parameter to be Array")
+                                       "%3::signals expects parameter to be array")
                       .arg(Z_OBJCE_P(pzval)->name->val)
                       .arg(PHP_EOL)
                       .arg(Z_OBJCE_P(pzval)->name->val)

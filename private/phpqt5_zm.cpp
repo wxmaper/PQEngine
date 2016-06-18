@@ -190,26 +190,48 @@ size_t PHPQt5::php_qrc_read(php_stream *stream, char *buf, size_t count)
     return read_bytes;
 }
 
+static void phpqt5_error_handler(int error_num, const char *error_filename, const uint error_lineno, const char *format, va_list args) {
+    QString error_type;
+
+    switch(error_num) {
+    case E_ERROR: error_type = "Error"; break;
+    case E_WARNING: error_type = "Warning"; break;
+    case E_CORE_ERROR: error_type = "Core Error"; break;
+    case E_CORE_WARNING: error_type = "Core Warning"; break;
+    case E_COMPILE_ERROR: error_type = "Compile Error"; break;
+    case E_COMPILE_WARNING: error_type = "Compile Warning"; break;
+    case E_USER_ERROR: error_type = "User Error"; break;
+    case E_USER_WARNING: error_type = "User Warning"; break;
+    case E_RECOVERABLE_ERROR: error_type = "Recoverable Error"; break;
+    default: return;
+    }
+
+    pq_pre(QString("<b>%1</b>: %2 in <b>%3</b> on line <b>%4</b>")
+           .arg(error_type)
+           .arg(format)
+           .arg(error_filename)
+           .arg(error_lineno),
+           error_type);
+}
+
 int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    zend_error_cb = phpqt5_error_handler; //
+
     qRegisterMetaType<zval>("zval");
     qRegisterMetaType<zval*>("zval*");
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("register stream wrapper");
-    #endif
     php_register_url_stream_wrapper("qrc", &php_qrc_stream_wrapper);
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("register handlers");
-    #endif
     memcpy(&pqobject_handlers,
-           zend_get_std_object_handlers(),
-           sizeof(zend_object_handlers));
+    zend_get_std_object_handlers(),
+    sizeof(zend_object_handlers));
 
     pqobject_handlers.offset = XtOffsetOf(PQObjectWrapper, zo);
 
@@ -224,17 +246,11 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
    // pqobject_handlers.read_property	= pqobject_read_property;
    // pqobject_handlers.has_property	= pqobject_has_property;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("register extensions");
-    #endif
     PQEnginePrivate::pq_register_extensions(PQDBG_LVL_C);
     phpqt5Connections = new PHPQt5Connection(PQDBG_LVL_C);
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-    PQDBGLPUP("done");
-    #endif
-
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
     return SUCCESS;
 }
 

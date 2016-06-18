@@ -1297,13 +1297,6 @@ bool PHPQt5::pq_move_to_thread(QObject *qo,
     PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
-   // HashPosition pos;
-   // zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(pzval), &pos);
-
-    /*
-     * Первый параметр должен быть объектом QThread
-     */
-   // zval *ppzval = zend_hash_get_current_data_ex(Z_ARRVAL_P(pzval), &pos);
     if(Z_TYPE_P(zobject_thread) == IS_OBJECT) {
         zend_class_entry *ce_thread = Z_OBJCE_P(zobject_thread);
         QString qt_class_name = QString(ce_thread->name->val);
@@ -1331,17 +1324,6 @@ bool PHPQt5::pq_move_to_thread(QObject *qo,
     QObject *thread_qo = objectFactory()->getQObject(zobject_thread PQDBG_LVL_CC);
     if(thread_qo != nullptr)
     {
-       // void *new_ctx;
-
-       // QMetaObject::invokeMethod(thread_qo, "get_ls_cache",
-       //                                Q_RETURN_ARG(void*, new_ctx));
-
-       // if(!new_ctx) {
-       //     php_error(E_ERROR, "Failed to move object to thread");
-       //     PQDBG_LVL_DONE();
-       //     return false;
-       // }
-
         FETCH_PQTHREAD();
 
         QThread *new_th = qobject_cast<QThread*>(thread_qo);
@@ -1362,7 +1344,7 @@ bool PHPQt5::pq_move_to_thread(QObject *qo,
 }
 
 zval PHPQt5::pq_get_child_objects(QObject *qo,
-                                  zval *pzval
+                                  bool subchilds
                                   PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
@@ -1371,43 +1353,6 @@ zval PHPQt5::pq_get_child_objects(QObject *qo,
 
     zval array;
     array_init(&array);
-
-    if(Z_TYPE_P(pzval) != IS_ARRAY) {
-        php_error(E_WARNING, "Wrong zval type for method `pq_get_child_objects(QObject *, zval *)`. Expected type: ARRAY\n");
-
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
-
-        return array;
-    }
-
-    HashPosition pos;
-    HashTable *ht = Z_ARRVAL_P(pzval);
-
-    bool subchilds;
-    if(ht->nNumOfElements == 0) {
-        subchilds = true;
-    }
-    else if(ht->nNumOfElements == 1) {
-        zend_hash_internal_pointer_reset_ex(ht, &pos);
-        zval *entry = zend_hash_get_current_data_ex(ht, &pos);
-
-        switch(Z_TYPE_P(entry)) {
-        case IS_TRUE:
-            subchilds = true;
-            break;
-
-        case IS_FALSE:
-            subchilds = false;
-            break;
-
-        default: ZEND_WRONG_PARAM_COUNT_WITH_RETVAL(array);
-        }
-    }
-    else {
-        ZEND_WRONG_PARAM_COUNT_WITH_RETVAL(array);
-    }
 
     QObjectList childs = qo->children();
 
@@ -1422,17 +1367,12 @@ zval PHPQt5::pq_get_child_objects(QObject *qo,
         zval pzval = objectFactory()->getZObject(child PQDBG_LVL_CC);
 
         if(Z_TYPE(pzval) == IS_OBJECT) {
-        //if(pzval != NULL) {
             add_index_zval(&array, index, &pzval);
             index++;
-        //}
         }
     }
 
-#ifdef PQDEBUG
     PQDBG_LVL_DONE();
-#endif
-
     return array;
 }
 

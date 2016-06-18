@@ -84,6 +84,7 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
 
     QList<pq_call_qo_entry> arg_qos;
     bool this_before_have_parent = qo->parent() ? true : false;
+    arg_qos << pq_call_qo_entry { qo, getThis(), this_before_have_parent };
 
     // Список "опасных" методов: moveToThread, getChildObjects
     // В версии 0.3.* вызывали падение при обращении напрямую,
@@ -110,14 +111,45 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
      * Вызов метода getChildObjects()
      */
     else if(method->val == QString("getChildObjects")) {
-        if(argc != 0) {
+        zval z_childs;
+
+        switch(argc) {
+        case 0: // true by default (with subchilds)
+            z_childs = pq_get_child_objects(qo, true PQDBG_LVL_CC);
+            break;
+
+        case 1:
+            if(Z_TYPE(args[0]) == IS_TRUE
+                    || (Z_TYPE(args[0]) == IS_LONG && Z_LVAL(args[0]) != 0))
+            {
+                z_childs = pq_get_child_objects(qo, true PQDBG_LVL_CC);
+            }
+            else if(Z_TYPE(args[0]) == IS_FALSE
+                    || (Z_TYPE(args[0]) == IS_LONG && Z_LVAL(args[0]) == 0))
+            {
+                z_childs = pq_get_child_objects(qo, false PQDBG_LVL_CC);
+            }
+            else {
+                zend_error(E_WARNING,
+                           QString("%1::%2() expects parameter 0 to be boolean, %3 given")
+                           .arg(Z_OBJCE_P(getThis())->name->val)
+                           .arg(method->val)
+                           .arg(zend_zval_type_name(&args[0])).toUtf8().constData());
+
+                efree(args);
+                PQDBG_LVL_DONE();
+                return FAILURE;
+            }
+
+            break;
+
+        default:
             efree(args);
             zend_wrong_param_count();
             PQDBG_LVL_DONE();
             return FAILURE;
         }
 
-        zval z_childs = pq_get_child_objects(qo, &args[0] PQDBG_LVL_CC);
         RETVAL_ZVAL(&z_childs, 1, 0);
         PQDBG_LVL_DONE();
         return SUCCESS;
@@ -145,7 +177,6 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
      * Вызов иного метода
      */
     else {
-
         QVariantList vargs;
 
         for(int i = 0; i < argc; i++) {
@@ -216,9 +247,8 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
 
         QVariant retVal = pq_call(qo, method->val, vargs PQDBG_LVL_CC);
         pq_return_qvariant(retVal, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
+        efree(args);
     }
-
-    arg_qos << pq_call_qo_entry { qo, getThis(), this_before_have_parent };
 
     foreach(pq_call_qo_entry cqe, arg_qos) {
         bool after_have_parent = cqe.qo->parent();

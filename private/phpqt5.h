@@ -315,7 +315,7 @@ private:
     static bool             pq_connect_ex(zval *zobj_ptr, zval *pzval PQDBG_LVL_DC);
     static bool             pq_connect(zval *z_sender, zval *z_signal, zval *z_receiver, zval *z_slot, bool cDisconnect PQDBG_LVL_DC);
     static bool             pq_move_to_thread(QObject *qo, zval *zobject_thread PQDBG_LVL_DC);
-    static zval             pq_get_child_objects(QObject *qo, zval *pzval PQDBG_LVL_DC);
+    static zval             pq_get_child_objects(QObject *qo, bool subchilds PQDBG_LVL_DC);
     static void             pq_emit(QObject *qo, const QByteArray signalSignature, zval *args);
 
     template <typename T>

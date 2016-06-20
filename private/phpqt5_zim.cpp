@@ -29,14 +29,12 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
               .arg(Z_OBJ_HANDLE_P(getThis())));
 #endif
 
-    void *TSRMLS_CACHE = tsrm_get_ls_cache();
-
     return_value = getThis();
     zval *this_ptr = return_value;
     zend_class_entry *ce = Z_OBJCE_P(this_ptr);
 
     const int argc = ZEND_NUM_ARGS();
-    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+    zval *args = (zval*) safe_emalloc(sizeof(zval), argc, 0); //= (zval *) safe_emalloc(argc, sizeof(zval), 0);
 
     if(zend_get_parameters_array_ex(argc, args) == FAILURE)
     {
@@ -149,7 +147,7 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
                    .arg(constructors), "Warning");
 
             php_request_shutdown((void *) 0);
-            SG(server_context) = NULL;
+           // SG(server_context) = NULL;
             php_module_shutdown();
             sapi_deactivate();
             sapi_shutdown();
@@ -160,19 +158,63 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
         php_error(E_ERROR, "Can't create object");
     }
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("free args");
-    #endif
-
     efree(args);
+    PQDBG_LVL_DONE_LPUP();
+}
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-    PQDBGLPUP("done");
-    #endif
+void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    char* method;
+    int method_len;
+    zval *args;
+    int argc = ZEND_NUM_ARGS();
+
+    if (zend_parse_parameters(argc, "sz", &method, &method_len, &args) == FAILURE) {
+        PQDBG_LVL_DONE();
+        return;
+    }
 
 #ifdef PQDEBUG
-    PQDBG_LVL_DONE();
+    PQDBGLPUP(QString("%1->%2").arg(Z_OBJCE_P(getThis())->name->val).arg(method));
 #endif
+
+    QObject *qo = objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
+
+    if(qo != nullptr) {
+        /*
+         * Вызов метода connect( ... )
+         */
+        if(method == QString("connect")) {
+            PQDBG_LVL_DONE();
+            RETURN_BOOL( pq_connect_ex(getThis(), args PQDBG_LVL_CC) )
+        }
+
+        /*
+         * Вызов метода moveToThread( ... )
+         */
+        else if(method == QString("moveToThread")) {
+            PQDBG_LVL_DONE();
+            RETURN_BOOL( pq_move_to_thread(qo, args PQDBG_LVL_CC) )
+        }
+
+        /*
+         * Вызов иного метода....
+         */
+        else {
+            pq_call_with_return(qo, method, args, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
+        }
+    }
+    else {
+        PQDBGLPUP("ERROR: NULL POINT OF QOBJECT");
+        ZVAL_NULL(return_value);
+    }
+
+    PQDBG_LVL_DONE();
 }
 
 void PHPQt5::zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS)

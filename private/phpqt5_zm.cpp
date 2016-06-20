@@ -206,9 +206,12 @@ static void phpqt5_error_handler(int error_num, const char *error_filename, cons
     default: return;
     }
 
+    char buffer[256];
+    vsprintf(buffer, format, args);
+
     pq_pre(QString("<b>%1</b>: %2 in <b>%3</b> on line <b>%4</b>")
            .arg(error_type)
-           .arg(format)
+           .arg(buffer)
            .arg(error_filename)
            .arg(error_lineno),
            error_type);
@@ -230,21 +233,23 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
 
     PQDBGLPUP("register handlers");
     memcpy(&pqobject_handlers,
-    zend_get_std_object_handlers(),
-    sizeof(zend_object_handlers));
+           zend_get_std_object_handlers(),
+           sizeof(zend_object_handlers));
 
     pqobject_handlers.offset = XtOffsetOf(PQObjectWrapper, zo);
 
-    pqobject_handlers.free_obj = pqobject_free_storage;
-    pqobject_handlers.call_method = pqobject_call_method;
-    pqobject_handlers.get_method = pqobject_get_method;
+    pqobject_handlers.free_obj = pqobject_object_free;
+    pqobject_handlers.dtor_obj = pqobject_object_dtor;
     pqobject_handlers.clone_obj = NULL;
 
-   // pqobject_handlers.get_property_ptr_ptr = pqobject_get_property_ptr_ptr;
+    // pqobject_handlers.call_method = pqobject_call_method; // BUG: memory leak with zend_get_parameters_array_ex(); efree(args) - crash app
+    // pqobject_handlers.get_method = pqobject_get_method;
 
-   // pqobject_handlers.get_properties = pqobject_get_properties;
-   // pqobject_handlers.read_property	= pqobject_read_property;
-   // pqobject_handlers.has_property	= pqobject_has_property;
+    // pqobject_handlers.get_property_ptr_ptr = pqobject_get_property_ptr_ptr;
+
+    // pqobject_handlers.get_properties = pqobject_get_properties;
+    // pqobject_handlers.read_property	= pqobject_read_property;
+    // pqobject_handlers.has_property	= pqobject_has_property;
 
     PQDBGLPUP("register extensions");
     PQEnginePrivate::pq_register_extensions(PQDBG_LVL_C);

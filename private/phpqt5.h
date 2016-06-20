@@ -136,7 +136,10 @@ public:
 
     /* HANDLERS */
     static zend_object *    pqobject_create(zend_class_entry *class_type);
-    static void             pqobject_free_storage(zend_object *object);
+    static void             pqobject_object_free(zend_object *object);
+    static void             pqobject_object_dtor(zend_object *object);
+
+    /* until better times :-)
     static int              pqobject_call_method(zend_string *method, zend_object *object, INTERNAL_FUNCTION_PARAMETERS);
     static zend_function *  pqobject_get_method(zend_object **zobject, zend_string *method, const zval *key);
 
@@ -154,6 +157,7 @@ public:
                                                  zval *member,
                                                  int type,
                                                  void **cache_slot);
+    */
 
     static zend_object *    pq_register_extra_qobject(QObject *qo PQDBG_LVL_DC);
     PQAPI static bool       pq_test_ce(zval *pzval PQDBG_LVL_DC);
@@ -268,6 +272,7 @@ public:
             ZEND_ME(pqobject, __destruct, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __set, phpqt5__set, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __get, phpqt5__get, ZEND_ACC_PUBLIC)
+            ZEND_ME(pqobject, __call, phpqt5__call, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __toString, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(pqobject, __callStatic, phpqt5__call, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
             ZEND_ME(pqobject, qobjInfo, NULL, ZEND_ACC_PUBLIC)
@@ -328,6 +333,7 @@ private:
     static void             zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject___toString(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject_qobjInfo(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject_qobjProperties(INTERNAL_FUNCTION_PARAMETERS);

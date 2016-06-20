@@ -42,29 +42,51 @@ zend_object *PHPQt5::pqobject_create(zend_class_entry *ce)
     PQDBGLPUP(ce->name->val);
 #endif
 
-    PQObjectWrapper *pqobject = (PQObjectWrapper*) ecalloc(1,
-             sizeof(PQObjectWrapper) +
-             zend_object_properties_size(ce));
+    PQObjectWrapper *pqobject = (PQObjectWrapper*)
+            ecalloc(1,
+                    sizeof(PQObjectWrapper) +
+                    zend_object_properties_size(ce));
 
     zend_object_std_init(&pqobject->zo, ce);
 
     object_properties_init(&pqobject->zo, ce);
     pqobject->zo.handlers = &pqobject_handlers;
 
-    PQDBGLPUP("done");
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
     return &pqobject->zo;
 }
 
-void PHPQt5::pqobject_free_storage(zend_object *object) {
+void PHPQt5::pqobject_object_free(zend_object *object) {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
+
+    PQObjectWrapper *pqobject = fetch_pqobject(object);
+
+    QObject *qo = pqobject->qo_sptr.data();
+    objectFactory()->freeObject(qo PQDBG_LVL_CC);
+    pqobject->qo_sptr.clear();
+
+    zend_object_std_dtor(&pqobject->zo);
+
+    PQDBG_LVL_DONE_LPUP();
+}
+
+void PHPQt5::pqobject_object_dtor(zend_object *object) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    zend_objects_destroy_object(object);
+
     PQDBG_LVL_DONE();
 }
 
-int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTERNAL_FUNCTION_PARAMETERS)
+/** BUG: memory leak with zend_get_parameters_array_ex(); efree(args) - crash app */
+/* int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTERNAL_FUNCTION_PARAMETERS)
 {
+    Q_UNUSED(object);
+
     #ifdef PQDEBUG
         PQDBG_LVL_START(__FUNCTION__);
         PQDBGLPUP(QString("%1->%2").arg(Z_OBJCE_P(getThis())->name->val).arg(method->val));
@@ -73,14 +95,19 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
     QObject *qo = objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
 
     const int argc = ZEND_NUM_ARGS();
-    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+    zval *args;
 
-    if(zend_get_parameters_array_ex(argc, args) == FAILURE)
-    {
-        efree(args);
-        zend_wrong_param_count();
-        return FAILURE;
+    if(argc) {
+        args = (zval *)safe_emalloc(sizeof(zval), argc, 0);
+        zend_get_parameters_array_ex(argc, args); // MEMORY LEAK
     }
+
+    //if(zend_get_parameters_array_ex(argc, args) == FAILURE)
+    //{
+    //    efree(args);
+    //    zend_wrong_param_count();
+    //    return FAILURE;
+    //}
 
     QList<pq_call_qo_entry> arg_qos;
     bool this_before_have_parent = qo->parent() ? true : false;
@@ -93,10 +120,10 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
 
     /*
      * Вызов метода moveToThread( ... )
-     */
+     *
     if(method->val == QString("moveToThread")) {
         if(argc != 1) {
-            efree(args);
+            // if(args) { efree(args); }
             zend_wrong_param_count();
             PQDBG_LVL_DONE();
             return FAILURE;
@@ -108,66 +135,28 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
     }
 
     /*
-     * Вызов метода getChildObjects()
-     */
-    else if(method->val == QString("getChildObjects")) {
-        zval z_childs;
-
+     * Вызов метода connect( ... )
+     *
+    else if(method->val == QString("connect")) {
+        bool ok = false;
         switch(argc) {
-        case 0: // true by default (with subchilds)
-            z_childs = pq_get_child_objects(qo, true PQDBG_LVL_CC);
+        case 4:
+            ok = pq_connect(&args[0], &args[1], &args[2], &args[3], false PQDBG_LVL_CC);
             break;
 
-        case 1:
-            if(Z_TYPE(args[0]) == IS_TRUE
-                    || (Z_TYPE(args[0]) == IS_LONG && Z_LVAL(args[0]) != 0))
-            {
-                z_childs = pq_get_child_objects(qo, true PQDBG_LVL_CC);
-            }
-            else if(Z_TYPE(args[0]) == IS_FALSE
-                    || (Z_TYPE(args[0]) == IS_LONG && Z_LVAL(args[0]) == 0))
-            {
-                z_childs = pq_get_child_objects(qo, false PQDBG_LVL_CC);
-            }
-            else {
-                zend_error(E_WARNING,
-                           QString("%1::%2() expects parameter 0 to be boolean, %3 given")
-                           .arg(Z_OBJCE_P(getThis())->name->val)
-                           .arg(method->val)
-                           .arg(zend_zval_type_name(&args[0])).toUtf8().constData());
-
-                efree(args);
-                PQDBG_LVL_DONE();
-                return FAILURE;
-            }
-
+        case 3:
+            ok = pq_connect(getThis(), &args[0], &args[1], &args[2], false PQDBG_LVL_CC);
             break;
 
         default:
-            efree(args);
+            // if(args) { efree(args); }
             zend_wrong_param_count();
+
+            RETVAL_BOOL(false);
             PQDBG_LVL_DONE();
             return FAILURE;
         }
 
-        RETVAL_ZVAL(&z_childs, 1, 0);
-        PQDBG_LVL_DONE();
-        return SUCCESS;
-    }
-
-    /*
-     * Вызов метода connect( ... )
-     */
-    else if(method->val == QString("connect")) {
-        if(argc != 4) {
-            efree(args);
-            zend_wrong_param_count();
-
-            PQDBG_LVL_DONE();
-            return FAILURE;
-        }
-
-        bool ok = pq_connect(&args[0], &args[1], &args[2], &args[3], false PQDBG_LVL_CC);
         RETVAL_BOOL(ok);
         PQDBG_LVL_DONE();
         return SUCCESS;
@@ -175,7 +164,7 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
 
     /*
      * Вызов иного метода
-     */
+     *
     else {
         QVariantList vargs;
 
@@ -247,7 +236,7 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
 
         QVariant retVal = pq_call(qo, method->val, vargs PQDBG_LVL_CC);
         pq_return_qvariant(retVal, INTERNAL_FUNCTION_PARAM_PASSTHRU PQDBG_LVL_CC);
-        efree(args);
+
     }
 
     foreach(pq_call_qo_entry cqe, arg_qos) {
@@ -264,9 +253,12 @@ int PHPQt5::pqobject_call_method(zend_string *method, zend_object *object, INTER
         }
     }
 
+    // if(argc) { efree(args); } // CRASH
+
     PQDBG_LVL_DONE();
     return SUCCESS;
 }
+
 
 zend_function *PHPQt5::pqobject_get_method(zend_object **zobject, zend_string *method, const zval *key)
 {
@@ -297,7 +289,6 @@ zend_function *PHPQt5::pqobject_get_method(zend_object **zobject, zend_string *m
 
     return func;
 }
-
 
 zval *PHPQt5::pqobject_get_property_ptr_ptr(zval *object,
                                             zval *member,
@@ -353,3 +344,4 @@ int PHPQt5::pqobject_has_property(zval *object,
     PQDBG_LVL_DONE();
     return retval;
 }
+*/

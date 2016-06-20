@@ -716,6 +716,9 @@ QVariant PHPQt5::pq_call(QObject *qo,
 
     QList<pq_call_qo_entry> arg_qos;
 
+    // bool this_before_have_parent = qo->parent() ? true : false;
+    // arg_qos << pq_call_qo_entry { qo, getThis(), this_before_have_parent };
+
     ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(pzval), num_key, key, entry) {
         switch(Z_TYPE_P(entry)) {
         case IS_TRUE:
@@ -792,20 +795,17 @@ QVariant PHPQt5::pq_call(QObject *qo,
 
         // не было родителя и появился
         if(!before_have_parent && after_have_parent) {
-            Z_ADDREF_P(pzval);
+            Z_ADDREF_P(cqe.zv);
         }
         // был родитель и не стало
         else if(before_have_parent && !after_have_parent) {
-            Z_DELREF_P(pzval);
+            Z_DELREF_P(cqe.zv);
         }
     }
 
     Q_UNUSED(key);
 
-#ifdef PQDEBUG
     PQDBG_LVL_DONE();
-#endif
-
     return retVal;
 }
 

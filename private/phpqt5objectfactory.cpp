@@ -251,34 +251,27 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
             this, SLOT(s_freeObject(QObject*)));
 
     if(qobject->parent()) {
-        #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
         PQDBGLPUP("addref to zobject");
-        #endif
-
         Z_ADDREF_P(pzval);
     }
 
     m_objects.insert(qobject, Z_OBJ_P(pzval));
     {
-#if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
         PQDBGLPUP("update properties");
-#endif
+        /*
+        zval member;
+        ZVAL_STRINGL(&member, "signals", 7);
+        zend_object_handlers *std_hnd = zend_get_std_object_handlers();
+        zsignals = std_hnd->read_property(pzval, &member, BP_VAR_IS, NULL, NULL);
+
+        zval_ptr_dtor(&member);
+        */
 
         zend_update_property_long(Z_OBJCE_P(pzval), pzval, "uid", sizeof("uid")-1, reinterpret_cast<quint64>(qobject));
         zend_update_property_long(Z_OBJCE_P(pzval), pzval, "zhandle", sizeof("zhandle")-1, Z_OBJ_HANDLE_P(pzval));
 
         zval *zsignals, rv;
         zsignals = zend_read_property(Z_OBJCE_P(pzval), pzval, "signals", 7, 1, &rv);
-
-        /*
-        zval member;
-        ZVAL_STRINGL(&member, "signals", 7);
-        zend_object_handlers *std_hnd = zend_get_std_object_handlers();
-        zsignals = std_hnd->read_property(pzval, &member, BP_VAR_IS, NULL, &rv);
-        zval_ptr_dtor(&member);
-        */
-
-        zval_ptr_dtor(&rv);
 
         switch(Z_TYPE_P(zsignals)) {
         case IS_ARRAY: {
@@ -316,7 +309,6 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
         }
     }
 
-
     PQDBG_LVL_DONE();
     return true;
 }
@@ -342,24 +334,20 @@ void PHPQt5ObjectFactory::freeObject(QObject *qobject PQDBG_LVL_DC)
     if(qobject) {
         QObjectList childObjs = qobject->children();
 
-        #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
         PQDBGLPUP("remove childs...");
-        #endif
 
         foreach(QObject *childObj, childObjs) {
-            if(childObj != nullptr) {
+            if(childObj != nullptr && childObj->parent() == qobject) {
                 if(!m_classes.contains(childObj->metaObject()->className()))
                     continue;
                 childObj->disconnect(childObj, SIGNAL(destroyed(QObject*)), this, SLOT(s_freeObject(QObject*)));
-                removeObjectFromStorage(childObj PQDBG_LVL_CC);
                 childObj->deleteLater();
+                removeObjectFromStorage(childObj PQDBG_LVL_CC);
             }
         }
 
-        #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
         PQDBGLPUP("...all childs removed");
         PQDBGLPUP("disconnect signals");
-        #endif
 
         qobject->disconnect(qobject, SIGNAL(destroyed(QObject*)),
                             this, SLOT(s_freeObject(QObject*)));
@@ -377,10 +365,7 @@ void PHPQt5ObjectFactory::freeObject(QObject *qobject PQDBG_LVL_DC)
         }
     }
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-    PQDBGLPUP("done");
-    #endif
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
 }
 
 void PHPQt5ObjectFactory::removeObjectFromStorage(QObject *qobject PQDBG_LVL_DC)
@@ -401,8 +386,9 @@ void PHPQt5ObjectFactory::removeObjectFromStorage(QObject *qobject PQDBG_LVL_DC)
         zval zobject;
         ZVAL_OBJ(&zobject, m_objects.value(qobject));
 
-        if(Z_REFCOUNT(zobject) > 2)
+        if(Z_REFCOUNT(zobject) > 2) {
             Z_SET_REFCOUNT(zobject, 2);
+        }
 
         ZVAL_UNDEF(&zobject);
 

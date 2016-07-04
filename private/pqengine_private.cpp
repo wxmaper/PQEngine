@@ -291,12 +291,9 @@ bool PQEnginePrivate::init(int argc,
         #endif
 
         if(extension->entry().use_instance) {
+            PQDBGLPUP(QString("Create QCoreApplication instance from %1...").arg(extension->entry().fullName));
+
             extension->entry().instance(argc, argv); // init qApp()
-
-            #ifdef PQDEBUG
-                PQDBGLPUP(QString("Create QCoreApplication instance from %1...").arg(extension->entry().fullName));
-            #endif
-
             break;
         }
     }
@@ -460,9 +457,9 @@ int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
       //  php_execute_simple_script(&file_handle, &ret);
       //  } zend_end_try();
         if(php_execute_script(&file_handle) == SUCCESS)
-            return 0;
-        else
             return 1;
+        else
+            return 0;
 
 
       //  zend_replace_error_handling();

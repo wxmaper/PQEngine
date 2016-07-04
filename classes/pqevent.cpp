@@ -30,8 +30,5 @@ PQEvent::PQEvent(QEvent *other)
 {
 }
 
-PQEvent::~PQEvent()
-{
-
-}
+//PQEvent::~PQEvent(){}
 

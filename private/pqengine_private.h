@@ -84,6 +84,7 @@ public:
 private:
     static void             pq_register_extension(IPQExtension *extension PQDBG_LVL_DC);
     static void             pq_register_classes(QMetaObjectList classes PQDBG_LVL_DC);
+    static void             pq_register_plastiq_classes(PlastiQMetaObjectList classes PQDBG_LVL_DC);
 
     static int              php_pqengine_startup(sapi_module_struct *sapi_module);
     static int              php_pqengine_deactivate();

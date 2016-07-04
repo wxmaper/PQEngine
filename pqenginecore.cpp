@@ -17,18 +17,32 @@
 #include "pqenginecore.h"
 #include "pqclasses.h"
 
+#include "plastiqclasses/core/plastiqqobject.h"
+#include "plastiqclasses/core/plastiqqtimer.h"
+
 QMetaObjectList PQEngineCore::classes() {
     QMetaObjectList classes;
 
-    classes << PQCoreApplication::staticMetaObject
-            << PQEvent::staticMetaObject
+    classes << PQCoreApplication::staticMetaObject;
+            /*<< PQEvent::staticMetaObject
             << PQLibrary::staticMetaObject
             << PQObject::staticMetaObject
             << PQRegExp::staticMetaObject
             << PQSettings::staticMetaObject
             << PQStandardPaths::staticMetaObject
             << PQTimer::staticMetaObject
-            << PQThread::staticMetaObject;
+            << PQThread::staticMetaObject
+            << PQEventLoop::staticMetaObject;*/
+
+    return classes;
+}
+
+PlastiQMetaObjectList PQEngineCore::plastiqClasses()
+{
+    PlastiQMetaObjectList classes;
+
+    classes << PlastiQQObject::plastiq_metaObject;
+    classes << PlastiQQTimer::plastiq_metaObject;
 
     return classes;
 }
@@ -737,6 +751,17 @@ bool PQEngineCore::finalize() {
     pq_register_long_constant("QLibrary", "LoadArchiveMemberHint", QLibrary::LoadArchiveMemberHint);
     pq_register_long_constant("QLibrary", "PreventUnloadHint", QLibrary::PreventUnloadHint);
     pq_register_long_constant("QLibrary", "DeepBindHint", QLibrary::DeepBindHint);
+
+    /*
+     * Константы ProcessEventsFlag
+     */
+    pq_register_long_constant("QEventLoop", "AllEvents", QEventLoop::ProcessEventsFlag::AllEvents);
+    pq_register_long_constant("QEventLoop", "ExcludeUserInputEvents", QEventLoop::ProcessEventsFlag::ExcludeUserInputEvents);
+    pq_register_long_constant("QEventLoop", "ExcludeSocketNotifiers", QEventLoop::ProcessEventsFlag::ExcludeSocketNotifiers);
+    pq_register_long_constant("QEventLoop", "WaitForMoreEvents", QEventLoop::ProcessEventsFlag::WaitForMoreEvents);
+    pq_register_long_constant("QEventLoop", "X11ExcludeTimers", QEventLoop::ProcessEventsFlag::X11ExcludeTimers);
+    pq_register_long_constant("QEventLoop", "EventLoopExec", QEventLoop::ProcessEventsFlag::EventLoopExec);
+    pq_register_long_constant("QEventLoop", "DialogExec", QEventLoop::ProcessEventsFlag::DialogExec);
 
     return true;
 }

@@ -23,7 +23,7 @@
 class PQRegExp;
 class PQRegExp : public QObject, public QRegExp {
     Q_OBJECT
-    PQ_OBJECT_EX(QObject)
+    PQ_OBJECT_EX(QRegExp)
 
     Q_PROPERTY(int matchedLength READ matchedLength)
     Q_PROPERTY(int captureCount READ captureCount)

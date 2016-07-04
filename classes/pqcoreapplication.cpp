@@ -24,7 +24,7 @@ PQCoreApplication::PQCoreApplication(int argc, char **argv) :
 {
 }
 
-PQCoreApplication::~PQCoreApplication(){}
+//PQCoreApplication::~PQCoreApplication(){}
 
 int PQCoreApplication::exec()
 {

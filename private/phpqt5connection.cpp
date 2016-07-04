@@ -451,10 +451,7 @@ bool PHPQt5Connection::createConnection(zval *zo_sender,
     int connectionType = C_TYPE_UNKNOWN;
     bool haveConnection = false;
 
-#ifdef PQDEBUG
     PQDBGLPUP("const casting");
-#endif
-
     QObject *_qo_sender = const_cast<QObject*>(qo_sender);
 
     QByteArray slotSignature = QByteArray(qSlotSignature_ba)
@@ -547,6 +544,8 @@ bool PHPQt5Connection::createConnection(zval *zo_sender,
         if(!haveConnection) {
             haveConnection = QObject::connect(qo_sender, signalSignature.constData(),
                                               qo_sender, pslotSignature_ba.constData());
+
+            PQDBGLPUP(QString("test PHP SIGNAL-SLOT CONNECTION: %1").arg(haveConnection));
         }
     }
 
@@ -625,25 +624,18 @@ void PHPQt5Connection::call_php_funtion(zend_object *zo_sender,
     zval function_name, retval, z_receiver;
     zval *params = new zval[argc];
 
-#if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("alloc params");
-#endif
-
     ZVAL_STRING(&function_name, slotName.constData());
     ZVAL_OBJ(&z_receiver, zo_receiver);
     ZVAL_OBJ(&params[0], zo_sender);
+
+    PQDBGLPUP(QString("params: %1"));
+    PQDBGLPUP(QString("params: %1").arg(reinterpret_cast<quint64>(zo_sender)));
 
     for(int i = 1; i < argc; i++) {
         QVariant arg = args.at(i-1);
         params[i] = PHPQt5::pq_cast_to_zval(arg, true PQDBG_LVL_CC);
     }
-
-#ifdef PQDEBUG
-    PQDBGLPUP(QString("call: %1->%2").arg(Z_OBJCE_NAME(z_receiver)).arg(slotName.constData()));
-#endif
-
-    // void *TSRMLS_CACHE;
-    // TSRMLS_CACHE_UPDATE();
 
     if(call_user_function(NULL, &z_receiver, &function_name, &retval, argc, params) == FAILURE) {
         QString s = QString("PHPQt5 could not call method: %1 of class: %2")
@@ -653,17 +645,13 @@ void PHPQt5Connection::call_php_funtion(zend_object *zo_sender,
         php_error(E_ERROR, s.toUtf8().constData());
     }
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("free params");
-    #endif
 
     for(int i = 1; i < argc; i++) {
         zval_ptr_dtor(&params[i]);
     }
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("free temp vars");
-    #endif
 
     delete params;
     params = nullptr;

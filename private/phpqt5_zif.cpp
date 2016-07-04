@@ -827,7 +827,46 @@ void PHPQt5::zif_pqGetStarCoords(INTERNAL_FUNCTION_PARAMETERS)
 #endif
 }
 
-void PHPQt5::zif_test_one(INTERNAL_FUNCTION_PARAMETERS)
+void PHPQt5::zif_is_valid(INTERNAL_FUNCTION_PARAMETERS)
 {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
 
+    zval *zobject;
+
+    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
+        PQDBG_LVL_DONE_LPUP();
+        return;
+    }
+
+    if(pq_test_ce(zobject PQDBG_LVL_CC)) {
+        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+
+        if(pqobject->isvalid && !pqobject->qo_sptr.isNull()) {
+            RETURN_TRUE;
+        }
+    }
+
+    RETURN_FALSE;
+}
+
+void PHPQt5::zif_qDebug(INTERNAL_FUNCTION_PARAMETERS)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    const char* msg;
+    int msglen;
+
+    if(zend_parse_parameters(ZEND_NUM_ARGS(), "s", &msg ,&msglen) == FAILURE) {
+        php_error(E_PARSE, "wrong parameters for qDebug");
+        PQDBG_LVL_RETURN();
+    }
+
+    default_ub_write(msg, "qDebug()");
+    php_error(E_NOTICE, msg);
+
+    PQDBG_LVL_RETURN();
 }

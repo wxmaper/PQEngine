@@ -56,18 +56,26 @@ zend_object *PHPQt5::pqobject_create(zend_class_entry *ce)
     return &pqobject->zo;
 }
 
-void PHPQt5::pqobject_object_free(zend_object *object) {
+void PHPQt5::pqobject_object_free(zend_object *zobject) {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    /*
     PQObjectWrapper *pqobject = fetch_pqobject(object);
 
-    QObject *qo = pqobject->qo_sptr.data();
-    objectFactory()->freeObject(qo PQDBG_LVL_CC);
-    pqobject->qo_sptr.clear();
+    if(!pqobject->qo_sptr.isNull()) {
+        QObject *qo = pqobject->qo_sptr.data();
+    }
 
-    zend_object_std_dtor(&pqobject->zo);
+    pqobject->qo_sptr.clear();
+    */
+
+    zval zv;
+    ZVAL_OBJ(&zv, zobject);
+
+    objectFactory()->freeObject(&zv PQDBG_LVL_CC);
+    zend_object_std_dtor(zobject);
 
     PQDBG_LVL_DONE_LPUP();
 }

@@ -44,10 +44,7 @@ PQLibrary::PQLibrary(const QString &fileName, const QString &version, QObject *p
 
 }
 
-PQLibrary::~PQLibrary()
-{
-
-}
+//PQLibrary::~PQLibrary(){}
 
 bool PQLibrary::load()
 {

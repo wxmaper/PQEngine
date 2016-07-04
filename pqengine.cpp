@@ -107,7 +107,7 @@ void default_ub_write(const QString &msg, const QString &title)
 */
 
     if(title.length()) {
-        QTextStream( stdout ) << title << m.toUtf8().constData() << endl;
+        QTextStream( stdout ) << QString(title).prepend("[").append("] ") << m.toUtf8().constData() << endl;
     }
     else {
         QTextStream( stdout ) << m.toUtf8().constData() << endl;
@@ -125,7 +125,7 @@ int pqdbg_get_current_lvl() {
 QString pqdbg_get_current_line() {
     QString line = QString::number(__pqdbg_current_d_line);
 
-    while(line.length() < 5) {
+    while(line.length() < 7) {
         line.prepend("0");
     }
 

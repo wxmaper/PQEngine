@@ -27,7 +27,7 @@ class PQCoreApplication : public QCoreApplication {
 
 public:
     Q_INVOKABLE explicit PQCoreApplication(int argc, char **argv);
-    virtual ~PQCoreApplication();
+   // virtual ~PQCoreApplication();
 
     Q_INVOKABLE int exec();
     Q_INVOKABLE void quit();

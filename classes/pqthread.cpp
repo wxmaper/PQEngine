@@ -26,7 +26,7 @@ PQThread::PQThread(QObject *parent) :
     declareOnSignals();
 }
 
-PQThread::~PQThread() {}
+//PQThread::~PQThread() {}
 
 bool PQThread::running() {
     return m_running;

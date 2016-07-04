@@ -22,6 +22,9 @@
 
 #define PQOBJECT_STANDARD_METHODS(Q,QQ) \
     QObject *P##Q::__pq_thisPtr = Q_NULLPTR;\
+    P##Q::~P##Q() {\
+        emit destroyed(__pq_zobject);\
+    }\
     void P##Q::__pq_setThisPtr(QObject *o) {\
         __pq_thisPtr = o;\
     }\
@@ -183,6 +186,18 @@
             m_signals[signalName] = m_signals[signalName] - 1;\
         else if(m_signals.contains(s)) \
             m_signals[s] = m_signals[s] - 1;\
-    }
+    }\
+    \
+    void P##Q::__pq_setZObject(_zend_object *zobject) {\
+        __pq_zobject = zobject;\
+    }\
+    \
+    _zend_object *P##Q::__pq_getZObject() {\
+        return __pq_zobject;\
+    }\
+    \
+    /*QObject *P##Q::parent() {\
+        return QQ::parent();\
+    }*/
 
 #endif // PQOBJECT_PRIVATE_H

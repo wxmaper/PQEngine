@@ -21,6 +21,7 @@
 
 class PQDLAPI PQEngineCore : public IPQExtension {
 public:
+    PlastiQMetaObjectList plastiqClasses() Q_DECL_OVERRIDE;
     QMetaObjectList classes();
     bool start();
     bool finalize();

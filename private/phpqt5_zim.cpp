@@ -112,9 +112,10 @@ void PHPQt5::zim_pqobject___construct(INTERNAL_FUNCTION_PARAMETERS)
     }
 
     if(objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(ce->name->val)) {
-        QObject *qo = objectFactory()->createObject(ce->name->val, this_ptr, vargs PQDBG_LVL_CC);
         PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(this_ptr));
         pqobject->isinit = false;
+
+        QObject *qo = objectFactory()->createObject(ce->name->val, this_ptr, vargs PQDBG_LVL_CC);
 
         if(!qo) {
             QString constructors;
@@ -198,8 +199,19 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
          * Вызов метода moveToThread( ... )
          */
         else if(method == QString("moveToThread")) {
-            PQDBG_LVL_DONE();
-            RETURN_BOOL( pq_move_to_thread(qo, args PQDBG_LVL_CC) )
+            HashTable *ht = Z_ARRVAL_P(args);
+            if(ht->nNumOfElements != 1) {
+                zend_wrong_paramers_count_error(ht->nNumOfElements, 1, 1);
+                PQDBG_LVL_DONE();
+                RETURN_FALSE;
+            }
+
+            HashPosition pos;
+            zend_hash_internal_pointer_reset_ex(ht, &pos);
+            zval *thread_zobject = zend_hash_get_current_data_ex(Z_ARRVAL_P(args), &pos);
+
+            RETVAL_BOOL(pq_move_to_thread(qo, thread_zobject PQDBG_LVL_CC));
+            PQDBG_LVL_RETURN();
         }
 
         /*
@@ -210,11 +222,13 @@ void PHPQt5::zim_pqobject___call(INTERNAL_FUNCTION_PARAMETERS)
         }
     }
     else {
-        PQDBGLPUP("ERROR: NULL POINT OF QOBJECT");
+        php_error(E_ERROR, "Fatal: object does not exists and could not be fetched, %s",
+                  Z_OBJCE_NAME_P(getThis()));
+
         ZVAL_NULL(return_value);
     }
 
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_RETURN();
 }
 
 void PHPQt5::zim_pqobject___callStatic(INTERNAL_FUNCTION_PARAMETERS)
@@ -297,7 +311,7 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
 
     QObject *qo = (QObject*) objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
 
-    if(qo != nullptr) {
+    if(qo != Q_NULLPTR) {
         switch(Z_TYPE_P(pzval)) {
         case IS_TRUE: {
             qo->setProperty(property, true);
@@ -377,22 +391,26 @@ void PHPQt5::zim_pqobject___set(INTERNAL_FUNCTION_PARAMETERS)
                     // не было родителя и появился
                     if(!before_have_parent
                             && after_have_parent) {
+                        PQDBGLPUP("ADDREF");
                         Z_ADDREF_P(pzval);
                     }
                     // был родитель и не стало
                     else if(before_have_parent
                             && !after_have_parent) {
+                        PQDBGLPUP("DELREF");
                         Z_DELREF_P(pzval);
                     }
 
                     // не было родителя и появился
                     if(!this_before_have_parent
                             && this_after_have_parent) {
+                        PQDBGLPUP("ADDREF");
                         Z_ADDREF_P(getThis());
                     }
                     // был родитель и не стало
                     else if(this_before_have_parent
                             && !this_after_have_parent) {
+                        PQDBGLPUP("DELREF");
                         Z_DELREF_P(getThis());
                     }
 
@@ -458,24 +476,28 @@ void PHPQt5::zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS)
     int property_len;
 
     if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &property, &property_len) == FAILURE) {
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
-
+        PQDBG_LVL_DONE();
         return;
     }
 
-#ifdef PQDEBUG
-    PQDBGLPUP(QString("%1->%2").arg(Z_OBJCE_P(getThis())->name->val).arg(property));
-#endif
+    PQDBGLPUP(QString("%1::%2").arg(Z_OBJCE_P(getThis())->name->val).arg(property));
 
-    QObject *qo = objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
 
     zval ret_pzval;
-    ZVAL_NULL(&ret_pzval);
+    ZVAL_UNDEF(&ret_pzval);
 
-    if(qo != NULL) {
+    if(pqobject->isinit && !pqobject->qo_sptr.isNull()) {
+        QObject *qo =  pqobject->qo_sptr.data();
         QVariant retVal;
+
+        PQDBGLPUP(QString("%1:%2(%3)::%4 - z:%5:%6")
+                  .arg(Z_OBJCE_NAME_P(getThis()))
+                  .arg(reinterpret_cast<quint64>(qo))
+                  .arg(qo->objectName())
+                  .arg(property)
+                  .arg(Z_OBJ_HANDLE_P(getThis()))
+                  .arg(reinterpret_cast<quint64>(Z_OBJ_P(getThis()))));
 
         int indexOfProperty = qo->metaObject()->indexOfProperty(property);
         if(indexOfProperty >= 0
@@ -487,15 +509,22 @@ void PHPQt5::zim_pqobject___get(INTERNAL_FUNCTION_PARAMETERS)
             ret_pzval = pq_cast_to_zval(retVal, false PQDBG_LVL_CC);
         }
         else {
-            PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
-            if(pqobject->isinit) {
-                php_error(E_NOTICE,
-                          QString("Undefined property: %1::%2")
-                          .arg(Z_OBJCE_P(getThis())->name->val)
-                          .arg(property).toUtf8().constData());
-            }
+            PQDBGLPUP("INVALID PROPERTY");
+            php_error(E_NOTICE,
+                      QString("Undefined property: %1::%2")
+                      .arg(Z_OBJCE_P(getThis())->name->val)
+                      .arg(property).toUtf8().constData());
         }
     }
+    #ifdef PQDEBUG
+    else {
+        PQDBGLPUP(QString("CANNOT READ PROPERTY: PQObjectWrapper(isnull: %1, isvalid: %2, isinit: %3)")
+                  .arg(pqobject->qo_sptr.isNull())
+                  .arg(pqobject->isvalid)
+                  .arg(pqobject->isinit));
+    }
+    #endif
+
 
     RETVAL_ZVAL(&ret_pzval, 1, 0);
     PQDBG_LVL_DONE();
@@ -578,10 +607,12 @@ void PHPQt5::zim_pqobject___destruct(INTERNAL_FUNCTION_PARAMETERS)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
+    /*
     PQDBGLPUP(QString("%1:%2 - z:%3")
               .arg(Z_OBJCE_NAME_P(getThis()))
               .arg(reinterpret_cast<quint64>(fetch_pqobject(Z_OBJ_P(getThis()))->qo_sptr.data()))
               .arg(Z_OBJ_HANDLE_P(getThis())));
+              */
 #endif
 
     if(zend_parse_parameters(ZEND_NUM_ARGS(), "")) {
@@ -589,12 +620,13 @@ void PHPQt5::zim_pqobject___destruct(INTERNAL_FUNCTION_PARAMETERS)
         return;
     }
 
+    /*
     QObject *qo = objectFactory()->getQObject(getThis() PQDBG_LVL_CC);
 
     if(qo) {
-        objectFactory()->freeObject(qo PQDBG_LVL_CC);
+        // objectFactory()->freeObject(qo PQDBG_LVL_CC);
     }
-
+*/
     PQDBG_LVL_DONE();
 }
 
@@ -884,7 +916,8 @@ void PHPQt5::zim_pqobject_free(INTERNAL_FUNCTION_PARAMETERS)
               .arg(Z_OBJ_HANDLE_P(getThis())));
 #endif
 
-    zim_pqobject___destruct(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+    // zend_objects_destroy_object(Z_OBJ_P(getThis()));
+    objectFactory()->freeObject(getThis() PQDBG_LVL_CC);
 
     PQDBG_LVL_DONE();
 }
@@ -984,6 +1017,7 @@ void PHPQt5::zim_pqobject_children(INTERNAL_FUNCTION_PARAMETERS)
             }
 
             zval pzval = objectFactory()->getZObject(child PQDBG_LVL_CC);
+
             if(Z_TYPE(pzval) == IS_OBJECT) {
                 add_next_index_zval(&array, &pzval);
                 index++;

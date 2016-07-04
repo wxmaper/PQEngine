@@ -29,7 +29,7 @@ class PQThread : public QThread
 
 public:
     Q_INVOKABLE explicit PQThread(QObject * parent=0);
-    virtual ~PQThread();
+    //virtual ~PQThread();
 
     Q_INVOKABLE bool running();
 

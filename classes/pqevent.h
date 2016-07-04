@@ -31,7 +31,7 @@ class PQEvent : public PQObject
 public:
     Q_INVOKABLE explicit PQEvent(int type);
     explicit PQEvent(QEvent *other);
-    ~PQEvent();
+    //~PQEvent();
 
     Q_INVOKABLE int type() const { return m_event->type(); }
     Q_INVOKABLE bool spontaneous() const { return m_event->spontaneous(); }

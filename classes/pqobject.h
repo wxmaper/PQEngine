@@ -28,12 +28,11 @@
 
 #include "pqtypes.h"
 
+struct _zend_object;
+
 extern void PHPQt5Connection_invoke(QObject *qo_sender,
                                     const QByteArray signalSignature,
                                     QVariantList args);
-
-//extern bool pq_PHP_emit(const QString &qosignal, QObject *sender, QEvent *event);
-//extern bool pq_callPHPFunction(const QString &fn_name, QObject *sender, QEvent *event);
 
 extern QObject* pq_createObject(const QString &className, const QVariantList &args);
 template<typename T>
@@ -96,6 +95,7 @@ enum PQEventTypes {
 #define PQ_OBJECT_EX(Q) \
     Q_PROPERTY( QString objectName READ objectName WRITE setObjectName ) \
 public: \
+    ~P##Q();\
     Q_INVOKABLE QString objectName();\
     Q_INVOKABLE QObject* sender();\
     Q_INVOKABLE void removeEventListenerType(int eventType);\
@@ -114,11 +114,17 @@ public: \
     Q_INVOKABLE bool parentEvent(PQObject *event);\
     Q_INVOKABLE QVariant property(const QString &name);\
     bool event(QEvent *event);\
+    /*Q_INVOKABLE QObject *parent();*/\
+    Q_INVOKABLE _zend_object *__pq_getZObject();\
+    \
+    Q_SIGNAL void destroyed(_zend_object*);\
     \
 public Q_SLOTS: \
     Q_INVOKABLE void setObjectName(QString objectName);\
     Q_INVOKABLE bool setProperty(const QString &name, const QVariant &value);\
     Q_INVOKABLE void __pq_setThisPtr(QObject *o);\
+    Q_INVOKABLE void __pq_setZObject(_zend_object *zobject);\
+    \
 private:\
     void declareOnSignal(const QString &pslot);\
     \
@@ -126,7 +132,8 @@ private:\
     QList<int> m_eventListenerTypes;\
     QHash<QByteArray,int> m_signals;\
     bool m_useEventListener = false;\
-    static QObject *__pq_thisPtr;
+    static QObject *__pq_thisPtr;\
+    _zend_object *__pq_zobject = Q_NULLPTR;
 
 class PQObject;
 class PQObject : public QObject {
@@ -135,7 +142,6 @@ class PQObject : public QObject {
 
 public:
     Q_INVOKABLE explicit PQObject(QObject *parent = Q_NULLPTR);
-    virtual ~PQObject();
 };
 
 Q_DECLARE_METATYPE(PQObject*)

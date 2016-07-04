@@ -38,7 +38,7 @@ public:
                            QObject *parent = 0);
     Q_INVOKABLE explicit PQSettings(const QString &fileName, int format,
                            QObject *parent = 0);
-    virtual ~PQSettings();
+    //virtual ~PQSettings();
 
     Q_INVOKABLE QStringList allKeys() const;
     Q_INVOKABLE QString applicationName() const;

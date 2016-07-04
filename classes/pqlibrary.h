@@ -30,7 +30,7 @@ public:
     Q_INVOKABLE explicit PQLibrary(const QString& fileName, QObject *parent = Q_NULLPTR);
     Q_INVOKABLE explicit PQLibrary(const QString& fileName, int verNum, QObject *parent = Q_NULLPTR);
     Q_INVOKABLE explicit PQLibrary(const QString& fileName, const QString &version, QObject *parent = Q_NULLPTR);
-    ~PQLibrary();
+    //~PQLibrary();
 
    // Q_INVOKABLE QFunctionPointer resolve(const QString &symbol);
    // static QFunctionPointer resolve(const QString &fileName, const char *symbol);

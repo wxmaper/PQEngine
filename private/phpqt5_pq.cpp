@@ -142,9 +142,7 @@ bool pq_send_event(QObject *sender, QEvent *event)
         zval argv[2];
         zval retval;
 
-        //zval zevent = PHPQt5::pq_qevent_to_zobject(event PQDBG_LVL_CC);
         zval zevent = PHPQt5::pq_qevent_to_zobject_ex(event PQDBG_LVL_CC);
-
 
         PHPQt5::pq_eventHash.insert(Z_OBJ_HANDLE(zevent), pq_event_wrapper{ &zevent, event } );
 
@@ -233,9 +231,10 @@ QObject *pq_createObject(const QString &className, const QVariantList &args)
         zval zobject;
         object_init_ex(&zobject, ce);
 
-        qo = PHPQt5::objectFactory()->createObject(className, &zobject, args PQDBG_LVL_CC);
         PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ(zobject));
         pqobject->isinit = false;
+
+        qo = PHPQt5::objectFactory()->createObject(className, &zobject, args PQDBG_LVL_CC);
 
         if(qo == Q_NULLPTR) {
             QString constructors;
@@ -580,7 +579,7 @@ PQAPI void PHPQt5::pq_core_init(PQDBG_LVL_D)
 
 
 
-PQAPI void PHPQt5::pq_register_class(const QMetaObject &metaObject
+void PHPQt5::pq_register_class(const QMetaObject &metaObject
                                      PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
@@ -601,14 +600,40 @@ PQAPI void PHPQt5::pq_register_class(const QMetaObject &metaObject
     ce.create_object = pqobject_create;
     zend_class_entry *ce_ptr = zend_register_internal_class(&ce);
 
-    zend_declare_property_long(ce_ptr, "uid", sizeof("uid")-1, 0, ZEND_ACC_PPP_MASK | ZEND_ACC_FINAL);
-    zend_declare_property_long(ce_ptr, "zhandle", sizeof("zhandle")-1, 0, ZEND_ACC_PPP_MASK | ZEND_ACC_FINAL);
+    zend_declare_property_long(ce_ptr, "__pq_uid", sizeof("__pq_uid")-1, 0, ZEND_ACC_PROTECTED);
+    zend_declare_property_long(ce_ptr, "__pq_zhandle", sizeof("__pq_zhandle")-1, 0, ZEND_ACC_PROTECTED);
 
     objectFactory()->registerZendClassEntry(metaObject.className(), ce_ptr PQDBG_LVL_CC);
 
-#ifdef PQDEBUG
     PQDBG_LVL_DONE();
+}
+
+
+void PHPQt5::pq_register_plastiq_class(const PlastiQMetaObject &metaObject PQDBG_LVL_DC)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_PROCEED(__FUNCTION__);
+    PQDBGLPUP(metaObject.className());
 #endif
+
+    QByteArray className = objectFactory()->registerPlastiQMetaObject(metaObject PQDBG_LVL_CC);
+
+    zend_class_entry ce;
+
+    INIT_CLASS_ENTRY_EX(ce,
+                        className.constData(),
+                        className.length(),
+                        phpqt5_plastiq_methods());
+
+    ce.create_object = pqobject_create;
+    zend_class_entry *ce_ptr = zend_register_internal_class(&ce);
+
+    zend_declare_property_long(ce_ptr, "__pq_uid", sizeof("__pq_uid")-1, 0, ZEND_ACC_PROTECTED);
+    zend_declare_property_long(ce_ptr, "__pq_zhandle", sizeof("__pq_zhandle")-1, 0, ZEND_ACC_PROTECTED);
+
+    objectFactory()->registerZendClassEntry(metaObject.className(), ce_ptr PQDBG_LVL_CC);
+
+    PQDBG_LVL_DONE();
 }
 
 zend_object *PHPQt5::pq_register_extra_qobject(QObject *qo
@@ -631,38 +656,40 @@ zend_object *PHPQt5::pq_register_extra_qobject(QObject *qo
 
         objectFactory()->registerObject(&zobject, qo PQDBG_LVL_CC);
 
-        zval uid;
-        ZVAL_LONG(&uid, reinterpret_cast<quint64>(qo));
+        //zval uid;
+        //ZVAL_LONG(&uid, reinterpret_cast<quint64>(qo));
 
-        zval zhandle;
-        ZVAL_LONG(&zhandle, Z_OBJ_HANDLE(zobject));
+        //zval zhandle;
+        //ZVAL_LONG(&zhandle, Z_OBJ_HANDLE(zobject));
 
-        zend_update_property_long(ce, &zobject, "uid", sizeof("uid")-1, reinterpret_cast<quint64>(qo));
-        zend_update_property_long(ce, &zobject, "zhandle", sizeof("zhandle")-1, Z_OBJ_HANDLE(zobject));
+        //zend_update_property_long(ce, &zobject, "uid", sizeof("uid")-1, reinterpret_cast<quint64>(qo));
+        //zend_update_property_long(ce, &zobject, "zhandle", sizeof("zhandle")-1, Z_OBJ_HANDLE(zobject));
 
-        Z_DELREF(zobject);
+        //Z_DELREF(zobject);
 
-        PQDBGLPUP(QString("refcount: %1").arg(Z_REFCOUNT(zobject)));
+        //PQDBGLPUP(QString("refcount: %1").arg(Z_REFCOUNT(zobject)));
 
         PQDBG_LVL_DONE();
         return Z_OBJ(zobject);
     }
 
     PQDBG_LVL_DONE();
-    return nullptr;
+    return Q_NULLPTR;
 }
 
 PQAPI bool PHPQt5::pq_test_ce(zval *pzval PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_PROCEED(__FUNCTION__);
-    PQDBGLPUP(Z_OBJCE_NAME_P(pzval));
 #endif
 
+    bool is_pqobject = false;
+
     if(Z_TYPE_P(pzval) == IS_OBJECT) {
+        PQDBGLPUP(Z_OBJCE_NAME_P(pzval));
         zend_class_entry *ce = Z_OBJCE_P(pzval);
 
-        while (!objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(ce->name->val)
+        /*while (!objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(ce->name->val)
                && ce->parent != NULL)
         {
             ce = ce->parent;
@@ -670,10 +697,18 @@ PQAPI bool PHPQt5::pq_test_ce(zval *pzval PQDBG_LVL_DC)
 
         PQDBG_LVL_DONE();
         return objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(ce->name->val);
+        */
+
+        do {
+            if(objectFactory()->getRegisteredMetaObjects(PQDBG_LVL_C).contains(ce->name->val)) {
+                is_pqobject = true;
+                break;
+            }
+        } while(ce = ce->parent);
     }
 
     PQDBG_LVL_DONE();
-    return false;
+    return is_pqobject;
 }
 
 int PHPQt5::pq_call_with_return(QObject *qo,
@@ -795,6 +830,7 @@ QVariant PHPQt5::pq_call(QObject *qo,
 
         // не было родителя и появился
         if(!before_have_parent && after_have_parent) {
+            PQDBGLPUP("ADDREF");
             Z_ADDREF_P(cqe.zv);
         }
         // был родитель и не стало
@@ -993,7 +1029,7 @@ zval PHPQt5::pq_cast_to_zval(const QVariant &value,
                 if(Z_TYPE(test_zval) == IS_OBJECT) {
                     ZVAL_ZVAL(&ret_zval, &test_zval, 1, 0);
                 }
-                else {
+                else if(Z_TYPE(test_zval) == IS_NULL) {
                     zend_object *zobject = pq_register_extra_qobject(qo PQDBG_LVL_CC);
 
                     if(zobject) {
@@ -1001,9 +1037,11 @@ zval PHPQt5::pq_cast_to_zval(const QVariant &value,
                         if(addref) Z_ADDREF(ret_zval);
                     }
                     else {
-                        php_error(E_WARNING, "Object could not be found or was destroyed!\n");
-                        ZVAL_NULL(&ret_zval);
+                        php_error(E_ERROR, "Object could not be found or was destroyed!\n");
                     }
+                }
+                else {
+                    php_error(E_ERROR, "Object could not be found or was destroyed!\n");
                 }
             }
             else {
@@ -1256,26 +1294,33 @@ bool PHPQt5::pq_connect(zval *z_sender,
             return true;
         }
 
-        int indexOfSlot = qo_sender->metaObject()->indexOfMethod(slot_ba.mid(1));
+        int indexOfSlot = qo_receiver->metaObject()->indexOfMethod(slot_ba.mid(1));
+        bool ok = indexOfSlot >= 0
+                ? qo_sender->connect(qo_sender, signal_ba, qo_receiver, slot_ba)
+                : false;
 
-        if(indexOfSlot < 0 || !qo_sender->connect(qo_sender, signal, qo_receiver, slot)) {
-            bool ok = phpqt5Connections->createConnection(z_sender,
-                                                          qo_sender,
-                                                          signal_ba,
-                                                          z_receiver,
-                                                          qo_receiver,
-                                                          slot_ba
-                                                          PQDBG_LVL_CC);
+        PQDBGLPUP(QString("connect %1::%2 -> %3::%4[indexOfSlot=%5] => ok = %6")
+                  .arg(qo_sender->metaObject()->className())
+                  .arg(signal_ba.mid(1).constData())
+                  .arg(qo_receiver->metaObject()->className())
+                  .arg(slot_ba.mid(1).constData())
+                  .arg(indexOfSlot)
+                  .arg(ok));
+
+        if(!ok) {
+            ok = phpqt5Connections->createConnection(z_sender,
+                                                     qo_sender,
+                                                     signal_ba,
+                                                     z_receiver,
+                                                     qo_receiver,
+                                                     slot_ba
+                                                     PQDBG_LVL_CC);
 
             if(!ok) {
                 php_error(E_WARNING, QString("Cannot connect SIGNAL `%1` with SLOT `%2`\n").arg(signal).arg(slot).toUtf8().constData());
             }
 
-            #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-            PQDBGLPUP("done");
-            #endif
-
-            PQDBG_LVL_DONE();
+            PQDBG_LVL_DONE_LPUP();
             return ok;
         }
         else {
@@ -1304,20 +1349,13 @@ bool PHPQt5::pq_move_to_thread(QObject *qo,
         if(qt_class_name != "QThread") {
             php_error(E_WARNING, "Unknown argument 1, cannot prepare method call moveToThread(QThread *thread)\n");
 
-            #ifdef PQDEBUG
-                PQDBG_LVL_DONE();
-            #endif
-
+            PQDBG_LVL_DONE();
             return false;
         }
     }
     else {
         php_error(E_WARNING, "Unknown argument 1, cannot prepare method call moveToThread(QThread *thread)\n");
-
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
-
+        PQDBG_LVL_DONE();
         return false;
     }
 
@@ -1327,13 +1365,7 @@ bool PHPQt5::pq_move_to_thread(QObject *qo,
         FETCH_PQTHREAD();
 
         QThread *new_th = qobject_cast<QThread*>(thread_qo);
-        QVariant vpqzhandle = qo->property(PQZHANDLE);
-
         qo->moveToThread(new_th);
-        objectFactory()->moveObjectToThread(vpqzhandle.toInt(),
-                                            PQTHREAD,
-                                            new_th
-                                            PQDBG_LVL_CC);
 
         PQDBG_LVL_DONE();
         return true;

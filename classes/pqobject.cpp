@@ -24,7 +24,3 @@ PQObject::PQObject(QObject *parent)
 {
 }
 
-PQObject::~PQObject()
-{
-}
-

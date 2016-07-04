@@ -55,7 +55,7 @@ PQSettings::PQSettings(const QString &fileName,
 {
 }
 
-PQSettings::~PQSettings(){}
+//PQSettings::~PQSettings(){}
 
 QStringList PQSettings::allKeys() const
 {

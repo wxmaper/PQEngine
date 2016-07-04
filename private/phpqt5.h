@@ -43,11 +43,13 @@ ZEND_END_ARG_INFO()
 #define FETCH_PQTHREAD() QThread *PQTHREAD = QThread::currentThread();
 #define PQZHANDLE "__pq_zhandle_"
 
-typedef struct pqobject_wrapper {
+struct PQObjectWrapper {
     QPointer<QObject> qo_sptr;
-    bool isinit;
+    bool isinit = false;
+    bool isvalid = false;
+    PlastiQObject *object;
     zend_object zo;
-} PQObjectWrapper;
+};
 
 typedef struct _pq_call_qo_entry {
     QObject *qo;
@@ -85,7 +87,95 @@ struct qrc_stream_data {
 };
 
 static inline PQObjectWrapper *fetch_pqobject(zend_object *zobject) {
-    return (PQObjectWrapper *)((char*)(zobject) - XtOffsetOf(PQObjectWrapper, zo));
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    PQObjectWrapper *pqobject = (PQObjectWrapper *)((char*)(zobject) - XtOffsetOf(PQObjectWrapper, zo));
+
+#ifdef PQDEBUG
+    if(pqobject->qo_sptr.isNull()) {
+        PQDBGLPUP(QString("fetch: %1:%2:%3 - Q_NULLPTR:0:0()")
+                  .arg(zobject->ce->name->val)
+                  .arg(zobject->handle)
+                  .arg(reinterpret_cast<quint64>(zobject)));
+    }
+    else {
+        QObject *qobject = pqobject->qo_sptr.data();
+
+        PQDBGLPUP(QString("fetch: %1:%2:%3 - %4:%5:%6(%7)")
+                  .arg(zobject->ce->name->val)
+                  .arg(zobject->handle)
+                  .arg(reinterpret_cast<quint64>(zobject))
+                  .arg(qobject->metaObject()->className())
+                  .arg(qobject->property(PQZHANDLE).toInt())
+                  .arg(reinterpret_cast<quint64>(qobject))
+                  .arg(qobject->objectName()));
+    }
+#endif
+
+    PQDBG_LVL_RETURN_VAL(pqobject);
+}
+
+static inline zval fetch_zobject(QObject *qobject)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    zval zv;
+    _zend_object *zobject;
+
+    if(qobject) {
+        int indexOfMethod = qobject->metaObject()->indexOfMethod(QByteArray("__pq_getZObject()"));
+
+        if(indexOfMethod >= 0
+                && qobject->metaObject()->invokeMethod(qobject,
+                                                       "__pq_getZObject",
+                                                       Q_RETURN_ARG(_zend_object*, zobject))) {
+
+            PQDBGLPUP(QString("fetch zobject: %1").arg(reinterpret_cast<quint64>(zobject)));
+
+            if(zobject == Q_NULLPTR) {
+                ZVAL_UNDEF(&zv);
+                PQDBGLPUP(QString("fetch: %1:%2:%3 - %4:%5:%6(%7)")
+                          .arg("NULL")
+                          .arg(-1)
+                          .arg(reinterpret_cast<quint64>(zobject))
+                          .arg(qobject->metaObject()->className())
+                          .arg(qobject->property(PQZHANDLE).toInt())
+                          .arg(reinterpret_cast<quint64>(qobject))
+                          .arg(qobject->objectName()));
+            }
+            else {
+                ZVAL_OBJ(&zv, zobject);
+                PQDBGLPUP(QString("fetch: %1:%2:%3 - %4:%5:%6(%7)")
+                          .arg(zobject->ce->name->val)
+                          .arg(zobject->handle)
+                          .arg(reinterpret_cast<quint64>(zobject))
+                          .arg(qobject->metaObject()->className())
+                          .arg(qobject->property(PQZHANDLE).toInt())
+                          .arg(reinterpret_cast<quint64>(qobject))
+                          .arg(qobject->objectName()));
+            }
+        }
+        else {
+            ZVAL_NULL(&zv);
+            PQDBGLPUP(QString("fetch: %1:%2:%3 - %4:%5:%6(%7)")
+                      .arg("NULL")
+                      .arg(0)
+                      .arg(0)
+                      .arg(qobject->metaObject()->className())
+                      .arg(qobject->property(PQZHANDLE).toInt())
+                      .arg(reinterpret_cast<quint64>(qobject))
+                      .arg(qobject->objectName()));
+        }
+    }
+    else {
+        ZVAL_NULL(&zv);
+    }
+
+    PQDBG_LVL_RETURN_VAL(zv);
 }
 
 extern QObject* pq_createObject(const QString &className, const QVariantList &args);
@@ -131,8 +221,9 @@ public:
     static zval             pq_qobjectlist_to_ht(const QObjectList &objectList PQDBG_LVL_DC);
     static QStringList      pq_ht_to_qstringlist(zval *pzval PQDBG_LVL_DC);
 
-    PQAPI static void       pq_core_init(PQDBG_LVL_D) ;
-    PQAPI static void       pq_register_class(const QMetaObject &metaObject PQDBG_LVL_DC);
+    static void             pq_core_init(PQDBG_LVL_D) ;
+    static void             pq_register_class(const QMetaObject &metaObject PQDBG_LVL_DC);
+    static void             pq_register_plastiq_class(const PlastiQMetaObject &metaObject PQDBG_LVL_DC);
 
     /* HANDLERS */
     static zend_object *    pqobject_create(zend_class_entry *class_type);
@@ -168,6 +259,7 @@ public:
     static void             zif_SIGNAL(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_SLOT(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_connect(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_disconnect(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_c(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_tr(INTERNAL_FUNCTION_PARAMETERS);
@@ -183,7 +275,8 @@ public:
     static void             zif_R(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_qApp(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_emit(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_test_one(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_is_valid(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_qDebug(INTERNAL_FUNCTION_PARAMETERS);
 
     /* ... */
     static QHash<QObject*, int> acceptedPHPSlots_indexes;
@@ -203,6 +296,7 @@ public:
             PHP_FE(SIGNAL, NULL)
             PHP_FE(SLOT, NULL)
             PHP_FE(connect, NULL)
+            PHP_FE(plastiq_connect, NULL)
             PHP_FE(disconnect, NULL)
             PHP_FE(c, NULL)
             PHP_FE(tr, NULL)
@@ -215,7 +309,8 @@ public:
             PHP_FE(pqpack, NULL)
             PHP_FE(pqGetStarCoords, NULL)
             PHP_FE(R, NULL)
-            PHP_FE(test_one, NULL)
+            PHP_FE(is_valid, NULL)
+            { "qDebug", zif_qDebug, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qApp", zif_qApp, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "emit", zif_emit, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             ZEND_FE_END
@@ -291,6 +386,16 @@ public:
         return instance;
     }
 
+    static zend_function_entry *phpqt5_plastiq_methods() {
+        static zend_function_entry instance[] = {
+            ZEND_ME(plastiq, __construct, NULL, ZEND_ACC_PUBLIC)
+            ZEND_ME(plastiq, __call, phpqt5__call, ZEND_ACC_PUBLIC)
+            ZEND_FE_END
+        };
+
+        return instance;
+    }
+
     static size_t php_qrc_read(php_stream *stream, char *buf, size_t count);
 
     static int php_qrc_close(php_stream *stream, int close_handle);
@@ -342,6 +447,10 @@ private:
     static void             zim_pqobject_free(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject_setEventListener(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject_children(INTERNAL_FUNCTION_PARAMETERS);
+
+    // PlastiQ
+    static void             zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zim_plastiq___call(INTERNAL_FUNCTION_PARAMETERS);
 
     static void             zim_pqobject_emit(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_pqobject_declareSignal(INTERNAL_FUNCTION_PARAMETERS);

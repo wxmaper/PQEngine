@@ -25,7 +25,7 @@ PQTimer::PQTimer(QObject *parent) :
     declareOnSignals();
 }
 
-PQTimer::~PQTimer() {}
+//PQTimer::~PQTimer() {}
 
 int PQTimer::interval() {
     return QTimer::interval();

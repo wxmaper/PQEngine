@@ -25,10 +25,7 @@ PQStandardPaths::PQStandardPaths()
     declareOnSignals();
 }
 
-PQStandardPaths::~PQStandardPaths()
-{
-
-}
+//PQStandardPaths::~PQStandardPaths(){}
 
 QString PQStandardPaths::writableLocation(int type)
 {

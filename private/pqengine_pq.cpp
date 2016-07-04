@@ -65,6 +65,9 @@ void PQEnginePrivate::pq_register_extension(IPQExtension *extension PQDBG_LVL_DC
     /* Register extension classes */
     pq_register_classes(extension->classes() PQDBG_LVL_CC);
 
+    /* Register extension classes */
+    pq_register_plastiq_classes(extension->plastiqClasses() PQDBG_LVL_CC);
+
     /* Finalize extension */
     extension->finalize();
 
@@ -79,6 +82,19 @@ void PQEnginePrivate::pq_register_classes(QMetaObjectList classes PQDBG_LVL_DC)
 
     foreach (const QMetaObject &metaObject, classes) {
         PHPQt5::pq_register_class(metaObject PQDBG_LVL_CC);
+    }
+
+    PQDBG_LVL_DONE();
+}
+
+void PQEnginePrivate::pq_register_plastiq_classes(PlastiQMetaObjectList classes PQDBG_LVL_DC)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_PROCEED(__FUNCTION__);
+#endif
+
+    foreach (const PlastiQMetaObject &metaObject, classes) {
+        PHPQt5::pq_register_plastiq_class(metaObject PQDBG_LVL_CC);
     }
 
     PQDBG_LVL_DONE();

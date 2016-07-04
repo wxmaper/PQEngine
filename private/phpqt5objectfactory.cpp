@@ -17,8 +17,6 @@
 #include "phpqt5objectfactory.h"
 #include "phpqt5.h"
 
-#define FETCH_PQOMAP() PQObjectMap _pqom = m_ts_pqobjects.value(PQTHREAD, PQObjectMap());
-#define PQOMAP _pqom
 /*
 #define PREPARE_ARGS(convertedArgs) \
     QList<QGenericArgument> preparedArgs; \
@@ -94,11 +92,9 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
 {
 #ifdef PQDEBUG
     PQDBG_LVL_PROCEED(__FUNCTION__);
-    {
-        PQDBGLPUP(QString("%1:? - z:%3")
-                  .arg(className)
-                  .arg(Z_OBJ_HANDLE_P(pzval)))
-    }
+    PQDBGLPUP(QString("%1:? - z:%3")
+              .arg(className)
+              .arg(Z_OBJ_HANDLE_P(pzval)))
 #endif
 
     QObject *qo = Q_NULLPTR;
@@ -120,25 +116,20 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
 
     int constIndex = metaObject.indexOfConstructor(QMetaObject::normalizedSignature(signature));
 
-    #ifdef PQDEBUG
-    #ifdef PQDETAILEDDEBUG
-        PQDBGLPUP(QString("prepared signature: %1").arg(signature.constData()));
-    #endif
-    #endif
+    PQDBGLPUP(QString("prepared signature: %1").arg(signature.constData()));
 
     if(constIndex > -1) {
-        #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
         PQDBGLPUP("found faster method (#1)");
-        #endif
+        PQDBGLPUP(QString("testing constructor #%1").arg(constIndex));
 
         QMetaMethod metaMethod = metaObject.constructor(constIndex);
-        PQDBGLPUP(QString("testing constructor #%1").arg(constIndex));
 
         QVariantList convertedArgs;
         bool converted = convertArgs(metaMethod, args, &convertedArgs, true PQDBG_LVL_CC);
 
         if( converted ) {
             PQDBGLPUP(QString("preparing... (%1)").arg(convertedArgs.size()));
+
             PREPARE_ARGS(convertedArgs);
 
             PQDBGLPUP(QString("create Instance of %1 class...").arg(metaObject.className()));
@@ -160,11 +151,7 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
     }
 
     else {
-        #ifdef PQDEBUG
-        #ifdef PQDETAILEDDEBUG
-            PQDBGLPUP("found general method (#2)");
-        #endif
-        #endif
+        PQDBGLPUP("found general method (#2)");
 
         for(int constructorIndex = 0;
             constructorIndex < metaObject.constructorCount();
@@ -172,26 +159,15 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
         {
             QMetaMethod metaMethod = metaObject.constructor(constructorIndex);
 
-            #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
             PQDBGLPUP(QString("testing constructor #%1").arg(constructorIndex));
             PQDBGLPUP(QString("%1").arg(metaMethod.methodSignature().constData()));
-            #endif
 
             QVariantList convertedArgs;
             bool converted = convertArgs(metaMethod, args, &convertedArgs, true PQDBG_LVL_CC);
 
             if( converted ) {
                 PREPARE_ARGS(convertedArgs);
-
-                #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
                 PQDBGLPUP("creating qobject");
-                #endif
-
-               // qDebug() << args.at(0).data();
-               // qDebug() << convertedArgs;
-               // qDebug() << preparedArgs.value(0).data();
-               // qDebug() << preparedArgs.value(0).name();
-
 
                 qo = metaObject.newInstance(
                             preparedArgs.value(0),
@@ -206,10 +182,7 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
                             preparedArgs.value(9));
 
                 if(qo) {
-                    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
                     PQDBGLPUP("ok");
-                    #endif
-
                     break;
                 }
             }
@@ -219,16 +192,12 @@ QObject *PHPQt5ObjectFactory::createObject(const QString &className,
     if(qo) {
         registerObject(pzval, qo PQDBG_LVL_CC);
     }
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
+    #if defined(PQDEBUG)
     else { PQDBGLPUP("qobject not created"); }
     #endif
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-    PQDBGLPUP("done");
-    #endif
 
-    PQDBG_LVL_DONE();
-    return qo;
+    PQDBG_LVL_RETURN_VAL_LPUP(qo);
 }
 
 bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL_DC)
@@ -242,34 +211,38 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
 #endif
 
     PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(pzval));
-    pqobject->isinit = true;
     pqobject->qo_sptr = qobject;
+    pqobject->isvalid = true;
+    m_objects << qobject;
 
     QMetaObject::invokeMethod(qobject, "__pq_setThisPtr", Q_ARG(QObject*, qobject));
+    QMetaObject::invokeMethod(qobject, "__pq_setZObject",
+                              QGenericArgument("_zend_object*", static_cast<const void*>(&Z_OBJ_P(pzval))));
 
-    connect(qobject, SIGNAL(destroyed(QObject*)),
-            this, SLOT(s_freeObject(QObject*)));
+    connect(qobject, SIGNAL(destroyed(_zend_object*)),
+            this, SLOT(freeObject_slot(_zend_object*)));
 
     if(qobject->parent()) {
         PQDBGLPUP("addref to zobject");
         Z_ADDREF_P(pzval);
     }
 
-    m_objects.insert(qobject, Z_OBJ_P(pzval));
-    {
-        PQDBGLPUP("update properties");
-        /*
-        zval member;
-        ZVAL_STRINGL(&member, "signals", 7);
-        zend_object_handlers *std_hnd = zend_get_std_object_handlers();
-        zsignals = std_hnd->read_property(pzval, &member, BP_VAR_IS, NULL, NULL);
+    PQDBGLPUP("set standard properties");
+    {   // transfer into a function?
+        zend_class_entry *ce = Z_OBJCE_P(pzval);
 
-        zval_ptr_dtor(&member);
-        */
+        quint64 uid = reinterpret_cast<quint64>(qobject);
+        quint32 zhandle = Z_OBJ_HANDLE_P(pzval);
 
-        zend_update_property_long(Z_OBJCE_P(pzval), pzval, "uid", sizeof("uid")-1, reinterpret_cast<quint64>(qobject));
-        zend_update_property_long(Z_OBJCE_P(pzval), pzval, "zhandle", sizeof("zhandle")-1, Z_OBJ_HANDLE_P(pzval));
+        do {
+            zend_update_property_long(ce, pzval, "__pq_uid", sizeof("__pq_uid")-1, uid);
+            zend_update_property_long(ce, pzval, "__pq_zhandle", sizeof("__pq_zhandle")-1, zhandle);
+        } while (ce = ce->parent);
 
+        qobject->setProperty(PQZHANDLE, zhandle);
+    }
+
+    {   // transfer into a function?
         zval *zsignals, rv;
         zsignals = zend_read_property(Z_OBJCE_P(pzval), pzval, "signals", 7, 1, &rv);
 
@@ -297,7 +270,9 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
             break;
         }
 
-        case IS_NULL: break;
+        case IS_NULL:
+        case IS_UNDEF:
+            break;
 
         default:
             php_error(E_ERROR, QString("Cannot prepare signals for `<b>%1</b>`%2"
@@ -309,10 +284,12 @@ bool PHPQt5ObjectFactory::registerObject(zval* pzval, QObject *qobject PQDBG_LVL
         }
     }
 
-    PQDBG_LVL_DONE();
-    return true;
+    pqobject->isinit = true;
+
+    PQDBG_LVL_RETURN_VAL(true);
 }
 
+/*
 void PHPQt5ObjectFactory::freeObject(QObject *qobject PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
@@ -324,50 +301,118 @@ void PHPQt5ObjectFactory::freeObject(QObject *qobject PQDBG_LVL_DC)
             z = qobject->property(PQZHANDLE).toInt();
             c = QString(qobject->metaObject()->className()).mid(1);
         }
-        PQDBGLPUP(QString("%1:%2 - z:%3")
+        PQDBGLPUP(QString("%1:%2(%3) - z:%4")
                   .arg(c)
                   .arg(reinterpret_cast<quint64>(qobject))
+                  .arg(qobject->objectName())
                   .arg(z))
     }
 #endif
 
     if(qobject) {
+
         QObjectList childObjs = qobject->children();
 
         PQDBGLPUP("remove childs...");
-
         foreach(QObject *childObj, childObjs) {
             if(childObj != nullptr && childObj->parent() == qobject) {
                 if(!m_classes.contains(childObj->metaObject()->className()))
                     continue;
-                childObj->disconnect(childObj, SIGNAL(destroyed(QObject*)), this, SLOT(s_freeObject(QObject*)));
+                childObj->disconnect(childObj, SIGNAL(destroyed(_zend_object*)), this, SLOT(s_freeObject(_zend_object*)));
                 childObj->deleteLater();
                 removeObjectFromStorage(childObj PQDBG_LVL_CC);
             }
         }
 
         PQDBGLPUP("...all childs removed");
-        PQDBGLPUP("disconnect signals");
 
-        qobject->disconnect(qobject, SIGNAL(destroyed(QObject*)),
-                            this, SLOT(s_freeObject(QObject*)));
+        PQDBGLPUP("disconnect signals");
+        qobject->disconnect(qobject, SIGNAL(destroyed(_zend_object*)),
+                            this, SLOT(s_freeObject(_zend_object*)));
 
         removeObjectFromStorage(qobject PQDBG_LVL_CC);
 
         // double-free protection
         // parent class (QObject) can send destruction signal over subclass (PQObject)
         if(QString(qobject->metaObject()->className()).mid(0,1) == "P") {
-            #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
             PQDBGLPUP(QString("delete %1").arg(qobject->metaObject()->className()));
-            #endif
-
             delete qobject;
         }
+
     }
 
     PQDBG_LVL_DONE_LPUP();
 }
+*/
 
+void PHPQt5ObjectFactory::freeObject(zval *zobject PQDBG_LVL_DC)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_PROCEED(__FUNCTION__);
+#endif
+
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+
+    if(!pqobject->qo_sptr.isNull()) {
+        QObject *qobject = pqobject->qo_sptr.data();
+
+        qobject->disconnect(qobject, SIGNAL(destroyed(_zend_object*)),
+                            this, SLOT(freeObject_slot(_zend_object*)));
+
+        if(qobject->parent() && pqobject->isvalid) {
+            PQDBGLPUP("DELREF");
+            Z_DELREF_P(zobject);
+        }
+
+
+        m_objects.removeOne(qobject);
+        delete qobject;
+    }
+
+    pqobject->qo_sptr.clear();
+    pqobject->isvalid = false;
+
+    // ZVAL_UNDEF(zobject); // no need: memory leak
+    PQDBG_LVL_DONE_LPUP();
+}
+
+void PHPQt5ObjectFactory::freeObject_slot(_zend_object *zobject)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    PQObjectWrapper *pqobject = fetch_pqobject(zobject);
+    QObject *qobject = pqobject->qo_sptr.data();
+    pqobject->qo_sptr.clear();
+
+    zval zv;
+    ZVAL_OBJ(&zv, zobject);
+
+    if(qobject->parent() && pqobject->isvalid) {
+        PQDBGLPUP("DELREF");
+        Z_DELREF(zv);
+    }
+
+    zend_update_property_long(Z_OBJCE(zv), &zv, "__pq_uid", sizeof("__pq_uid")-1, 0);
+
+    /*
+    PQDBGLPUP(QString("====== %1 %2")
+              .arg(Z_OBJ_HANDLE_P(pqobject->zv))
+              .arg(reinterpret_cast<quint64>(Z_OBJ_P(pqobject->zv))));
+
+    PQDBGLPUP(QString("====== %1 %2")
+              .arg(Z_OBJ_HANDLE_P(&zv))
+              .arg(reinterpret_cast<quint64>(Z_OBJ_P(&zv))));
+    */
+
+    m_objects.removeOne(qobject);
+    pqobject->isvalid = false;
+
+    PQDBG_LVL_DONE();
+}
+
+/*
 void PHPQt5ObjectFactory::removeObjectFromStorage(QObject *qobject PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
@@ -381,6 +426,7 @@ void PHPQt5ObjectFactory::removeObjectFromStorage(QObject *qobject PQDBG_LVL_DC)
                   .arg(z))
     }
 #endif
+
 
     if(m_objects.contains(qobject)) {
         zval zobject;
@@ -397,7 +443,9 @@ void PHPQt5ObjectFactory::removeObjectFromStorage(QObject *qobject PQDBG_LVL_DC)
 
     PQDBG_LVL_DONE();
 }
+    */
 
+/*
 void PHPQt5ObjectFactory::moveObjectToThread(quint32 zhandle,
                                              QThread *old_th,
                                              QThread *new_th
@@ -413,13 +461,32 @@ void PHPQt5ObjectFactory::moveObjectToThread(quint32 zhandle,
 
     PQDBGLPUP("FAILURE");
 }
+*/
 
+/*
 void PHPQt5ObjectFactory::s_freeObject(QObject *qobject)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
+    {
+        int z = -1;
+        if(qobject) z = qobject->property(PQZHANDLE).toInt();
+        PQDBGLPUP(QString("%1:%2(%3) - z:%4")
+                  .arg(QString(qobject->metaObject()->className()).mid(1))
+                  .arg(reinterpret_cast<quint64>(qobject))
+                  .arg(qobject->objectName())
+                  .arg(z))
+    }
 #endif
 
+    QVariant pqzhandle = qobject->property(PQZHANDLE);
+    if(!pqzhandle.isValid()) {
+        PQDBGLPUP("invalid QObject");
+        PQDBG_LVL_DONE();
+        return;
+    }
+
+    /*
     QMapIterator<QObject*,zend_object*> i(m_objects);
     while(i.hasNext()) {
         i.next();
@@ -433,26 +500,54 @@ void PHPQt5ObjectFactory::s_freeObject(QObject *qobject)
             break;
         }
     }
+    *
+
+    QObject *qo = qobject;
+    QString methods;
+
+    if(qo != nullptr) {
+        const QMetaObject* metaObject = qo->metaObject();
+
+        for(int i = metaObject->methodOffset(); i < metaObject->methodCount(); ++i) {
+            QMetaMethod metaMethod = metaObject->method(i);
+
+            if(metaMethod.methodSignature().left(7) == PQ_STATIC_PREFIX) // skip *_pslot methods
+                continue;
+
+            methods.append(QString("\n >>> %1").arg(metaMethod.methodSignature().constData()));
+        }
+    }
+
+    PQDBGLPUP(methods);
+
+    PQDBGLPUP("fetch");
+    zval zobject = fetch_zobject(qobject);
+
+    //if(!zobject) return;
+   // if(Z_TYPE(zobject) == IS_OBJECT) {
+   //     zval_dtor(&zobject);
+   // }
+
+
+
+    PQDBGLPUP("Z_DELREF_P");
+    PQDBGLPUP(Z_TYPE(zobject));
+
+    Z_DELREF(zobject);
+   // if (Z_REFCOUNT_P(zobject) == 0) {
+    PQDBGLPUP("zval_ptr_dtor");
+        zval_ptr_dtor(&zobject);
+        PQDBGLPUP("ZVAL_UNDEF");
+        ZVAL_UNDEF(&zobject);
+       // efree(zobject);
+   // }
 
     PQDBG_LVL_DONE();
 
     //freeObject(qobject PQDBG_LVL_NC);
 }
+*/
 
-void PHPQt5ObjectFactory::s_removeObjectFromStorage(QObject *qobject)
-{
-    removeObjectFromStorage(qobject PQDBG_LVL_NC);
-}
-
-void PHPQt5ObjectFactory::s_removeObjectByHandle(quint32 zhandle)
-{
-    //removeObjectByHandle(zhandle PQDBG_LVL_NC);
-}
-
-void PHPQt5ObjectFactory::s_updateObjectStorage()
-{
-    //updateObjectStorage(PQDBG_LVL_N);
-}
 
 bool PHPQt5ObjectFactory::call(QObject* qo,
                                QMetaMethod metaMethod,
@@ -470,11 +565,12 @@ bool PHPQt5ObjectFactory::call(QObject* qo,
             z = qo->property(PQZHANDLE).toInt();
             c = qo->metaObject()->className();
         }
+
         PQDBGLPUP(QString("%1:%2 - z:%3 -> %4")
                   .arg(c)
                   .arg(reinterpret_cast<quint64>(qo))
                   .arg(z)
-                  .arg(metaMethod.name().constData()))
+                  .arg(metaMethod.name().constData()));
     }
 #endif
 
@@ -549,28 +645,22 @@ bool PHPQt5ObjectFactory::call(QObject* qo,
                         );
 
             if(metaMethod.typeName() == QString("QObjectList*")) {
-                QObjectList list = QObjectList();
+                // QObjectList list = QObjectList();
                 qDebug() << returnArgument.data();
                 qDebug() << retVal.constData();
-               // retVal = QVariant::fromValue<QObjectList>(list);
+                // retVal = QVariant::fromValue<QObjectList>(list);
             }
 
-
-            PQDBGLPUP("done");
+            PQDBGLPUP("ok");
         }
     }
 
     if (!ok) {
-        #ifdef PQDEBUG
-        qWarning() << "Calling" << metaMethod.methodSignature() << "failed!";
-        #endif
-
-        PQDBG_LVL_DONE();
-        return false;
+        PQDBGLPUP(QString("Calling %1 failed!").arg(metaMethod.methodSignature().constData()));
+        PQDBG_LVL_RETURN_VAL(false);
     }
 
-    PQDBG_LVL_DONE();
-    return true;
+    PQDBG_LVL_RETURN_VAL(true);
 }
 
 bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args, QVariantList *convertedArg, bool is_constructor PQDBG_LVL_DC)
@@ -581,9 +671,7 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
 
     QList<QByteArray> methodTypes = metaMethod.parameterTypes();
     if (methodTypes.size() != args.size()) {
-
-        PQDBG_LVL_DONE();
-        return false;
+        PQDBG_LVL_RETURN_VAL(false);
     }
 
     for (int i = 0; i < methodTypes.size(); i++) {
@@ -622,8 +710,7 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
                     copy = QVariant::fromValue<int>(0);
                 }
                 else {
-                    PQDBG_LVL_DONE();
-                    return false;
+                    PQDBG_LVL_RETURN_VAL(false);
                 }
             }
         }
@@ -637,20 +724,14 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
                         //qWarning() << "Error converting" << argTypeName
                         //           << "to" << methodTypeName;
 
-                        #ifdef PQDEBUG
-                            PQDBGLPUP(QString("Error converting %1 to %2").arg(copy.type()).arg(methodTypeId));
-                        #endif
-
-                        PQDBG_LVL_DONE();
-                        return false;
+                        PQDBGLPUP(QString("Error converting %1 to %2").arg(copy.type()).arg(methodTypeId));
+                        PQDBG_LVL_RETURN_VAL(false);
                     }
                 }
                 else {
-                    #ifdef PQDEBUG
-                        PQDBGLPUP(QString("Can't convert %1(%2) to %3(%4)")
-                                  .arg(argTypeName.constData()).arg(copy.type())
-                                  .arg(methodTypeName.constData()).arg(methodTypeId));
-                    #endif
+                    PQDBGLPUP(QString("Can't convert %1(%2) to %3(%4)")
+                              .arg(argTypeName.constData()).arg(copy.type())
+                              .arg(methodTypeName.constData()).arg(methodTypeId));
 
                     if(methodTypeName == "QVariant") {
                         copy = arg;
@@ -663,27 +744,23 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
                             copy = QVariant::fromValue<pq_nullptr>(ptr);
                         }
                         else {
-                            PQDBG_LVL_DONE();
-                            return false;
+                            PQDBG_LVL_RETURN_VAL(false);
                         }
                     }
                     else if(methodTypeName.contains("*")
                             && argTypeName.contains("*")) {
 
 
-                       // copy = QVariant::fromValue(arg.value());
-                        #ifdef PQDEBUG
-                            PQDBGLPUP(QString("TODO: NOT SUPPORTED CONVERSION at line (%1)").arg(__LINE__));
-                            PQDBGLPUP("methodTypeName.contains(\"*\") && argTypeName.contains(\"*\")");
-                        #endif
+                        // copy = QVariant::fromValue(arg.value());
+                        PQDBGLPUP(QString("TODO: NOT SUPPORTED CONVERSION at line (%1)").arg(__LINE__));
+                        PQDBGLPUP("methodTypeName.contains(\"*\") && argTypeName.contains(\"*\")");
 
                         //TODO: NOT SUPPORTED CONVERSION
                         //copy = QVariant::fromValue<QObject*>(arg);
                         //return false;
                     }
                     else {
-                        PQDBG_LVL_DONE();
-                        return false;
+                        PQDBG_LVL_RETURN_VAL(false);
                     }
                 }
             }
@@ -692,8 +769,7 @@ bool PHPQt5ObjectFactory::convertArgs(QMetaMethod metaMethod, QVariantList args,
         *convertedArg << copy;
     }
 
-    PQDBG_LVL_DONE();
-    return true;
+    PQDBG_LVL_RETURN_VAL(true);
 }
 
 QList<zval> PHPQt5ObjectFactory::getZObjectsByName(const QString &objectName PQDBG_LVL_DC)
@@ -702,6 +778,7 @@ QList<zval> PHPQt5ObjectFactory::getZObjectsByName(const QString &objectName PQD
     PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
+    /*
     QList<zval> zobjects;
 
     QMapIterator<QObject*,zend_object*> i(m_objects);
@@ -716,8 +793,20 @@ QList<zval> PHPQt5ObjectFactory::getZObjectsByName(const QString &objectName PQD
             zobjects.append(zobject);
         }
     }
+    */
 
-    return zobjects;
+    QList<zval> zobjects;
+    foreach(QObject *qo, m_objects) {
+        if(qo->objectName() == objectName) {
+            zval zobject = fetch_zobject(qo);
+
+            if(Z_TYPE(zobject) == IS_OBJECT) {
+                zobjects << zobject;
+            }
+        }
+    }
+
+    PQDBG_LVL_RETURN_VAL(zobjects);
 }
 
 void PHPQt5ObjectFactory::registerZendClassEntry(QString qtClassName, zend_class_entry *ce_ptr PQDBG_LVL_DC)
@@ -728,19 +817,20 @@ void PHPQt5ObjectFactory::registerZendClassEntry(QString qtClassName, zend_class
 #endif
 
     z_classes.insert(qtClassName, ce_ptr);
+    PQDBG_LVL_DONE();
 }
 
 zend_class_entry *PHPQt5ObjectFactory::getClassEntry(const QString &qtClassName PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
-    Q_UNUSED(PQDBG_LVL_C);
-    //PQDBG_LVL_PROCEED(__FUNCTION__);
-    //PQDBGLPUP(QString("qtClassName: %1").arg(qtClassName));
+    // PQDBG_LVL_PROCEED(__FUNCTION__);
+    // PQDBGLPUP(QString("className: %1").arg(qtClassName));
 #endif
 
-    //PQDBG_LVL_DONE();
-    return z_classes.value(qtClassName, nullptr);
+    zend_class_entry *ce = z_classes.value(qtClassName, Q_NULLPTR);
+    PQDBG_LVL_RETURN_VAL(ce);
 }
+
 
 QString PHPQt5ObjectFactory::registerMetaObject(const QMetaObject &qmo PQDBG_LVL_DC)
 {
@@ -755,8 +845,19 @@ QString PHPQt5ObjectFactory::registerMetaObject(const QMetaObject &qmo PQDBG_LVL
     m_classes.insert(qt_class_name,
                      pqof_class_entry { qt_class_name, pq_class_name, qmo });
 
-    PQDBG_LVL_DONE();
-    return qt_class_name;
+    PQDBG_LVL_RETURN_VAL(qt_class_name);
+}
+
+QByteArray PHPQt5ObjectFactory::registerPlastiQMetaObject(const PlastiQMetaObject &metaObject PQDBG_LVL_DC)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_PROCEED(__FUNCTION__);
+    PQDBGLPUP(QString("PlastiQ className: %1").arg(metaObject.className()));
+#endif
+
+    m_plastiqClasses.insert(metaObject.className(), metaObject);
+
+    PQDBG_LVL_RETURN_VAL(metaObject.className());
 }
 
 QMap<QString, pqof_class_entry> PHPQt5ObjectFactory::getRegisteredMetaObjects(PQDBG_LVL_D)
@@ -765,50 +866,42 @@ QMap<QString, pqof_class_entry> PHPQt5ObjectFactory::getRegisteredMetaObjects(PQ
     PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
-    PQDBG_LVL_DONE();
-    return m_classes;
+    PQDBG_LVL_RETURN_VAL(m_classes);
 }
 
-QObject *PHPQt5ObjectFactory::getQObject(zval *zobj_ptr PQDBG_LVL_DC)
+QObject *PHPQt5ObjectFactory::getQObject(zval *zobject PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_PROCEED(__FUNCTION__);
-    {
-        PQDBGLPUP(QString("%1:? - z:%3:%4")
-                  .arg(Z_OBJCE_NAME_P(zobj_ptr))
-                  .arg(Z_OBJ_HANDLE_P(zobj_ptr))
-                  .arg(reinterpret_cast<quint64>(zobj_ptr)))
-    }
+    PQDBGLPUP(QString("%1:%2:%3 - %4:%5(%6)")
+              .arg(Z_OBJCE_NAME_P(zobject))
+              .arg(Z_OBJ_HANDLE_P(zobject))
+              .arg(reinterpret_cast<quint64>(Z_OBJ_P(zobject)))
+              .arg("?")
+              .arg("?")
+              .arg("?"));
 #endif
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobj_ptr));
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    QObject *qobject = pqobject->qo_sptr.data();
 
-#ifdef PQDEBUG
-    if(pqobject->qo_sptr.isNull()) {
-        PQDBGLPUP(QString("fetch: Q_NULLPTR:%2 z:%3:%4")
-                  .arg(reinterpret_cast<quint64>(pqobject->qo_sptr.data()))
-                  .arg(pqobject->zo.ce->name->val)
-                  .arg(pqobject->zo.handle));
-    }
-    else {
-        PQDBGLPUP(QString("fetch: %1:%2 z:%3:%4")
-                  .arg(pqobject->qo_sptr.data()->metaObject()->className())
-                  .arg(reinterpret_cast<quint64>(pqobject->qo_sptr.data()))
-                  .arg(pqobject->zo.ce->name->val)
-                  .arg(pqobject->zo.handle));
-    }
-#endif
-
-    PQDBG_LVL_DONE();
-    return pqobject->qo_sptr.data();
+    PQDBG_LVL_RETURN_VAL(qobject);
 }
 
-zval PHPQt5ObjectFactory::getZObject(QObject *qo PQDBG_LVL_DC)
+zval PHPQt5ObjectFactory::getZObject(QObject *qobject PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_PROCEED(__FUNCTION__);
+    PQDBGLPUP(QString("%1:%2:%3 - %4:%5(%6)")
+              .arg("?")
+              .arg("?")
+              .arg("?")
+              .arg(qobject->metaObject()->className())
+              .arg(reinterpret_cast<quint64>(qobject))
+              .arg(qobject->objectName()));
 #endif
 
+    /*
     zval zv_object;
 
     if(m_objects.contains(qo)) {
@@ -817,6 +910,13 @@ zval PHPQt5ObjectFactory::getZObject(QObject *qo PQDBG_LVL_DC)
     else {
         ZVAL_NULL(&zv_object);
     }
+    */
 
-    return zv_object;
+    zval zobject = fetch_zobject(qobject);
+
+    if(Z_TYPE(zobject) != IS_OBJECT) {
+        ZVAL_NULL(&zobject);
+    }
+
+    PQDBG_LVL_RETURN_VAL(zobject);
 }

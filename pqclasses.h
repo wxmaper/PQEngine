@@ -21,6 +21,7 @@
 
 #include "classes/pqcoreapplication.h"
 #include "classes/pqevent.h"
+#include "classes/pqeventloop.h"
 #include "classes/pqlibrary.h"
 #include "classes/pqobject.h"
 #include "classes/pqregexp.h"

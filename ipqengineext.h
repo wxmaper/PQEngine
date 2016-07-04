@@ -21,6 +21,9 @@
 #include <QMetaObject>
 #include <QMetaMethod>
 
+#include "plastiqmetaobject.h"
+#include "plastiqmethod.h"
+
 #define PQENGINEEXT_MAJOR_VERSION 0
 #define PQENGINEEXT_MINOR_VERSION 5
 #define PQENGINEEXT_RELEASE_VERSION 0
@@ -29,6 +32,7 @@
 
 class IPQExtension;
 class QMetaObjectList : public QList<QMetaObject> {};
+class PlastiQMetaObjectList : public QList<PlastiQMetaObject> {};
 
 typedef struct pqext_entry {
     const char *fullName;
@@ -71,6 +75,7 @@ typedef struct pqext_entry {
 
 class IPQExtension {
 public:
+    virtual PlastiQMetaObjectList plastiqClasses() { return PlastiQMetaObjectList(); }
     virtual QMetaObjectList classes() = 0;
     virtual bool start() = 0;
     virtual bool finalize() = 0;

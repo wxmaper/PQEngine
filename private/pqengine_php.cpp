@@ -43,14 +43,7 @@ int PQEnginePrivate::php_pqengine_deactivate()
 
 size_t PQEnginePrivate::php_pqengine_ub_write(const char *str, size_t str_length)
 {
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-    PQDBGLPUP(QString("[%1]: %2").arg(str_length).arg(str));
-#endif
-
     pq_ub_write(PHPQt5::toUTF8(str));
-
-    PQDBG_LVL_DONE();
     return str_length;
 }
 
@@ -77,10 +70,6 @@ void PQEnginePrivate::php_pqengine_flush(void *server_context)
 
 void PQEnginePrivate::php_pqengine_send_header(sapi_header_struct *sapi_header, void *server_context)
 {
-#ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::php_pqengine_send_header()");
-#endif
-
     Q_UNUSED(sapi_header)
     Q_UNUSED(server_context)
 }

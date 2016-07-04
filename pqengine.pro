@@ -1,4 +1,4 @@
-PQ_PHP_VERSION=7.0.4
+PQ_PHP_VERSION=7.0.7
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 
 # for Windows only
@@ -72,7 +72,17 @@ SOURCES += \
     classes/pqthread.cpp \
     classes/pqstandardpaths.cpp \
     classes/pqevent.cpp \
-    classes/pqlibrary.cpp
+    classes/pqlibrary.cpp \
+    classes/pqeventloop.cpp \
+    plastiqclasses.cpp \
+    plastiqobject.cpp \
+    plastiqmethod.cpp \
+    plastiqmetaobject.cpp \
+    private/plastiq_zim.cpp \
+    private/plastiqmetaobjectfactory.cpp \
+    plastiqclasses/core/plastiqqobject.cpp \
+    plastiqclasses/core/plastiqqtimer.cpp \
+    private/plastiq_zif.cpp
 
 HEADERS += \
     pqengine.h\
@@ -96,4 +106,11 @@ HEADERS += \
     classes/pqstandardpaths.h \
     classes/pqevent.h \
     classes/pqlibrary.h \
-    pqtypes.h
+    pqtypes.h \
+    classes/pqeventloop.h \
+    plastiqclasses.h \
+    plastiqobject.h \
+    plastiqmethod.h \
+    plastiqmetaobject.h \
+    plastiqclasses/core/plastiqqobject.h \
+    plastiqclasses/core/plastiqqtimer.h

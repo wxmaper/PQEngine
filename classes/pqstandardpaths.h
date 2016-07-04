@@ -27,7 +27,7 @@ class PQStandardPaths : public PQObject
 
 public:
     Q_INVOKABLE explicit PQStandardPaths();
-    ~PQStandardPaths();
+    //~PQStandardPaths();
 
     Q_INVOKABLE static QString writableLocation(int type);
     Q_INVOKABLE static QString static_writableLocation(int type);

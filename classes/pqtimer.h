@@ -21,7 +21,8 @@
 #include <QTimer>
 
 class PQTimer;
-class PQTimer : public QTimer {
+class PQTimer : public QTimer
+{
     Q_OBJECT
     PQ_OBJECT_EX(QTimer)
 
@@ -32,7 +33,7 @@ class PQTimer : public QTimer {
 
 public:
     Q_INVOKABLE explicit PQTimer(QObject *parent = 0);
-    virtual ~PQTimer();
+    //virtual ~PQTimer();
 
     Q_INVOKABLE int interval();
     Q_INVOKABLE bool isActive();

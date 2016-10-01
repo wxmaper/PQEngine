@@ -27,7 +27,8 @@ typedef struct _PQEngineModule {
                      const QString &title);
 } PQEngineModule;
 
-class PQDLAPI PQEngine
+class PQEnginePrivate;
+class PQEngine
 {
 public:
     PQEngine(PQExtensionList extensions = PQExtensionList());
@@ -45,7 +46,9 @@ public:
 
     int                     exec(const char *script = "-");
 
-    static PQExtensionList  m_extensions;
+    static PQExtensionList  pqeExtensions;
+    static QString          pqeCoreName;
+    static PQEnginePrivate *pqeEngine;
 
 private:
     static bool pqeInitialized;

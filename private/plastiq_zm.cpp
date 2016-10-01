@@ -20,6 +20,7 @@
 #include "php_streams.h"
 
 zend_object_handlers PHPQt5::pqobject_handlers;
+zend_object_handlers PHPQt5::pqenum_handlers;
 
 php_stream_ops php_stream_qrc_ops = {
     PHPQt5::php_qrc_write,
@@ -64,20 +65,13 @@ php_stream *PHPQt5::qrc_opener(php_stream_wrapper *wrapper,
     PQDBGLPUP(path);
 #endif
 
-    QString resourcePath = QString(path).mid(6);
+    QString resourcePath = QString(path).mid(6); // 6 - length of "qrc://"
     QByteArray qrc_data;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("open resource");
-    #endif
-
-    // QString rFilePath = QString(":/%1/%2").arg(getCorename().constData()).arg(resourcePath);
     QString rFilePath = QString(":/%1").arg(resourcePath);
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP(QString("rFilePath: %1").arg(rFilePath));
-    #endif
-
     QFile file(rFilePath);
     if(file.open(QIODevice::ReadOnly)) {
         qrc_data = file.readAll();
@@ -91,23 +85,13 @@ php_stream *PHPQt5::qrc_opener(php_stream_wrapper *wrapper,
     php_stream *stream = nullptr;
     struct qrc_stream_data *data;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("emalloc qrc_stream_data");
-    #endif
-
     data = (qrc_stream_data *) emalloc(sizeof(*data));
     data->qrc_file = s;
     data->stream = stream;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("php_stream_alloc");
-    #endif
-
     stream = php_stream_alloc(&php_stream_qrc_ops, data, NULL, mode);
-
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-    PQDBGLPUP("done");
-    #endif
 
     PQDBG_LVL_DONE();
     return stream;
@@ -117,11 +101,11 @@ size_t PHPQt5::php_qrc_write(php_stream *stream, const char *buf, size_t count)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
-    PQDBG_LVL_DONE();
 #endif
 
-    php_error(E_ERROR, QString("Unable to write to resource file!").toUtf8().constData());
+    php_error(E_ERROR, "Unable to write to resource file!");
 
+    PQDBG_LVL_DONE();
     return 0;
 }
 
@@ -129,9 +113,9 @@ int PHPQt5::php_qrc_flush(php_stream *stream)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
-    PQDBG_LVL_DONE();
 #endif
 
+    PQDBG_LVL_DONE();
     return 0;
 }
 
@@ -144,22 +128,12 @@ int PHPQt5::php_qrc_close(php_stream *stream, int close_handle)
     struct qrc_stream_data *self = (struct qrc_stream_data *) stream->abstract;
     int ret = EOF;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("close device");
-    #endif
-
     self->qrc_file->device()->close();
     delete self->qrc_file;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("free stream");
-    #endif
-
     efree(self);
-
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
-    PQDBGLPUP("done");
-    #endif
 
     PQDBG_LVL_DONE();
     return ret;
@@ -173,24 +147,22 @@ size_t PHPQt5::php_qrc_read(php_stream *stream, char *buf, size_t count)
 
     struct qrc_stream_data *self = (struct qrc_stream_data *) stream->abstract;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("read device");
-    #endif
-
     QDataStream *s = self->qrc_file;
     size_t read_bytes = s->device()->read(buf, count);
 
     stream->eof = 1;
 
-    #if defined(PQDEBUG) && defined(PQDETAILEDDEBUG)
     PQDBGLPUP("done");
-    #endif
-
     PQDBG_LVL_DONE();
     return read_bytes;
 }
 
 static void phpqt5_error_handler(int error_num, const char *error_filename, const uint error_lineno, const char *format, va_list args) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
     QString error_type;
 
     switch(error_num) {
@@ -215,6 +187,8 @@ static void phpqt5_error_handler(int error_num, const char *error_filename, cons
            .arg(error_filename)
            .arg(error_lineno),
            error_type);
+
+    PQDBG_LVL_DONE();
 }
 
 int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
@@ -223,7 +197,7 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zend_error_cb = phpqt5_error_handler; //
+    zend_error_cb = PHPQt5::plastiqErrorHandler; //
 
     qRegisterMetaType<zval>("zval");
     qRegisterMetaType<zval*>("zval*");
@@ -242,6 +216,19 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     pqobject_handlers.dtor_obj = pqobject_object_dtor;
     pqobject_handlers.clone_obj = NULL;
 
+    // QEnum
+//    memcpy(&pqenum_handlers,
+//           zend_get_std_object_handlers(),
+//           sizeof(zend_object_handlers));
+
+//    pqenum_handlers.offset = XtOffsetOf(PQEnumWrapper, zo);
+
+//    pqenum_handlers.free_obj = pqenum_object_free;
+//    pqenum_handlers.dtor_obj = pqenum_object_dtor;
+//    pqenum_handlers.clone_obj = NULL;
+
+
+
     // pqobject_handlers.call_method = pqobject_call_method; // BUG: memory leak with zend_get_parameters_array_ex(); efree(args) - crash app
     // pqobject_handlers.get_method = pqobject_get_method;
 
@@ -249,11 +236,10 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
 
     // pqobject_handlers.get_properties = pqobject_get_properties;
     // pqobject_handlers.read_property	= pqobject_read_property;
-    // pqobject_handlers.has_property	= pqobject_has_property;
+    // pqobject_handlers.has_property = pqobject_has_property;
 
     PQDBGLPUP("register extensions");
-    PQEnginePrivate::pq_register_extensions(PQDBG_LVL_C);
-    phpqt5Connections = new PHPQt5Connection(PQDBG_LVL_C);
+    PQEnginePrivate::pq_register_extensions();
 
     PQDBG_LVL_DONE_LPUP();
     return SUCCESS;

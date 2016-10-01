@@ -25,13 +25,16 @@
 #define PQENGINE_VERSION_ID 53
 
 extern void default_ub_write(const QString &msg, const QString &title);
-extern QByteArray getCorename();
+extern QString getCorename();
 
 #ifdef PQDEBUG
+#include <QMap>
 extern int pqdbg_get_current_lvl();
 extern QString pqdbg_get_current_line();
 extern void pqdbg_current_line_inc();
 extern void pqdbg_set_current_lvl(int lvl);
+extern void pqdbg_send_message(int lvl, const QString &msg, const QString &title);
+extern void pqdbg_send_message(const QMap<QString,QString> &msgmap);
 #endif
 
 #define Z_OBJCE_NAME(zval)          (Z_OBJCE((zval)))->name->val
@@ -39,6 +42,7 @@ extern void pqdbg_set_current_lvl(int lvl);
 
 #ifdef PQDEBUG
     #include <QDebug>
+    #include <QLocalSocket>
 
     #define PQDBG_LVL_D int __pq_debug_level
     #define PQDBG_LVL_DC , PQDBG_LVL_D
@@ -60,7 +64,8 @@ extern void pqdbg_set_current_lvl(int lvl);
         pqdbg_current_line_inc();\
         QString m(msg);\
         for(int l = 0; l < PQDBG_LVL_C; l++) { m.prepend("  "); }\
-        default_ub_write(m, QString("D%1 L%2").arg(pqdbg_get_current_line()).arg(PQDBG_LVL_C));\
+        /*default_ub_write(m, QString("D%1 L%2").arg(pqdbg_get_current_line()).arg(PQDBG_LVL_C));*/\
+        pqdbg_send_message(PQDBG_LVL_C, m, pqdbg_get_current_line());\
     }
 
     /* Start new debug with level 0 */
@@ -111,6 +116,7 @@ extern void pqdbg_set_current_lvl(int lvl);
     #define PQDBG_LVL_DONE_LPUP()
 
     #define PQDBG_LVL_START()
+    #define PQDBGSEND(msgmap)
 #endif
 
 #define PQDBG_LVL_RETURN() {\

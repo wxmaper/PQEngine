@@ -3,30 +3,29 @@
 
 #include "pqengine_global.h"
 
-QHash<QByteArray, PlastiQMethod> PlastiQObject::platiqMethods;
-QHash<QByteArray, PlastiQMethod> PlastiQObject::platiqConstructors;
-PlastiQMetaObject PlastiQObject::plastiq_metaObject;
-const uint PlastiQObject::plastiq_objectType = PlastiQObject::IsObject;
+QVector<PlastiQMetaObject*> PlastiQObject::plastiqInherits;
+QHash<QByteArray, PlastiQMethod> PlastiQObject::plastiqMethods;
+QHash<QByteArray, PlastiQMethod> PlastiQObject::plastiqConstructors;
+PlastiQMetaObject PlastiQObject::plastiq_static_metaObject;
+const PlastiQ::ObjectType PlastiQObject::plastiq_static_objectType = PlastiQ::IsObject;
 
 int PlastiQObject::plastiq_metacall(PlastiQMetaObject::Call call, int id, const PMOGStack &stack)
 {
-    PQDBG_LVL_START(__FUNCTION__);
     return -1;
 }
 
 void PlastiQObject::plastiq_static_metacall(PlastiQObject *object, PlastiQMetaObject::Call call, int id, const PMOGStack &stack)
 {
-    PQDBG_LVL_START(__FUNCTION__);
 }
 
 
 PlastiQObject::PlastiQObject()
-    : m_typeName(""), m_typeId(-1), m_isNull(true)
+    : m_typeName(""), m_typeId(-1), m_isNull(true), QObject()
 {
 }
 
 PlastiQObject::PlastiQObject(const QByteArray &typeName, int typeId, void *data)
-    : m_typeName(typeName), m_typeId(typeId)
+    : m_typeName(typeName), m_typeId(typeId), QObject()
 {
     m_typeId = typeId;
 
@@ -41,7 +40,7 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, int typeId, void *data)
 }
 
 PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
-    : m_typeName(typeName)
+    : m_typeName(typeName), QObject()
 {
     m_typeId = PlastiQClasses::typeId(m_typeName);
     dptr = data;
@@ -55,7 +54,7 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
 }
 
 PlastiQObject::PlastiQObject(const QByteArray &typeName, const QByteArray &constructorSignature, const PMOGStack &stack)
-    : m_typeName(typeName)
+    : m_typeName(typeName), QObject()
 {
     m_typeId = PlastiQClasses::typeId(m_typeName);
     // invoke(PlastiQMetaObject::Call::CreateInstance, constructorSignature, stack);
@@ -68,7 +67,26 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, const QByteArray &const
     }
 }
 
-void PlastiQObject::setData(void *data, PlastiQObject *ddata) {
+PlastiQObject::~PlastiQObject()
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    if(dptr) {
+        PQDBGLPUP("delete dptr");
+        delete dptr;
+    }
+
+    if(ddptr) {
+        PQDBGLPUP("delete ddptr");
+       // delete ddptr;
+    }
+
+    PQDBG_LVL_DONE();
+}
+
+void PlastiQObject::plastiq_setData(void *data, PlastiQObject *ddata) {
     dptr = data;
     ddptr = ddata;
 
@@ -80,65 +98,38 @@ void PlastiQObject::setData(void *data, PlastiQObject *ddata) {
     }
 }
 
-void *PlastiQObject::data() {
+void *PlastiQObject::plastiq_data() {
     return dptr;
 }
 
-PlastiQMetaObject *PlastiQObject::dynamicMetaObject()
+PlastiQMetaObject *PlastiQObject::plastiq_dynamicMetaObject()
 {
-    return &ddptr->plastiq_metaObject;
+    return &ddptr->plastiq_static_metaObject;
 }
 
-PlastiQObject::ObjectType PlastiQObject::objectType()
-{
-    return PlastiQObject::ObjectType(*(metaObject()->d.objectType));
-}
-
-const PlastiQMetaObject *PlastiQObject::metaObject() const
-{
-
-    qDebug() << __FUNCTION__;
-   // QObject::d_ptr->dynamicMetaObject();
-    // QObject::d_ptr->metaObject ? QObject::d_ptr->dynamicMetaObject() : &staticMetaObject
-
-    if(ddptr) {
-        qDebug() << "ddptr" << reinterpret_cast<quint64>(ddptr);
-        qDebug() << ddptr->plastiq_metaObject.d.className;
-    }
-
-    return ddptr ? &ddptr->plastiq_metaObject : &plastiq_metaObject;
-}
-
-//bool PlastiQObject::invoke(PlastiQMetaObject::Call call, const QByteArray &signature, const PMOGStack &stack)
+//PlastiQObject::ObjectType PlastiQObject::objectType()
 //{
-//    qDebug() << __FUNCTION__;
-
-//    int typeId = PlastiQClasses::typeId(m_typeName);
-//    bool ok = false;
-
-//    switch(typeId) {
-//    case 0:
-//        ok = PlastiQQObject::invoke(call , &dptr, signature, stack);
-
-//        qDebug() << reinterpret_cast<quint64>(dptr);
-//        break;
-
-//    case 1:
-//        // ok = PlastiQQTimer::invoke(call, dptr, signature, stack);
-//        break;
-
-//    default:
-//        break;
-//    }
-
-//    if(call == PlastiQMetaObject::Call::CreateInstance && ok) {
-//        m_isNull = false;
-//    }
-
-//    return ok;
+//    return PlastiQObject::ObjectType(*(metaObject()->d.objectType));
 //}
 
-//bool PlastiQObject::invokeMethod(const QByteArray &signature, const PMOGStack &stack)
-//{
-//    return invoke(PlastiQMetaObject::Call::InvokeMethod, signature, stack);
-//}
+PlastiQ::ObjectType PlastiQObject::plastiq_objectType()
+{
+    return *plastiq_metaObject()->d.objectType;
+}
+
+QObject *PlastiQObject::plastiq_toQObject()
+{
+    QObject *qobject = plastiq_metaObject()->toQObject(this);
+    return qobject;
+}
+
+bool PlastiQObject::plastiq_haveParent()
+{
+    return plastiq_metaObject()->haveParent(this);
+}
+
+
+const PlastiQMetaObject *PlastiQObject::plastiq_metaObject() const
+{
+    return ddptr ? &ddptr->plastiq_static_metaObject : &plastiq_static_metaObject;
+}

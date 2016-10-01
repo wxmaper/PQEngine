@@ -18,7 +18,6 @@
 #define PHPQT5_OBJECTFACTORY_H
 
 #include <QThread>
-#include <QDebug>
 #include <QObject>
 #include <QMetaObject>
 #include <QMetaMethod>
@@ -43,7 +42,6 @@
 
 #include "pqengine_global.h"
 #include "simplecrypt.h"
-#include "pqclasses.h"
 
 /* REMOVE MULTIPLE DEFINITION ERRORS :-[ */
 #ifdef PHP_WIN32
@@ -104,42 +102,30 @@ class PQDLAPI PHPQt5ObjectFactory : public QObject
 public:
     explicit PHPQt5ObjectFactory(QObject *parent = 0);
 
-    QObject                             * createObject(const QString &className,
-                                                       zval *pzval,
-                                                       const QVariantList &args
-                                                       PQDBG_LVL_DC);
+    void                                freeObject(zend_object *zobject);
 
-    bool                                registerObject(zval *pzval, QObject *qobject PQDBG_LVL_DC);
-    void                                freeObject(zval *zobject PQDBG_LVL_DC);
+    QByteArray                          registerPlastiQMetaObject(const PlastiQMetaObject &metaObject);
 
-    QString                             registerMetaObject(const QMetaObject &qmo PQDBG_LVL_DC);
-    QByteArray                          registerPlastiQMetaObject(const PlastiQMetaObject &metaObject PQDBG_LVL_DC);
+    void                                registerZendClassEntry(QString qtClassName, zend_class_entry *ce_ptr);
 
-    void                                registerZendClassEntry(QString qtClassName, zend_class_entry *ce_ptr PQDBG_LVL_DC);
 
-    bool                                call(QObject *qo, QMetaMethod metaMethod, QVariantList args, QVariant *retVal, QGenericReturnArgument *qgrv PQDBG_LVL_DC);
-    bool                                convertArgs(QMetaMethod metaMethod, QVariantList args, QVariantList *converted, bool is_constructor PQDBG_LVL_DC);
-
-    QList<zval>                         getZObjectsByName(const QString &objectName PQDBG_LVL_DC);
-    QMap<QString, pqof_class_entry>     getRegisteredMetaObjects(PQDBG_LVL_D);
-
-    QObject                             * getQObject(zval *zobject PQDBG_LVL_DC);
-    zval                                getZObject(QObject* qobject PQDBG_LVL_DC);
-
-    zend_class_entry                    * getClassEntry(const QString &qtClassName PQDBG_LVL_DC);
-
+    zend_class_entry                    * getClassEntry(const QByteArray &className);
 
     /* PlastiQ */
-    bool                                havePlastiQMetaObject(const QByteArray &className PQDBG_LVL_DC);
-    PlastiQMetaObject                   getMetaObject(const QByteArray &className PQDBG_LVL_DC);
+    bool                                havePlastiQMetaObject(const QByteArray &className);
+    bool                                havePlastiQObject(quint64 &objectId);
+    PlastiQMetaObject                   getMetaObject(const QByteArray &className);
     bool                                createPlastiQObject(const QByteArray &className,
                                                             const QByteArray &signature,
                                                             zval *pzval,
-                                                            const PMOGStack &stack
-                                                            PQDBG_LVL_DC);
+                                                            const PMOGStack &stack);
+    void                                addObject(PQObjectWrapper *pqobject, quint64 objectId = 0);
+    void                                removeObject(PQObjectWrapper *pqobject, quint64 objectId = 0);
+    PQObjectWrapper *                   getObject(quint64 objectId);
+    void                                extractSignals(PQObjectWrapper *pqobject, zval *zobject);
 
 public slots:
-    void                                freeObject_slot(_zend_object *zobject);
+    void                                freeObject_slot(QObject *qobject);
 
 protected:
     QMap<QString, pqof_class_entry>     m_classes;
@@ -148,6 +134,7 @@ protected:
 
     /* PlastiQ */
     QHash<QByteArray, PlastiQMetaObject> m_plastiqClasses;
+    QHash<quint64, PQObjectWrapper*> m_plastiqObjects;
 };
 
 #endif // PHPQT5_OBJECTFACTORY_H

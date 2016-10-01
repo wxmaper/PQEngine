@@ -34,6 +34,7 @@
 
 /* REMOVE MULTIPLE DEFINITION ERRORS :-[ */
 #include <QRectF>
+#include <QVector2D>
 
 #ifdef PHP_WIN32
 #include <time.h>
@@ -53,10 +54,11 @@ extern "C" {
 #include <SAPI.h>
 }
 
-class PQDLAPI PQEnginePrivate
+class PQDLAPI PQEnginePrivate : public QObject
 {
+    Q_OBJECT
 public:
-    PQEnginePrivate(PQExtensionList extensions = PQExtensionList());
+    PQEnginePrivate(PQExtensionList extensions = PQExtensionList(), QObject *parent = Q_NULLPTR);
 
     bool                    init(int argc,
                                  char **argv,
@@ -73,18 +75,24 @@ public:
 
     int                     exec(const char *script PQDBG_LVL_DC);
     int                     execpq(PQDBG_LVL_D);
+    void                    debugMessage();
 
-    static void             pq_register_extensions(PQDBG_LVL_D);
+    static void             pq_register_extensions();
 
     static QByteArray *     readMainFile(PQDBG_LVL_D);
     static QByteArray *     pqe_unpack(const QByteArray &pqeData, qlonglong key);
 
-    static PQExtensionList  m_extensions;
+    static PQExtensionList  pqExtensions;
+    static QString          pqCoreName;
+
+#ifdef PQDEBUG
+public slots:
+    void                    debugConnected();
+#endif
 
 private:
-    static void             pq_register_extension(IPQExtension *extension PQDBG_LVL_DC);
-    static void             pq_register_classes(QMetaObjectList classes PQDBG_LVL_DC);
-    static void             pq_register_plastiq_classes(PlastiQMetaObjectList classes PQDBG_LVL_DC);
+    static void             pq_register_extension(IPQExtension *extension);
+    static void             pq_register_plastiq_classes(const PlastiQMetaObjectList &classes);
 
     static int              php_pqengine_startup(sapi_module_struct *sapi_module);
     static int              php_pqengine_deactivate();
@@ -102,7 +110,6 @@ private:
     /* VARIABLES */
     sapi_module_struct php_pqengine_module;
     static qlonglong pqHashKey;
-    static QString pqCoreName;
 };
 
 #endif // PQENGINE_PRIVATE_H

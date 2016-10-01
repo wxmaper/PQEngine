@@ -10,8 +10,8 @@ DEFINES += WIN32
 #DEFINES += PTHREADS
 
 # use this define for debug messages
-DEFINES += PQDEBUG
-DEFINES += PQDETAILEDDEBUG
+#DEFINES += PQDEBUG
+#DEFINES += PQDETAILEDDEBUG
 DEFINES += PQSTATIC
 
 DEFINES += ZEND_ENABLE_STATIC_TSRMLS_CACHE
@@ -31,12 +31,13 @@ DEPENDPATH += "$${PHP_SRC_PATH}/dev"
 ##########################################
 ##########################################
 ##########################################
-QT       += core xml #gui widgets
+QT       += core xml
 
 contains(DEFINES, PQDEBUG) {
-TARGET = pqengine-debug
+    TARGET = pqengine-debug
+    QT += network
 } else {
-TARGET = pqengine
+    TARGET = pqengine
 }
 
 TEMPLATE = lib
@@ -48,69 +49,50 @@ DEFINES += "ZEND_DEBUG=0"
 MOC_DIR = .moc
 OBJECTS_DIR = .obj
 
+INCLUDEPATH += "plastiqclasses/core"
+INCLUDEPATH += "plastiqclasses/widgets"
+INCLUDEPATH += "plastiqclasses/gui"
+INCLUDEPATH += "plastiqclasses"
+
 SOURCES += \
     pqengine.cpp \
     private/pqengine_private.cpp \
     private/pqengine_php.cpp \
     private/pqengine_pq.cpp \
     private/phpqt5.cpp \
-    private/phpqt5_zim.cpp \
     private/phpqt5_pq.cpp \
-    private/phpqt5_zm.cpp \
     private/simplecrypt.cpp \
-    private/phpqt5_conversions.cpp \
-    private/phpqt5objectfactory.cpp \
-    private/phpqt5connection.cpp \
     private/phpqt5_zif.cpp \
-    classes/pqobject.cpp \
-    classes/pqtimer.cpp \
-    classes/pqcoreapplication.cpp \
-    classes/pqregexp.cpp \
-    classes/pqsettings.cpp \
     pqenginecore.cpp \
-    private/pqobject.cpp \
-    classes/pqthread.cpp \
-    classes/pqstandardpaths.cpp \
-    classes/pqevent.cpp \
-    classes/pqlibrary.cpp \
-    classes/pqeventloop.cpp \
-    plastiqclasses.cpp \
     plastiqobject.cpp \
     plastiqmethod.cpp \
     plastiqmetaobject.cpp \
     private/plastiq_zim.cpp \
     private/plastiqmetaobjectfactory.cpp \
-    plastiqclasses/core/plastiqqobject.cpp \
-    plastiqclasses/core/plastiqqtimer.cpp \
-    private/plastiq_zif.cpp
+    private/plastiq_zif.cpp \
+    plastiqproperty.cpp \
+    private/plastiq.cpp \
+    private/plastiq_zm.cpp \
+    private/plastiq_connections.cpp \
+    private/plastiqthreadcreator.cpp \
+    private/qevent_cast.cpp \
+    private/plastiq_debug.cpp
 
 HEADERS += \
     pqengine.h\
     pqengine_global.h \
     ipqengineext.h \
-    pqclasses.h \
-    classes/pqobject.h \
-    classes/pqtimer.h \
-    classes/pqcoreapplication.h \
-    classes/pqregexp.h \
-    classes/pqsettings.h \
     private/pqengine_private.h \
     private/pqengine_private.h \
     private/phpqt5.h \
     private/simplecrypt.h \
     private/phpqt5objectfactory.h \
-    private/phpqt5connection.h \
     pqenginecore.h \
-    classes/pqobject_private.h \
-    classes/pqthread.h \
-    classes/pqstandardpaths.h \
-    classes/pqevent.h \
-    classes/pqlibrary.h \
     pqtypes.h \
-    classes/pqeventloop.h \
-    plastiqclasses.h \
     plastiqobject.h \
     plastiqmethod.h \
     plastiqmetaobject.h \
-    plastiqclasses/core/plastiqqobject.h \
-    plastiqclasses/core/plastiqqtimer.h
+    plastiq.h \
+    plastiqclasses/plastiqclasses.h \
+    plastiqproperty.h \
+    private/plastiqthreadcreator.h

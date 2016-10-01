@@ -17,7 +17,11 @@ struct PlastiQMethod {
         Public = 0x002,
         Private = 0x004,
         Protected = 0x008,
-        Static = 0x010
+        Static = 0x010,
+        Virtual = 0x020,
+        VirtualProtected = Virtual | Protected,
+        VirtualPublic = Virtual | Public,
+        StaticPublic = Static | Public
     };
 
     enum Type {
@@ -29,8 +33,7 @@ struct PlastiQMethod {
     };
 
     QByteArray name = "";
-    QByteArray signature = "";
-    QByteArray metaSignature = "";
+    QByteArray argTypes = "";
     QByteArray returnType = "";
     int index = -1;
     int offset = 0;
@@ -42,8 +45,7 @@ struct PlastiQMethod {
     PlastiQMethod();
 
     PlastiQMethod(const QByteArray &_n,
-               const QByteArray &_s,
-               const QByteArray &_m,
+               const QByteArray &_at,
                const QByteArray &_r,
                int _i,
                Access _a,

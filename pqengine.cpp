@@ -20,15 +20,17 @@
 #include "pqengine_private.h"
 
 /* Static vars */
-PQEnginePrivate *m_engine;
+PQEnginePrivate *PQEngine::pqeEngine;
 bool PQEngine::pqeInitialized = false;
-PQExtensionList PQEngine::m_extensions;
-QByteArray m_corename;
+PQExtensionList PQEngine::pqeExtensions;
+QString PQEngine::pqeCoreName;
+
 #include <QtGlobal>
+
 /* PQEngine class */
 PQEngine::PQEngine(PQExtensionList extensions)
 {
-    m_extensions = extensions;
+    pqeExtensions = extensions;
 }
 
 bool PQEngine::init(int argc,
@@ -42,13 +44,10 @@ bool PQEngine::init(int argc,
                     const QString &orgName,
                     const QString &orgDomain)
 {
-    qRegisterMetaType<PQClosure>("PQClosure");
-    //qRegisterMetaType<PQClosure*>("PQClosure*");
+    pqeCoreName = coreName;
+    pqeEngine = new PQEnginePrivate(pqeExtensions);
 
-    m_corename = coreName.toUtf8();
-    m_engine = new PQEnginePrivate(m_extensions);
-
-    pqeInitialized = m_engine->init(argc, argv, pmd5, coreName, checkName, hashKey, appName, appVersion, orgName, orgDomain);
+    pqeInitialized = pqeEngine->init(argc, argv, pmd5, coreName, checkName, hashKey, appName, appVersion, orgName, orgDomain);
     pmd5.fill(0);
 
     return pqeInitialized;
@@ -58,9 +57,9 @@ int PQEngine::exec(const char *script)
 {
     if(pqeInitialized) {
 #ifdef PQDEBUG
-        return m_engine->exec(script, 0);
+        return pqeEngine->exec(script, 0);
 #else
-        return m_engine->exec(script);
+        return pqeEngine->exec(script);
 #endif
     }
 
@@ -114,6 +113,8 @@ void default_ub_write(const QString &msg, const QString &title)
     }
 }
 
+
+
 #ifdef PQDEBUG
 int __pqdbg_current_d_lvl = 0;
 int __pqdbg_current_d_line = 0;
@@ -141,6 +142,6 @@ void pqdbg_set_current_lvl(int lvl) {
 }
 #endif
 
-QByteArray getCorename() {
-    return m_corename;
+QString getCorename() {
+    return PQEngine::pqeCoreName;
 }

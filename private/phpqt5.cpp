@@ -15,23 +15,19 @@
 ****************************************************************************/
 
 #include "phpqt5.h"
-
-//#pragma comment(lib, "php7ts.lib")
-
 QByteArray PHPQt5::W_CP = "UTF-8";
-PHPQt5Connection *PHPQt5::phpqt5Connections;
 
 QByteArray PHPQt5::toW(const QByteArray &ba)
 {
-   // QTextCodec *codec = QTextCodec::codecForName(W_CP);
-   // return codec->fromUnicode(ba);
+    // QTextCodec *codec = QTextCodec::codecForName(W_CP);
+    // return codec->fromUnicode(ba);
     return ba;
 }
 
 QByteArray PHPQt5::toUTF8(const QByteArray &ba)
 {
-   // QTextCodec *codec = QTextCodec::codecForName(W_CP);
-   // return codec->toUnicode(ba).toUtf8();
+    // QTextCodec *codec = QTextCodec::codecForName(W_CP);
+    // return codec->toUnicode(ba).toUtf8();
     return ba;
 }
 
@@ -48,11 +44,11 @@ zend_object *PHPQt5::pqobject_create(zend_class_entry *ce)
                     zend_object_properties_size(ce));
 
     zend_object_std_init(&pqobject->zo, ce);
-
     object_properties_init(&pqobject->zo, ce);
+
     pqobject->zo.handlers = &pqobject_handlers;
 
-    PQDBG_LVL_DONE_LPUP();
+    PQDBG_LVL_DONE();
     return &pqobject->zo;
 }
 
@@ -61,31 +57,59 @@ void PHPQt5::pqobject_object_free(zend_object *zobject) {
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    /*
-    PQObjectWrapper *pqobject = fetch_pqobject(object);
-
-    if(!pqobject->qo_sptr.isNull()) {
-        QObject *qo = pqobject->qo_sptr.data();
-    }
-
-    pqobject->qo_sptr.clear();
-    */
-
-    zval zv;
-    ZVAL_OBJ(&zv, zobject);
-
-    objectFactory()->freeObject(&zv PQDBG_LVL_CC);
+    objectFactory()->freeObject(zobject);
     zend_object_std_dtor(zobject);
 
-    PQDBG_LVL_DONE_LPUP();
+    PQDBG_LVL_DONE();
 }
 
-void PHPQt5::pqobject_object_dtor(zend_object *object) {
+void PHPQt5::pqobject_object_dtor(zend_object *zobject) {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zend_objects_destroy_object(object);
+    zend_objects_destroy_object(zobject);
+
+    PQDBG_LVL_DONE();
+}
+
+zend_object *PHPQt5::pqenum_create(zend_class_entry *ce)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(ce->name->val);
+#endif
+
+    PQEnumWrapper *pqenum = (PQEnumWrapper*)
+            ecalloc(1,
+                    sizeof(PQEnumWrapper) +
+                    zend_object_properties_size(ce));
+
+    zend_object_std_init(&pqenum->zo, ce);
+    object_properties_init(&pqenum->zo, ce);
+
+    pqenum->zo.handlers = &pqenum_handlers;
+
+    PQDBG_LVL_DONE();
+    return &pqenum->zo;
+}
+
+void PHPQt5::pqenum_object_free(zend_object *zenum) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    zend_object_std_dtor(zenum);
+
+    PQDBG_LVL_DONE();
+}
+
+void PHPQt5::pqenum_object_dtor(zend_object *zenum) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    zend_objects_destroy_object(zenum);
 
     PQDBG_LVL_DONE();
 }
@@ -353,3 +377,4 @@ int PHPQt5::pqobject_has_property(zval *object,
     return retval;
 }
 */
+

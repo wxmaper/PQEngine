@@ -12,103 +12,294 @@ const char *PlastiQMetaObject::className() const
     return d.className;
 }
 
-int PlastiQMetaObject::classId() const
+int PlastiQMetaObject::methodId(const QByteArray &signature, PlastiQMethod::Access filter) const
 {
-    return *d.classId;
-}
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("PlastiQMetaObject::d.className = %1").arg(d.className));
+    PQDBGLPUP(QString("signature: %1").arg(signature.constData()));
+#endif
 
-int PlastiQMetaObject::methodId(const QByteArray &signature) const
-{
-    const PlastiQMetaObject *data = this;
+    const PlastiQMetaObject *pqmo = this;
     int mid = -1;
     int offset = 0;
 
-    while(mid < 0 && data) {
-        mid = data->d.pq_methods->value(signature, PlastiQMethod()).index;
-
-        if(mid < 0) {
-            offset += data->d.pq_methods->size();
+    while(mid < 0 && pqmo) {
+        PlastiQMethod method = pqmo->d.pq_methods->value(signature, PlastiQMethod());
+        if(filter == PlastiQMethod::None || filter == method.access) {
+            mid = method.index;
+        }
+        else {
+            mid = -1;
         }
 
-        data = data->d.superdata;
+        if(mid < 0) {
+            offset += pqmo->d.pq_methods->size();
+        }
+
+        pqmo = pqmo->d.superdata;
     }
 
+    PQDBG_LVL_DONE();
     return mid >= 0 ? mid + offset : -1;
+}
+
+int PlastiQMetaObject::signalId(const QByteArray &signature) const
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("PlastiQMetaObject::d.className = %1").arg(d.className));
+    PQDBGLPUP(QString("signature: %1").arg(signature.constData()));
+#endif
+
+    const PlastiQMetaObject *pqmo = this;
+    int sid = -1;
+    int offset = 0;
+
+    while(sid < 0 && pqmo) {
+        sid = pqmo->d.pq_signals->value(signature, PlastiQMethod()).index;
+
+        if(sid < 0) {
+            offset += pqmo->d.pq_signals->size();
+        }
+
+        pqmo = pqmo->d.superdata;
+    }
+
+    PQDBG_LVL_DONE();
+    return sid >= 0 ? sid + offset : -1;
 }
 
 int PlastiQMetaObject::constructorId(const QByteArray &signature) const
 {
-    qDebug() << __FUNCTION__;
-    qDebug() << d.className;
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("PlastiQMetaObject::d.className = %1").arg(d.className));
+    PQDBGLPUP(QString("signature: %1").arg(signature.constData()));
+#endif
 
-    const PlastiQMetaObject *data = this;
-    int mid = -1;
+    const PlastiQMetaObject *pqmo = this;
+    int cid = -1;
     int offset = 0;
 
-    while(mid < 0 && data) {
-        qDebug() << __FUNCTION__ << "while" << signature;
-        mid = data->d.pq_constructors->value(signature, PlastiQMethod()).index;
+    // FIXME нужно ли????????
+    while(cid < 0 && pqmo) {
+        cid = pqmo->d.pq_constructors->value(signature, PlastiQMethod()).index;
 
-        if(mid < -1) {
-            offset += data->d.pq_constructors->size();
+        if(cid < -1) {
+            offset += pqmo->d.pq_constructors->size();
         }
 
-        data = data->d.superdata;
+        pqmo = pqmo->d.superdata;
     }
 
-    return mid >= 0 ? mid + offset : -1;
+    cid = cid >= 0 ? cid + offset : -1;
+
+    PQDBGLPUP(QString("constructorId: %1").arg(cid));
+
+    PQDBG_LVL_DONE();
+    return cid;
+}
+
+QObject* PlastiQMetaObject::toQObject(PlastiQObject *object)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    QObject *qobject = Q_NULLPTR;
+
+    if(!object || !object->plastiq_data()) {
+        PQDBG_LVL_DONE();
+        return Q_NULLPTR;
+    }
+
+    switch(object->plastiq_objectType()) {
+    case PlastiQ::IsQObject:
+    case PlastiQ::IsQWidget:
+    case PlastiQ::IsQWindow: {
+
+        PMOGStack stack = new PMOGStackItem[1];
+        stack[0].s_voidpp = reinterpret_cast<void**>(&qobject);
+        object->plastiq_metaObject()->d.static_metacall(object, PlastiQMetaObject::ToQObject, 0, stack);
+
+        delete [] stack;
+        stack = Q_NULLPTR;
+    } break;
+
+    default: qobject = Q_NULLPTR;
+    }
+
+    PQDBG_LVL_DONE();
+    return qobject;
+}
+
+//void PlastiQMetaObject::selfDtor(PlastiQObject *object)
+//{
+//#ifdef PQDEBUG
+//    PQDBG_LVL_START(__FUNCTION__);
+//#endif
+
+//    if(!object || !object->data()) {
+//        PQDBG_LVL_DONE();
+//        return;
+//    }
+
+//    object->metaObject()->d.static_metacall(object, PlastiQMetaObject::Dtor, 0, Q_NULLPTR);
+//    PQDBG_LVL_DONE();
+//}
+
+bool PlastiQMetaObject::haveParent(PlastiQObject *object)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    if(!object || !object->plastiq_data()) {
+        PQDBG_LVL_DONE();
+        return false;
+    }
+
+    /*
+    bool haveParent = false;
+    PlastiQ::ObjectType objectType = *(object->metaObject()->d.objectType);
+
+    switch(objectType) {
+    case PlastiQ::IsQObject:
+    case PlastiQ::IsQWidget:
+    case PlastiQ::IsQWindow: {
+        PMOGStack stack = new PMOGStackItem[1];
+
+        invokeMethod(object, "parent()", stack);
+        QObject *qobject = reinterpret_cast<QObject*>(stack[0].s_voidp);
+
+        if(qobject != Q_NULLPTR) {
+            haveParent = true;
+        }
+
+        delete [] stack;
+    } break;
+
+    case PlastiQ::IsQtObject: {
+        PMOGStack stack = new PMOGStackItem[1];
+        object->metaObject()->d.static_metacall(object, PlastiQMetaObject::HaveParent, -1, stack);
+
+        haveParent = stack->s_bool;
+
+        delete [] stack;
+    }
+
+    default: ;
+    }
+    */
+
+    PMOGStack stack = new PMOGStackItem[1];
+    object->plastiq_metaObject()->d.static_metacall(object, PlastiQMetaObject::HaveParent, -1, stack);
+
+    bool haveParent = stack[0].s_bool;
+
+    delete [] stack;
+
+    PQDBGLPUP(QString("have parent: %1").arg(haveParent));
+
+    PQDBG_LVL_DONE();
+
+    return haveParent;
 }
 
 bool PlastiQMetaObject::invokeMethod(PlastiQObject *object, const QByteArray &signature, const PMOGStack &stack)
 {
-    qDebug() << __FUNCTION__;
-    if(!object || !object->data()) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("object->metaObject()->d.className = %1").arg(object->plastiq_metaObject()->d.className));
+#endif
+
+    if(!object || !object->plastiq_data()) {
+        PQDBG_LVL_DONE();
         return false;
     }
 
-    int mid = object->metaObject()->methodId(signature);
-    qDebug() << "signature" << signature;
-    object->metaObject()->d.static_metacall(object, PlastiQMetaObject::InvokeMethod, mid, stack);
+    int mid = object->plastiq_metaObject()->methodId(signature);
+    PQDBGLPUP(QString("signature: %1, methodId: %2").arg(signature.constData()).arg(mid));
+
+    object->plastiq_metaObject()->d.static_metacall(object, PlastiQMetaObject::InvokeMethod, mid, stack);
+
+    PQDBG_LVL_DONE();
+    return true;
 }
 
-bool PlastiQMetaObject::connect(PQObjectWrapper *sender, const QByteArray &signal, PQObjectWrapper *receiver, const QByteArray &slot)
+bool PlastiQMetaObject::connect(PQObjectWrapper *sender, const QByteArray &signalSignature, PQObjectWrapper *receiver, const QByteArray &slot)
 {
-    PMOGStack stack = new PMOGStackItem[10];
-    stack[1].s_voidp = reinterpret_cast<void*>(sender);
-    stack[2].s_voidp = reinterpret_cast<void*>(receiver);
-    stack[3].s_bytearray = slot;
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
 
-    int signalId = sender->object->metaObject()->d.pq_signals->value(signal).index;
-    sender->object->metaObject()->d.static_metacall(sender->object, PlastiQMetaObject::CreateConnection, signalId, stack);
+    int signalId = sender->object->plastiq_metaObject()->signalId(signalSignature);
+    if(signalId >= 0) {
+        PQDBGLPUP(QString("signalId: %1").arg(signalId));
 
-    delete [] stack;
-    return true;
+        PMOGStack stack = new PMOGStackItem[10];
+        stack[1].s_voidp = reinterpret_cast<void*>(sender);
+        stack[2].s_voidp = reinterpret_cast<void*>(receiver);
+        stack[3].s_bytearray = slot;
+
+        sender->object->plastiq_metaObject()->d.static_metacall(sender->object, PlastiQMetaObject::CreateConnection, signalId, stack);
+
+        delete [] stack;
+    }
+
+#ifdef PQDEBUG
+    else {
+        PQDBGLPUP(QString("signalId: %1").arg(signalId));
+    }
+#endif
+
+    PQDBG_LVL_DONE();
+    return signalId >= 0;
 }
 
 PlastiQObject *PlastiQMetaObject::newInstance(const QByteArray &signature, const PMOGStack &stack)
 {
-    qDebug() << __FUNCTION__;
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("PlastiQMetaObject::d.className = %1").arg(d.className));
+#endif
 
     int cid = constructorId(signature);
-    PlastiQObject *object = Q_NULLPTR;
 
-    qDebug() << reinterpret_cast<quint64>(object);
+    PlastiQObject *object = Q_NULLPTR;
 
     stack[0].s_voidpp = reinterpret_cast<void**>(&object);
 
-    qDebug() << reinterpret_cast<quint64>(stack[0].s_voidpp);
-    qDebug() << "cid" << cid;
-
     if(cid < 0) {
+        PQDBG_LVL_DONE();
         return object;
     }
 
     static_metacall(PlastiQMetaObject::CreateInstance, cid, stack);
-    qDebug() << "instance" << reinterpret_cast<quint64>(stack[0].s_voidpp) << reinterpret_cast<quint64>(object);
 
-    qDebug() << "object->metaObject()->className(): " << object->metaObject()->className();
-    //qDebug() << "object->metaObject()->classId()" << object->metaObject()->classId();
+    PQDBG_LVL_DONE();
+    return object;
+}
 
+PlastiQObject *PlastiQMetaObject::createInstanceFromData(void *data)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("objectId: %1").arg(reinterpret_cast<quint64>(data)));
+#endif
+
+    PMOGStack stack = new PMOGStackItem[2];
+
+    PlastiQObject *object = Q_NULLPTR;
+    stack[0].s_voidpp = reinterpret_cast<void**>(&object);
+    stack[1].s_voidp = data;
+
+    static_metacall(PlastiQMetaObject::CreateDataInstance, 0, stack);
+
+    delete [] stack;
+
+    PQDBG_LVL_DONE();
     return object;
 }
 
@@ -122,46 +313,92 @@ bool PlastiQMetaObject::static_metacall(PlastiQMetaObject::Call call, int id, co
     return true;
 }
 
-const QList<PlastiQCandidateMethod> PlastiQMetaObject::candidates(const QByteArray &name, int argc, PlastiQMethod::Type type) const
+const QList<PlastiQCandidateMethod> PlastiQMetaObject::candidates(const QByteArray &name, int argc, PlastiQMethod::Type type, PlastiQMethod::Access filter, bool ignoreCase) const
 {
+#ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("PlastiQMetaObject::d.className = %1").arg(d.className));
+    PQDBGLPUP(QString("find candidates for `%1`").arg(name.constData()));
+#endif
 
     QList<PlastiQCandidateMethod> candidateList;
 
     const PlastiQMetaObject *m = this;
     int offset = 0;
+    bool maxArgs = argc == -1;
+    QByteArray lowerName = name.toLower();
 
     do {
         QHashIterator<QByteArray, PlastiQMethod> *i;
+        const QHash<QByteArray, PlastiQMethod> *hash;
+
         switch(type) {
         case PlastiQMethod::Method:
             i = new QHashIterator<QByteArray, PlastiQMethod>(*(m->d.pq_methods));
+            hash = m->d.pq_methods;
             break;
 
         case PlastiQMethod::Constructor:
             i = new QHashIterator<QByteArray, PlastiQMethod>(*(m->d.pq_constructors));
+            hash = m->d.pq_constructors;
+            break;
+
+        case PlastiQMethod::Signal:
+            i = new QHashIterator<QByteArray, PlastiQMethod>(*(m->d.pq_signals));
+            hash = m->d.pq_signals;
             break;
 
         default:
+            PQDBG_LVL_DONE();
             return candidateList;
         }
-
 
         while(i->hasNext()) {
             i->next();
 
-            if(i->value().name != name) continue;
+
+            if(ignoreCase) {
+                if(i->value().name.toLower() != lowerName) continue;
+            }
+            else {
+                if(i->value().name != name) continue;
+            }
+
             int idx = i->key().indexOf("(");
             QString methodSignature = i->key().mid(idx + 1, i->key().size() - idx - 2);
 
             QStringList argTypes = methodSignature.split(",");
+            int candidateArgc = methodSignature.length() ? argTypes.size() : 0;
 
-            PQDBGLPUP(QString("candidate: %1 x %2").arg(argTypes.size()).arg(argc));
+            if(type == PlastiQMethod::Signal && maxArgs) {
+                if(argc < candidateArgc) {
+                    argc = candidateArgc;
+                    candidateList.clear();
+                    candidateList.append({ i->value().name, argc, argTypes, i->value().index + offset });
+                    continue;
+                }
+            }
+            else {
+                if(!maxArgs && candidateArgc != argc) {
+                    continue;
+                }
+            }
 
-            if(argTypes.size() != argc) continue;
-
-            qDebug() << "append candidate:" << name << methodSignature << i->key();
-            candidateList.append({ name, argc, argTypes, i->value().index + offset });
+            if(filter == PlastiQMethod::None || filter == i->value().access) {
+                if(maxArgs) {
+                    if(argc < candidateArgc) {
+                        PQDBGLPUP(QString("reappend candidate: %1(%2)").arg(name.constData()).arg(methodSignature));
+                        argc = candidateArgc;
+                        candidateList.clear();
+                        candidateList.append({ i->value().name, argc, argTypes, i->value().index + offset });
+                        continue;
+                    }
+                }
+                else {
+                    PQDBGLPUP(QString("append candidate: %1(%2)").arg(name.constData()).arg(methodSignature));
+                    candidateList.append({ i->value().name, argc, argTypes, i->value().index + offset });
+                }
+            }
         }
 
         if(type == PlastiQMethod::Constructor) {
@@ -169,10 +406,11 @@ const QList<PlastiQCandidateMethod> PlastiQMetaObject::candidates(const QByteArr
             break;
         }
         else {
-            offset += m->d.pq_methods->size();
+            offset += hash->size();
             delete i;
         }
     } while(m = m->d.superdata);
 
+    PQDBG_LVL_DONE();
     return candidateList;
 }

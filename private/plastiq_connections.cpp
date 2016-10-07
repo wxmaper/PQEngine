@@ -196,6 +196,7 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
         }
         else {
             signalName = signalSignature.mid(0, signalSignature.indexOf("(")).toUtf8();
+            cSignalSignature = signalSignature.toUtf8();
         }
         PQDBGLPUP(QString("signal name: %1").arg(signalName.constData()));
 

@@ -16,8 +16,8 @@
 
 #include "pqenginecore.h"
 
-#include "plastiqclasses/core/plastiqqobject.h"
-#include "plastiqclasses/core/plastiqqtimer.h"
+//#include "plastiqclasses/core/plastiqqobject.h"
+//#include "plastiqclasses/core/plastiqqtimer.h"
 #include <QSettings>
 #include <QStandardPaths>
 

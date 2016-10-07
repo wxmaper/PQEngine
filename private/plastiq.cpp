@@ -1111,19 +1111,15 @@ zval PHPQt5::plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeN
             v = value.value<QVariant>(); // re-qvariant :-)
         }
 
-        if(_typeName == "") {
-            _typeName = v.typeName();
+        if(!_typeName.isEmpty() && _typeName != v.typeName()) {
+            zend_throw_error(NULL, "Can not cast <b>QVariant&lt;%s&gt;</b> to <b>%s</b>",
+                             v.typeName(), _typeName.constData());
+
+            PQDBG_LVL_DONE();
+            return retval;
         }
         else {
-            // check type matches
-            if(v.typeName() != _typeName) {
-                zend_throw_error(NULL, "Can not cast <b>QVariant&lt;%s&gt;</b> to <b>%s</b>",
-                                 v.typeName(), _typeName.constData());
-                //php_error(E_WARNING, QString("Can not cast <b>QVariant&lt;%1&gt;</b> to <b>%2</b>")
-                //          .arg(v.typeName()).arg(_typeName.constData()).toUtf8().constData());
-                PQDBG_LVL_DONE();
-                return retval;
-            }
+            _typeName = v.typeName();
         }
 
         switch (v.type()) {

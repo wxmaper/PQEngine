@@ -725,68 +725,52 @@ void PHPQt5::zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    const char* typeName;
-    int typeNameLen;
     zval *zobject;
+    QByteArray typeName;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "sz", &typeName, &typeNameLen, &zobject) == FAILURE) {
-        php_error(E_PARSE, "wrong parameters for qvariant_cast");
+    int argc = ZEND_NUM_ARGS();
+
+    switch(argc) {
+    case 1:
+        if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &zobject) == FAILURE) {
+            PQDBG_LVL_DONE();
+            RETURN_NULL();
+        }
+
+        break;
+
+    case 2: {
+        const char* type_name;
+        int type_name_len;
+
+        if(zend_parse_parameters(ZEND_NUM_ARGS(), "sz", &type_name, &type_name_len, &zobject) == FAILURE) {
+            PQDBG_LVL_DONE();
+            RETURN_NULL();
+        }
+
+        typeName = QByteArray(type_name, type_name_len);
+    } break;
+
+    default:
+        zend_wrong_paramers_count_error(argc, 1, 2);
         PQDBG_LVL_DONE();
         RETURN_NULL();
     }
 
     if(Z_TYPE_P(zobject) != IS_OBJECT) {
-        zend_wrong_paramer_type_error(2, zend_expected_type(IS_OBJECT), zobject);
+        zend_wrong_paramer_type_error(1, zend_expected_type(IS_OBJECT), zobject);
         PQDBG_LVL_DONE();
         RETURN_NULL();
     }
 
     if(Z_OBJCE_NAME_P(zobject) != QByteArray("QVariant")) {
-        zend_throw_error(NULL, "qvariant_cast() expects parameter 2 to be a <b>QVariant</b>, <b>%s</b> given",
+        zend_throw_error(NULL, "qvariant_cast() expects parameter 1 to be a <b>QVariant</b>, <b>%s</b> given",
                          Z_OBJCE_NAME_P(zobject));
-        //php_error(E_WARNING, QString("qvariant_cast() expects parameter 2 to be a <b>QVariant</b>, <b>%1</b> given")
-        //          .arg(Z_OBJCE_NAME_P(zobject)).toUtf8().constData());
     }
 
     PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
     QVariant *v = reinterpret_cast<QVariant*>(pqobject->object->plastiq_data());
-    zval retval = plastiq_cast_to_zval(*v, QByteArray(typeName));
-
-    RETVAL_ZVAL(&retval, 1, 0);
-
-    PQDBG_LVL_DONE();
-}
-
-void PHPQt5::zif_qvariant_autocast(INTERNAL_FUNCTION_PARAMETERS)
-{
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-#endif
-
-    zval *zobject;
-
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &zobject) == FAILURE) {
-        php_error(E_PARSE, "wrong parameters for qvariant_cast");
-        PQDBG_LVL_DONE();
-        RETURN_NULL();
-    }
-
-    if(Z_TYPE_P(zobject) != IS_OBJECT) {
-        zend_wrong_paramer_type_error(2, zend_expected_type(IS_OBJECT), zobject);
-        PQDBG_LVL_DONE();
-        RETURN_NULL();
-    }
-
-    if(Z_OBJCE_NAME_P(zobject) != QByteArray("QVariant")) {
-        zend_throw_error(NULL, "qvariant_cast() expects parameter 2 to be a <b>QVariant</b>, <b>%s</b> given",
-                         Z_OBJCE_NAME_P(zobject));
-        //php_error(E_WARNING, QString("qvariant_cast() expects parameter 2 to be a <b>QVariant</b>, <b>%1</b> given")
-        //          .arg(Z_OBJCE_NAME_P(zobject)).toUtf8().constData());
-    }
-
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
-    QVariant *v = reinterpret_cast<QVariant*>(pqobject->object->plastiq_data());
-    zval retval = plastiq_cast_to_zval(*v);
+    zval retval = plastiq_cast_to_zval(*v, typeName);
 
     RETVAL_ZVAL(&retval, 1, 0);
 

@@ -262,7 +262,6 @@ public:
 
     static void             zif_qApp(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qvariant_autocast(INTERNAL_FUNCTION_PARAMETERS);
 
     static void             zif_qDebug(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_qWarning(INTERNAL_FUNCTION_PARAMETERS);
@@ -314,7 +313,6 @@ public:
 
             PHP_FE(test_ref, NULL)
             PHP_FE(qvariant_cast, NULL)
-            PHP_FE(qvariant_autocast, NULL)
 
             { "qDebug", zif_qDebug, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qInfo", zif_qInfo, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },

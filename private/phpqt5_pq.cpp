@@ -367,3 +367,22 @@ void pq_php_warning(const QString &warning) {
 void pq_php_notice(const QString &notice) {
     php_error(E_NOTICE, notice.toUtf8().constData());
 }
+
+void PHPQt5::pq_qdbg_message(zval *value, zval *return_value, const QString &ftype) {
+    php_output_start_default();
+    zend_print_zval_r(value, 0);
+    php_output_get_contents(return_value);
+
+#ifdef PQDEBUG
+    QString msg(Z_STRVAL_P(return_value));
+    default_ub_write(msg, ftype);
+
+    pqdbg_send_message({
+                           { "command", ftype },
+                           { "thread", QString::number(reinterpret_cast<quint64>(QThread::currentThread())) },
+                           { "message", msg }
+                       });
+#endif
+
+    php_output_discard();
+}

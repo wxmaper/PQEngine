@@ -13,6 +13,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
     PlastiQObject *object = Q_NULLPTR;
     zval retVal;
+    zval zobject;
 
     if(pqobject) {
         object = pqobject->object;
@@ -196,11 +197,19 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
     bool fastCall = false;
     bool right = false;
+    bool ambiguous = false;
 
     int mid = metaObject->methodId( QByteArray(methodName).append("(").append(argsTypes).append(")"), access );
 
     if(mid >= 0) {
+        if(pqobject) {
+            bool haveParentBefore = object->plastiq_haveParent();
+            ZVAL_OBJ(&zobject, &pqobject->zo);
+            tciList << pq_tmp_call_info { object, &zobject, haveParentBefore };
+        }
+
         PQDBGLPUP(QString("fast call methodId: %1").arg(mid));
+
         metaObject->d.static_metacall(object, call, mid, stack);
         right = true;
         fastCall = true;
@@ -289,6 +298,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                         else right = false;
                     }
+
                     else right = false;
                     break;
 
@@ -320,6 +330,38 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                         else right = false;
                     }
+                    else if(methodType == "double") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_double = double(Z_LVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "float") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_float = float(Z_LVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "bool") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_bool = bool(Z_LVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "QString") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_string = QString::number(Z_LVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
                     else right = false;
                     break;
 
@@ -339,6 +381,22 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                         else right = false;
                     }
+                    else if(methodType == "int") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_int = 1;
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "QString") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_string = "1";
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
                     else right = false;
                 } break;
 
@@ -357,6 +415,22 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             stack[sidx].s_variant = QVariant(false);
                         }
                         else right = false;
+                    }
+                    else if(methodType == "int") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_int = 0;
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "QString") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_string = "0";
+                        }
+                        else {
+                            ambiguous = true;
+                        }
                     }
                     else right = false;
                 } break;
@@ -388,6 +462,30 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             stack[sidx].s_variant = QVariant(Z_DVAL_P(entry));
                         }
                         else right = false;
+                    }
+                    else if(methodType == "QString") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_string = QString::number(Z_DVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "int") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_int = int(Z_DVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
+                    }
+                    else if(methodType == "bool") {
+                        if(candidates.size() == 1) {
+                            stack[sidx].s_bool = bool(Z_DVAL_P(entry));
+                        }
+                        else {
+                            ambiguous = true;
+                        }
                     }
                     else right = false;
                 } break;
@@ -451,7 +549,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
                     if(className.length()) {
                         PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(entry));
-                        PlastiQObject *object = epqobject->object;
+                        PlastiQObject *eobject = epqobject->object;
 
                         if(epqobject->isEnum) {
                             PQDBGLPUP(QString("arg object: QEnum(%1)").arg(epqobject->enumVal));
@@ -461,7 +559,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
                             stack[sidx].s_int64 = epqobject->enumVal;
                         }
-                        else if(object != Q_NULLPTR && object->plastiq_data() != Q_NULLPTR) {
+                        else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                             PQDBGLPUP(QString("arg object: %1").arg(epqobject->object->plastiq_metaObject()->className()));
 
                             const PlastiQMetaObject *metaObject = epqobject->object->plastiq_metaObject();
@@ -536,15 +634,15 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             } while(metaObject = metaObject->d.superdata);
 
                             if(cancast) {
-                                PlastiQ::ObjectType objectType = *(object->plastiq_metaObject()->d.objectType);
+                                PlastiQ::ObjectType objectType = *(eobject->plastiq_metaObject()->d.objectType);
 
                                 switch(objectType) {
                                 case PlastiQ::IsQtObject:
                                 case PlastiQ::IsQObject:
                                 case PlastiQ::IsQWidget:
                                 case PlastiQ::IsQWindow: {
-                                    bool haveParent = object->plastiq_haveParent();
-                                    tciList << pq_tmp_call_info { object, entry, haveParent };
+                                    bool haveParent = eobject->plastiq_haveParent();
+                                    tciList << pq_tmp_call_info { eobject, entry, haveParent };
                                 } break;
 
                                 default: ;
@@ -591,6 +689,12 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
         }
 
         if(right) {
+            if(pqobject) {
+                bool haveParentBefore = object->plastiq_haveParent();
+                ZVAL_OBJ(&zobject, &pqobject->zo);
+                tciList << pq_tmp_call_info { object, &zobject, haveParentBefore };
+            }
+
             PQDBGLPUP(QString("call candidate method: %1(%2)")
                       .arg(methodName.constData())
                       .arg(QString(argsTypes).replace(" ", "")));
@@ -599,14 +703,26 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
         }
         else {
             // FIXME
-            PQDBGLPUP(QString("Call to undefined method %1::%2() or wrong arguments")
-                      .arg(metaObject->className())
-                      .arg(methodName.constData()).toUtf8().constData());
+            if(ambiguous) {
+                PQDBGLPUP(QString("Call to %1::%2() is ambiguous")
+                          .arg(metaObject->className())
+                          .arg(methodName.constData()).toUtf8().constData());
 
-            php_error(E_ERROR,
-                      "Call to undefined method %s::%s() or wrong arguments",
-                      metaObject->className(),
-                      methodName.constData());
+                php_error(E_ERROR,
+                          "Call to <b>%s::%s()</b> is ambiguous",
+                          metaObject->className(),
+                          methodName.constData());
+            }
+            else {
+                PQDBGLPUP(QString("Call to undefined method %1::%2() or wrong arguments")
+                          .arg(metaObject->className())
+                          .arg(methodName.constData()).toUtf8().constData());
+
+                php_error(E_ERROR,
+                          "Call to undefined method <b>%s::%s()</b> or wrong arguments",
+                          metaObject->className(),
+                          methodName.constData());
+            }
 
             stack[0].type = PlastiQ::Void;
             tciList.clear();
@@ -628,6 +744,11 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             PQDBGLPUP("DELREF");
             Z_DELREF_P(tci.zv);
         }
+#ifdef PQDEBUG
+        else {
+            PQDBGLPUP("SAVEREF");
+        }
+#endif
     }
 
     PQDBGLPUP(QString("rettype: %1").arg(stack[0].type));
@@ -838,9 +959,11 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
     case PlastiQ::QtObject: {
         PQDBGLPUP(QString("ItemType::QtObject %1").arg(stackItem.name.constData()));
         if(stackItem.name == "QStringList") {
-            array_init(&retval);
-
             QStringList stringList = *reinterpret_cast<QStringList*>(stackItem.s_voidp);
+            retval = plastiq_stringlist_to_array(stringList);
+
+            /*
+            array_init(&retval);
             foreach (const QString &string, stringList) {
                 QByteArray ba = string.toUtf8();
                 //zval zstr;
@@ -848,6 +971,7 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
                 //zend_hash_next_index_insert(Z_ARRVAL(&array), &zstr);
                 add_next_index_stringl(&retval, ba.constData(), ba.length());
             }
+            */
         }
         else if(stackItem.name == "QObjectList") {
             array_init(&retval);
@@ -927,6 +1051,12 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
             // }
         }
         else {
+           // php_error(E_ERROR, QString("Uncaught error: class '%1' not found")
+           //           .arg(stackItem.name.constData()).toUtf8().constData());
+
+            zend_throw_error(0, QString("class '%1' not found")
+                             .arg(stackItem.name.constData()).toUtf8().constData());
+
             ZVAL_NULL(&retval);
         }
     } break;
@@ -951,6 +1081,134 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
 
     return retval;
 }
+
+zval PHPQt5::plastiq_stringlist_to_array(const QStringList &list) {
+    zval retval;
+    array_init(&retval);
+
+    foreach (const QString &string, list) {
+        QByteArray ba = string.toUtf8();
+        add_next_index_stringl(&retval, ba.constData(), ba.length());
+    }
+
+    return retval;
+}
+
+zval PHPQt5::plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeName)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    zval retval;
+    ZVAL_NULL(&retval);
+    QByteArray _typeName(typeName);
+
+    if(value.isValid()) {
+        QVariant v = value; // make copy
+
+        if(value.type() == QMetaType::QVariant) {
+            v = value.value<QVariant>(); // re-qvariant :-)
+        }
+
+        if(_typeName == "") {
+            _typeName = v.typeName();
+        }
+        else {
+            // check type matches
+            if(v.typeName() != _typeName) {
+                zend_throw_error(NULL, "Can not cast <b>QVariant&lt;%s&gt;</b> to <b>%s</b>",
+                                 v.typeName(), _typeName.constData());
+                //php_error(E_WARNING, QString("Can not cast <b>QVariant&lt;%1&gt;</b> to <b>%2</b>")
+                //          .arg(v.typeName()).arg(_typeName.constData()).toUtf8().constData());
+                PQDBG_LVL_DONE();
+                return retval;
+            }
+        }
+
+        switch (v.type()) {
+        case QMetaType::QByteArray: {
+            QByteArray ba = v.toByteArray();
+            ZVAL_STRINGL(&retval, ba.constData(), ba.length());
+            break;
+        }
+
+        case QMetaType::QString: {
+            QByteArray ba = v.toString().toUtf8();
+            ZVAL_STRINGL(&retval, ba.constData(), ba.length());
+            break;
+        }
+
+        case QMetaType::Int:
+            ZVAL_LONG(&retval, v.toInt()) ;
+            break;
+
+        case QMetaType::LongLong:
+            ZVAL_LONG(&retval, v.toLongLong()) ;
+            break;
+
+        case QMetaType::Double:
+            ZVAL_DOUBLE(&retval, v.toDouble());
+            break;
+
+        case QMetaType::Bool:
+            ZVAL_BOOL(&retval, v.toBool());
+            break;
+
+        case QMetaType::QStringList:
+            retval = plastiq_stringlist_to_array(v.toStringList());
+            // Z_DELREF(retval);
+            break;
+
+        default: {
+            if(!objectFactory()->havePlastiQMetaObject(_typeName)) {
+                zend_throw_error(NULL, "Can not cast <b>QVariant</b> to unknown type <b>%s</b>", _typeName.constData());
+                //php_error(E_WARNING, QString("Can not cast <b>QVariant</b> to unknown type <b>%1</b>")
+                //          .arg(_typeName.constData()).toUtf8().constData());
+                PQDBG_LVL_DONE();
+                return retval;
+            }
+
+            PlastiQMetaObject metaObject = objectFactory()->getMetaObject(_typeName);
+
+            PlastiQ::ItemType itemType;
+            switch(*metaObject.d.objectType) {
+            case PlastiQ::IsQObject:
+            case PlastiQ::IsQWidget:
+            case PlastiQ::IsQWindow:
+                itemType = PlastiQ::QObjectStar;
+                break;
+
+            case PlastiQ::IsQtObject:
+                itemType = PlastiQ::QtObjectStar;
+                break;
+
+            default:
+                zend_throw_error(NULL, "Can not cast this PlastiQ type to <b>%s</b>", _typeName.constData());
+                //php_error(E_WARNING, QString("Can not cast this PlastiQ type to <b>%1</b>")
+                //          .arg(_typeName.constData()).toUtf8().constData());
+                PQDBG_LVL_DONE();
+                return retval;
+            }
+
+            PMOGStackItem stackItem;
+            stackItem.type = itemType;
+            stackItem.name = _typeName;
+            stackItem.s_voidp = v.data();
+
+            retval = plastiq_cast_to_zval(stackItem);
+        }
+        }
+    }
+    else {
+        zend_throw_error(NULL, "Invalid QVariant value");
+        ZVAL_NULL(&retval);
+    }
+
+    PQDBG_LVL_DONE();
+    return retval;
+}
+
 
 void *PHPQt5::plastiq_cast_to_s_voidp(const PMOGStackItem &stackItem)
 {

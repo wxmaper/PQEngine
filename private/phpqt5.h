@@ -204,10 +204,13 @@ public:
 
     /* PHPQt5 Conversions */
     static zval             plastiq_cast_to_zval(const PMOGStackItem &stackItem);
+    static zval             plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeName = QByteArray());
     static void*            plastiq_cast_to_s_voidp(const PMOGStackItem &stackItem);
+    static zval             plastiq_stringlist_to_array(const QStringList &list);
 
     static void             pq_register_basic_classes();
     static void             pq_register_plastiq_class(const PlastiQMetaObject &metaObject);
+    static void             pq_qdbg_message(zval *value, zval *return_value, const QString &ftype);
 
     /* HANDLERS */
     static zend_object *    pqobject_create(zend_class_entry *class_type);
@@ -258,8 +261,14 @@ public:
     static void             zif_qenum(INTERNAL_FUNCTION_PARAMETERS); // FIXME: to new API
 
     static void             zif_qApp(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qDebug(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_qvariant_autocast(INTERNAL_FUNCTION_PARAMETERS);
+
+    static void             zif_qDebug(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_qWarning(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_qCritical(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_qInfo(INTERNAL_FUNCTION_PARAMETERS);
+    static void             zif_qFatal(INTERNAL_FUNCTION_PARAMETERS);
 
     static void             zif_pqProperties(INTERNAL_FUNCTION_PARAMETERS);
     static void             zif_pqMethods(INTERNAL_FUNCTION_PARAMETERS);
@@ -305,8 +314,14 @@ public:
 
             PHP_FE(test_ref, NULL)
             PHP_FE(qvariant_cast, NULL)
+            PHP_FE(qvariant_autocast, NULL)
 
             { "qDebug", zif_qDebug, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+            { "qInfo", zif_qInfo, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+            { "qWarning", zif_qWarning, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+            { "qCritical", zif_qCritical, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+            { "qFatal", zif_qFatal, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+
             { "qApp", zif_qApp, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "emit", zif_emit, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             ZEND_FE_END

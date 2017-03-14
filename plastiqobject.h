@@ -35,12 +35,32 @@
 extern bool PlastiQ_activate(PQObjectWrapper *sender, const char *signal,
                              PQObjectWrapper *receiver, const char *slot,
                              int argc, const PMOGStack &stack);
+extern bool PlastiQ_anon_activate(QObject *receiverObject, const char *slot,
+                                  int argc, const PMOGStack &stack);
 extern bool PlastiQ_event(QObject *eventFilter, QObject *obj, QEvent *event);
 extern PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem);
+extern bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature);
+extern void PlastiQ_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature, PMOGStack stack);
 
-class PlastiQObject : public QObject
+class VirtualMethod {
+    QByteArray _functionName;
+    int _argc;
+
+public:
+    VirtualMethod() {}
+    VirtualMethod(const QByteArray &functionName,
+                  int argc) :
+        _functionName(functionName),
+        _argc(argc) {}
+
+    void call(PQObjectWrapper *pqobject, PMOGStack stack) const;
+};
+
+class VirtualMethodList : public QHash<QByteArray,VirtualMethod> {};
+
+class PlastiQObject // : public QObject
 {
-    Q_OBJECT
+    //Q_OBJECT
     PLASTIQ_OBJECT(IsObject,PlastiQObject,Q_NULLPTR)
 
 public:
@@ -55,16 +75,17 @@ public:
     PlastiQMetaObject *plastiq_dynamicMetaObject();
 
     PlastiQ::ObjectType plastiq_objectType();
-    QObject * plastiq_toQObject();
+    QObject *plastiq_toQObject();
     bool plastiq_haveParent(); // only for QObject|QWidget|QWindow
 
-//    bool invoke(PlastiQMetaObject::Call call, const QByteArray &signature, const PMOGStack &stack);
-//    bool invokeMethod(const QByteArray &signature, const PMOGStack &stack);
+    bool isWrapper();
+    void setWrapperMark(bool isWrapper);
 
 private:
     QByteArray m_typeName;
     int m_typeId;
     bool m_isNull;
+    bool m_isWrapper;
 
 protected:
     void *dptr = Q_NULLPTR;

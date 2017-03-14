@@ -18,14 +18,18 @@ void PlastiQObject::plastiq_static_metacall(PlastiQObject *object, PlastiQMetaOb
 {
 }
 
-
 PlastiQObject::PlastiQObject()
-    : m_typeName(""), m_typeId(-1), m_isNull(true), QObject()
+    : m_typeName(""),
+      m_typeId(-1),
+      m_isNull(true),
+      m_isWrapper(false)//, QObject()
 {
 }
 
 PlastiQObject::PlastiQObject(const QByteArray &typeName, int typeId, void *data)
-    : m_typeName(typeName), m_typeId(typeId), QObject()
+    : m_typeName(typeName),
+      m_typeId(typeId),
+      m_isWrapper(false)//, QObject()
 {
     m_typeId = typeId;
 
@@ -40,7 +44,8 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, int typeId, void *data)
 }
 
 PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
-    : m_typeName(typeName), QObject()
+    : m_typeName(typeName),
+      m_isWrapper(false)//, QObject()
 {
     m_typeId = PlastiQClasses::typeId(m_typeName);
     dptr = data;
@@ -54,7 +59,8 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
 }
 
 PlastiQObject::PlastiQObject(const QByteArray &typeName, const QByteArray &constructorSignature, const PMOGStack &stack)
-    : m_typeName(typeName), QObject()
+    : m_typeName(typeName),
+      m_isWrapper(false)//, QObject()
 {
     m_typeId = PlastiQClasses::typeId(m_typeName);
     // invoke(PlastiQMetaObject::Call::CreateInstance, constructorSignature, stack);
@@ -128,6 +134,15 @@ bool PlastiQObject::plastiq_haveParent()
     return plastiq_metaObject()->haveParent(this);
 }
 
+bool PlastiQObject::isWrapper()
+{
+    return m_isWrapper;
+}
+
+void PlastiQObject::setWrapperMark(bool isWrapper)
+{
+    m_isWrapper = isWrapper;
+}
 
 const PlastiQMetaObject *PlastiQObject::plastiq_metaObject() const
 {

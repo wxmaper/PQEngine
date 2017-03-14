@@ -37,7 +37,9 @@ namespace PlastiQ {
         QtObjectStar, // any Qt object (without Q_OBJECT macros) // 24
         QEventStar, // QEvent object // 25
         PlastiQObjectStar, // PlastiQObject instance // 26
-        FunctorOrLambda // 27
+        FunctorOrLambda, // 27
+
+        Error // 28
     };
 
     enum ObjectType {
@@ -48,37 +50,6 @@ namespace PlastiQ {
         IsQtObject, // any Qt object (without Q_OBJECT macros)
         IsNamespace, // no any functions/methods/constructors
         IsQEvent
-    };
-
-
-
-    struct StackItem {
-        ItemType type;
-        QByteArray name;
-
-        void* s_voidp;
-        void** s_voidpp;
-        PlastiQObject* s_object;
-
-        bool s_bool;
-
-        long s_long;
-        int s_int;
-
-        float s_float;
-        double s_double;
-        char *s_charstar;
-
-        quint16 s_uint16;
-        quint32 s_uint32;
-        quint64 s_uint64;
-
-        qint16 s_int16;
-        qint32 s_int32;
-        qint64 s_int64;
-
-        QByteArray s_bytearray;
-        QString s_string;
     };
 }
 

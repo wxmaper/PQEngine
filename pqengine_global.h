@@ -18,11 +18,11 @@
 #define PQENGINE_GLOBAL_H
 
 #define PQENGINE_MAJOR_VERSION 0
-#define PQENGINE_MINOR_VERSION 5
+#define PQENGINE_MINOR_VERSION 6
 #define PQENGINE_RELEASE_VERSION 3
-#define PQENGINE_CODENAME "HOROLOGIUM"
-#define PQENGINE_VERSION "0.5.3"
-#define PQENGINE_VERSION_ID 53
+#define PQENGINE_CODENAME "ANDROMEDA"
+#define PQENGINE_VERSION "0.6.3"
+#define PQENGINE_VERSION_ID 63
 
 extern void default_ub_write(const QString &msg, const QString &title);
 extern QString getCorename();

@@ -11,32 +11,11 @@
 #include "plastiqproperty.h"
 #include "plastiq.h"
 
-// #include "plastiqobject.h"
-// struct PlastiQMethod;
+enum Call;
 class PlastiQObject;
-
-/*
-enum ItemType {
-    Undef,
-    Null,
-    False,
-    True,
-    Long,
-    Double,
-    String,
-    Array,
-    Object,
-    Resource,
-    Refence,
-
-    Bool,
-    VoidStar,
-    VoidStarStar,
-    PQObjectStar,
-    QObjectStar,
-    ObjectStar
-};
-*/
+struct PlastiQMetaObject;
+struct PlastiQCandidateMethod;
+struct PQObjectWrapper;
 
 struct PMOGStackItem {
     PlastiQ::ItemType type;
@@ -46,6 +25,7 @@ struct PMOGStackItem {
     void* s_voidp;
     void** s_voidpp;
     PlastiQObject* s_object;
+    PQObjectWrapper* s_pqobject;
 
     bool s_bool;
 
@@ -77,13 +57,6 @@ struct PlastiQObjectData {
     int classId;
 };
 
-enum Call;
-// enum PlastiQObject::ObjectType;
-// enum Type;
-struct PlastiQMetaObject;
-struct PlastiQCandidateMethod;
-struct PQObjectWrapper;
-
 struct PlastiQMetaObject
 {
     enum Call {
@@ -104,6 +77,7 @@ struct PlastiQMetaObject
     int methodId(const QByteArray &signature, PlastiQMethod::Access filter = PlastiQMethod::None) const;
     int signalId(const QByteArray &signature) const;
     int constructorId(const QByteArray &signature) const;
+    bool haveVirtualMethod(const QByteArray &methodName, int argc, QByteArray &signature) const;
 
     static QObject *toQObject(PlastiQObject *object);
     static bool haveParent(PlastiQObject *object);

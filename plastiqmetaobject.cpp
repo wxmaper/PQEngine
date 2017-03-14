@@ -101,6 +101,51 @@ int PlastiQMetaObject::constructorId(const QByteArray &signature) const
     return cid;
 }
 
+bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
+                                          int argc,
+                                          QByteArray &signature) const
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    static const char _comma = ',';
+    static const char _space = ' ';
+
+    signature.clear();
+
+    QHashIterator<QByteArray, PlastiQMethod> i(*d.pq_methods);
+    while (i.hasNext()) {
+        i.next();
+        const PlastiQMethod &m = i.value();
+
+        if (m.name == methodName) {
+            int _argc = m.argTypes.isEmpty()
+                    ? 0
+                    : m.argTypes.split(_comma).size();
+
+            if (_argc != argc)
+                return false;
+
+            switch (m.access) {
+            case PlastiQMethod::Virtual:
+            case PlastiQMethod::VirtualProtected:
+            case PlastiQMethod::VirtualPublic:
+                signature = m.returnType ;
+                signature.append(_space);
+                signature.append(i.key());
+
+                return true;
+            default:
+                return false;
+            }
+        }
+    }
+
+    PQDBG_LVL_DONE();
+    return false;
+}
+
 QObject* PlastiQMetaObject::toQObject(PlastiQObject *object)
 {
 #ifdef PQDEBUG
@@ -114,14 +159,20 @@ QObject* PlastiQMetaObject::toQObject(PlastiQObject *object)
         return Q_NULLPTR;
     }
 
+    PQDBGLPUP(QString("objectType: %1").arg(object->plastiq_objectType()));
+
     switch(object->plastiq_objectType()) {
     case PlastiQ::IsQObject:
+        qobject = (QObject*) object->plastiq_data();
+        break;
+
     case PlastiQ::IsQWidget:
     case PlastiQ::IsQWindow: {
-
         PMOGStack stack = new PMOGStackItem[1];
         stack[0].s_voidpp = reinterpret_cast<void**>(&qobject);
         object->plastiq_metaObject()->d.static_metacall(object, PlastiQMetaObject::ToQObject, 0, stack);
+
+        PQDBGLPUP(QString("casted ptr: %1").arg(reinterpret_cast<quint64>(qobject)));
 
         delete [] stack;
         stack = Q_NULLPTR;
@@ -305,11 +356,19 @@ PlastiQObject *PlastiQMetaObject::createInstanceFromData(void *data)
 
 bool PlastiQMetaObject::static_metacall(PlastiQMetaObject::Call call, int id, const PMOGStack &stack)
 {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
     if(!d.static_metacall) {
+        PQDBG_LVL_DONE();
         return false;
     }
 
+    PQDBGLPUP(QString("d.static_metacall id %1").arg(id));
     d.static_metacall(Q_NULLPTR, call, id, stack);
+
+    PQDBG_LVL_DONE();
     return true;
 }
 

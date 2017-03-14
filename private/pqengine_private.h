@@ -72,6 +72,7 @@ public:
                                  const QString &orgDomain);
 
     bool                    sapi_init(PQDBG_LVL_D);
+    void                    shutdown(PQDBG_LVL_D);
 
     int                     exec(const char *script PQDBG_LVL_DC);
     int                     execpq(PQDBG_LVL_D);
@@ -101,7 +102,7 @@ private:
     static void             php_pqengine_flush(void *server_context);
     static void             php_pqengine_send_header(sapi_header_struct *sapi_header, void *server_context);
     static void             php_pqengine_register_variables(zval *track_vars_array);
-    static void             php_pqengine_log_message(char *message);
+    static void             php_pqengine_log_message(char *message, int syslog_type_int);
 
     static size_t           pqengine_stream_reader(void *dataStreamPtr, char *buffer, size_t wantlen);
     static void             pqengine_stream_closer(void *dataStreamPtr);

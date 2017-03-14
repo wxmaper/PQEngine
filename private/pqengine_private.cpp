@@ -16,6 +16,7 @@
 
 #include "phpqt5.h"
 #include "pqengine_private.h"
+#include "zend_exceptions.h"
 #include <QCryptographicHash>
 
 /* Static variables */
@@ -149,8 +150,6 @@ PQEnginePrivate::PQEnginePrivate(PQExtensionList extensions, QObject *parent)
         STANDARD_SAPI_MODULE_PROPERTIES
     };
 
-
-
     php_pqengine_module.php_ini_ignore = 0;
     php_pqengine_module.php_ini_ignore_cwd = 1;
     //php_pqengine_module.php_ini_path_override = (char*)"pqengine.ini";
@@ -189,7 +188,8 @@ bool test_pmd5(QString pmd5) {
                 }
                 else {
                     php7ts_file_md5.fill(0);
-                    pq_ub_write(QString("<b>Fatal error</b>: php7ts.dll: incorrect file cannot be loaded."));
+                    pq_ub_write(QString("<b>Fatal error</b>: php7ts.dll: "
+                                        "incorrect file cannot be loaded."));
                     return false;
                 }
             }
@@ -224,7 +224,8 @@ bool test_pmd5(QString pmd5) {
                 }
                 else {
                     ini_file_md5.fill(0);
-                    pq_ub_write(QString("<b>Fatal error</b>: pqengine.ini: incorrect file cannot be loaded."));
+                    pq_ub_write(QString("<b>Fatal error</b>: pqengine.ini: "
+                                        "incorrect file cannot be loaded."));
                     return false;
                 }
             }
@@ -402,12 +403,25 @@ bool PQEnginePrivate::sapi_init(PQDBG_LVL_D)
     return true;
 }
 
-#include "zend_exceptions.h"
+void PQEnginePrivate::shutdown(PQDBG_LVL_D)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_PROCEED(__FUNCTION__);
+#endif
+
+    php_request_shutdown((void *) 0);
+    //SG(server_context) = NULL;
+    php_module_shutdown();
+    sapi_shutdown();
+    tsrm_shutdown();
+
+    PQDBG_LVL_DONE_LPUP();
+}
+
 int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
 {
 #ifdef PQDEBUG
-    PQDBG_LVL_UP();
-    PQDBGL(__FUNCTION__);
+    PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
     QDir::setCurrent(normalizePathName(qApp->applicationDirPath()));
@@ -416,7 +430,7 @@ int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
         return execpq(PQDBG_LVL_C);
     }
 
-    QFile file(script);
+    QFile file(QString(script).replace(QRegExp("^qrc://"), ":/"));
     if(file.exists()) {
         if(qApp != Q_NULLPTR) delete qApp;
 
@@ -461,12 +475,22 @@ int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
         default: scret = 1;
         }
 
+        shutdown(PQDBG_LVL_C);
+
+        PQDBGLPUP(QString("application return: %1").arg(scret));
+        PQDBG_LVL_DONE();
         return scret;
     }
     else {
-        pq_ub_write(QString("<b>%1</b>: <font color='red'>file not found</font> \n<br>in %2")
+        pq_ub_write(QString("<b>%1</b> (%2): <font color='red'>file not found</font> \n<br>in %3")
                     .arg(script)
+                    .arg(file.fileName())
                     .arg(normalizePathName(qApp->applicationDirPath())));
+
+        shutdown(PQDBG_LVL_C);
+
+        PQDBGLPUP(QString("application return: 1"));
+        PQDBG_LVL_DONE();
         return 1;
     }
 }
@@ -545,7 +569,7 @@ QByteArray *PQEnginePrivate::readMainFile(PQDBG_LVL_D)
 int PQEnginePrivate::execpq(PQDBG_LVL_D)
 {
 #ifdef PQDEBUG
-    PQDBGL(__FUNCTION__);
+    PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
     QByteArray *data = readMainFile(PQDBG_LVL_C);
@@ -591,6 +615,9 @@ int PQEnginePrivate::execpq(PQDBG_LVL_D)
         ret = Z_LVAL(retVal);
     }
 
+    shutdown(PQDBG_LVL_C);
+
+    PQDBGLPUP(QString("application return: %1").arg(ret));
     PQDBG_LVL_DONE();
     return ret;
 }

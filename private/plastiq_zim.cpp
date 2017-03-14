@@ -31,7 +31,11 @@ void PHPQt5::zim_qenum___construct(INTERNAL_FUNCTION_PARAMETERS)
         break;
 
     default:
+#if (PHP_VERSION_ID < 70101)
         zend_wrong_paramer_class_error(1, (char*) "long", enum_zval);
+#else
+        zend_wrong_parameter_class_error(1, (char*) "long", enum_zval);
+#endif
     }
 
     PQDBG_LVL_DONE();
@@ -68,6 +72,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
     QList<int> types;
     QString argsTypes = "";
     zval *entry;
+    bool isWrapper = false;
 
     PMOGStack stack = new PMOGStackItem[10];
     QList<pq_tmp_call_info> tciList;
@@ -186,7 +191,11 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                 }
             }
             else {
+#if (PHP_VERSION_ID < 70101)
                 zend_wrong_paramer_class_error(i, (char*) "Object", entry);
+#else
+                zend_wrong_parameter_class_error(i, (char*) "Object", entry);
+#endif
             }
         } break;
 
@@ -206,7 +215,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
         if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
             className = QByteArray(ce->name->val);
             break;
-        }
+        } else isWrapper = true; // php-class was extends a qt-class
     } while(ce = ce->parent);
 
     PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
@@ -225,7 +234,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
 
     if(mid >= 0) {
         PQDBGLPUP(QString("fast call constructorId: %1").arg(mid));
-        objectFactory()->createPlastiQObject(className, signature, getThis(), stack);
+        objectFactory()->createPlastiQObject(className, signature, getThis(), isWrapper, stack);
     }
     else {
         tciList.clear();
@@ -557,7 +566,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
         if(right) {
             signature = QString("%1(%2)").arg(className.constData()).arg(QString(argsTypes).replace(" ", "")).toUtf8();
             PQDBGLPUP(QString("generated signature: %1").arg(signature.constData()));
-            objectFactory()->createPlastiQObject(className, signature, getThis(), stack);
+            objectFactory()->createPlastiQObject(className, signature, getThis(), isWrapper, stack);
         }
         else {
             php_error(E_ERROR, "Cannot create object: wrong param types");
@@ -647,11 +656,15 @@ void PHPQt5::zim_plastiq___callStatic(INTERNAL_FUNCTION_PARAMETERS)
     void *TSRMLS_CACHE = Q_NULLPTR;
     TSRMLS_CACHE_UPDATE();
 
+#if PHP_VERSION_ID < 70100
     if (execute_data->called_scope) {
         ce = execute_data->called_scope;
-    } else if (!EG(scope)) {
+    } else if (EG(scope)) {
         ce = EG(scope);
     }
+#else
+    ce = zend_get_executed_scope();
+#endif
 
     QByteArray objectClassName(ce->name->val);
     int argc = Z_ARRVAL_P(args)->nNumOfElements;
@@ -953,7 +966,11 @@ void PHPQt5::zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS)
         break;
 
     default:
+#if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(argc, 2, 4);
+#else
+        zend_wrong_parameters_count_error(argc, 2, 4);
+#endif
     }
 }
 
@@ -994,6 +1011,7 @@ void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
 
         zval *params = new zval[argc];
         ZVAL_COPY_VALUE(&params[0], getThis());
+
         Z_ADDREF_P(getThis());
 
         zval *entry;
@@ -1023,6 +1041,7 @@ void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
         for(int i = 0; i < argc; i++) {
             zval_dtor(&params[i]);
         }
+
         delete [] params;
         params = 0;
     }

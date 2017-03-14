@@ -43,7 +43,7 @@ class PlastiQThreadCreator : public QObject
     Q_OBJECT
 public:
     explicit PlastiQThreadCreator(QThread *thread, void *tsrmls_cache, QObject *parent = 0);
-    void *get_tsrmls_cache(QThread *thread);
+    static void *get_tsrmls_cache(QThread *thread);
     QThread *getThread(void *tsrmls_cache);
 
 public slots:

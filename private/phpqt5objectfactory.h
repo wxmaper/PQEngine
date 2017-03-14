@@ -118,11 +118,16 @@ public:
     bool                                createPlastiQObject(const QByteArray &className,
                                                             const QByteArray &signature,
                                                             zval *pzval,
+                                                            bool isWrapper,
                                                             const PMOGStack &stack);
     void                                addObject(PQObjectWrapper *pqobject, quint64 objectId = 0);
     void                                removeObject(PQObjectWrapper *pqobject, quint64 objectId = 0);
     PQObjectWrapper *                   getObject(quint64 objectId);
     void                                extractSignals(PQObjectWrapper *pqobject, zval *zobject);
+    // void                                extractVirtualMethods_old(PQObjectWrapper *pqobject, zval *zobject);
+    void                                extractVirtualMethods(PQObjectWrapper *pqobject, zval *zobject);
+    PQObjectWrapper *                   createObjectFromData(const QByteArray &className, void *d, zval *pzval);
+
 
 public slots:
     void                                freeObject_slot(QObject *qobject);
@@ -130,7 +135,7 @@ public slots:
 protected:
     QMap<QString, pqof_class_entry>     m_classes;
     QMap<QString, zend_class_entry*>    z_classes;
-    QObjectList m_objects;
+    // QObjectList m_objects; // REMOVE IT
 
     /* PlastiQ */
     QHash<QByteArray, PlastiQMetaObject> m_plastiqClasses;

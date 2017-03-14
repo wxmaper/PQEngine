@@ -32,6 +32,11 @@ ZEND_BEGIN_ARG_INFO_EX(phpqt5__set, 0, 0, 2)
     ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_setupUi, 0, 0, 2)
+    ZEND_ARG_INFO(0, path)
+    ZEND_ARG_INFO(1, parent)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(phpqt5__get, 0, 0, 1)
     ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
@@ -52,6 +57,7 @@ struct ConnectionData {
 
 typedef QHash<QByteArray, ConnectionData> ConnectionHash;
 
+class VirtualMethodList;
 struct PQObjectWrapper {
     PlastiQObject *object;
     bool isExtra = false;       // true if object created from return value
@@ -65,6 +71,7 @@ struct PQObjectWrapper {
 
     QHash<QByteArray,ConnectionHash*> *connections = Q_NULLPTR;
     QHash<QByteArray,zval> *userProperties = Q_NULLPTR;
+    VirtualMethodList *virtualMethods = Q_NULLPTR;
 
     void *ctx;
     QThread *thread;
@@ -205,6 +212,7 @@ public:
     /* PHPQt5 Conversions */
     static zval             plastiq_cast_to_zval(const PMOGStackItem &stackItem);
     static zval             plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeName = QByteArray());
+    static PMOGStackItem    plastiq_cast_to_stackItem(zval *entry);
     static void*            plastiq_cast_to_s_voidp(const PMOGStackItem &stackItem);
     static zval             plastiq_stringlist_to_array(const QStringList &list);
 
@@ -220,6 +228,8 @@ public:
     static zend_object *    pqenum_create(zend_class_entry *ce);
     static void             pqenum_object_free(zend_object *zenum);
     static void             pqenum_object_dtor(zend_object *zenum);
+
+    static QHash<QString,zval> loadChilds(QObject *object);
 
     /* until better times :-)
     static int              pqobject_call_method(zend_string *method, zend_object *object, INTERNAL_FUNCTION_PARAMETERS);
@@ -243,6 +253,9 @@ public:
 
     static bool             pq_test_ce(zval *pzval PQDBG_LVL_DC); // FIXME: return QByteArray originalClassName, to new API
     static bool             pq_declareSignal(QObject *qo, const QByteArray signalSignature); // FIXME: to new API
+
+
+    static bool             downCastTest(const PlastiQMetaObject *metaObject, const QString &className);
 
     static int              zm_startup_phpqt5(INIT_FUNC_ARGS);
     static void             zif_SIGNAL(INTERNAL_FUNCTION_PARAMETERS);
@@ -275,6 +288,8 @@ public:
     static void             zif_pqSignals(INTERNAL_FUNCTION_PARAMETERS);
 
     static void             zif_test_ref(INTERNAL_FUNCTION_PARAMETERS);
+
+    static void             zif_setupUi(INTERNAL_FUNCTION_PARAMETERS);
 
     /* ... */
 
@@ -313,6 +328,7 @@ public:
 
             PHP_FE(test_ref, NULL)
             PHP_FE(qvariant_cast, NULL)
+            PHP_FE(setupUi, arginfo_setupUi)
 
             { "qDebug", zif_qDebug, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qInfo", zif_qInfo, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },

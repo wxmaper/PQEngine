@@ -190,7 +190,12 @@ void PHPQt5::zif_qenum(INTERNAL_FUNCTION_PARAMETERS)
         break;
 
     default:
+#if (PHP_VERSION_ID < 70101)
         zend_wrong_paramer_class_error(1, (char*) "long", enum_zval);
+#else
+        zend_wrong_parameter_class_error(1, (char*) "long", enum_zval);
+#endif
+
     }
 
     RETVAL_ZVAL(&zenum, 0, 0);
@@ -463,6 +468,13 @@ void PHPQt5::zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS)
         zval array;
         array_init(&array);
 
+        add_assoc_string(&array, "QT_VERSION", (char *)QT_VERSION_STR);
+        add_assoc_string(&array, "QT_VERSION_MAJOR", (char *)QT_VERSION_MAJOR);
+        add_assoc_string(&array, "QT_VERSION_MINOR", (char *)QT_VERSION_MINOR);
+        add_assoc_string(&array, "QT_VERSION_PATCH", (char *)QT_VERSION_PATCH);
+
+        add_assoc_string(&array, "MSC_FULL_VER", (char *)_MSC_FULL_VER);
+
         add_assoc_string(&array, "ZEND_VERSION", (char *)ZEND_VERSION);
         add_assoc_long(&array, "PHP_MAJOR_VERSION", PHP_MAJOR_VERSION);
         add_assoc_long(&array, "PHP_MINOR_VERSION", PHP_MINOR_VERSION);
@@ -488,10 +500,14 @@ void PHPQt5::zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS)
         RETURN_ZVAL(&array, 1, 0);
     }
     else {
-        QString about = QString("<b>ZEND API</b>: %1<br>\n"
-                                "<b>PHP version</b>: %2<br>\n"
-                                "<b>PQEngine version</b>: %3 (%4)<br>\n"
-                                "<b>PQExtensions API version</b>: %5<br>\n")
+        QString about = QString("<b>Qt version</b>: %1<br>\n"
+                                "<b>MSVC version</b>: %2<br>\n"
+                                "<b>ZEND API</b>: %3<br>\n"
+                                "<b>PHP version</b>: %4<br>\n"
+                                "<b>PQEngine version</b>: %5 (%6)<br>\n"
+                                "<b>PQExtensions API version</b>: %7<br>\n")
+                .arg(QT_VERSION_STR)
+                .arg(_MSC_FULL_VER)
                 .arg(ZEND_VERSION)
                 .arg(PHP_VERSION)
                 .arg(PQENGINE_VERSION)
@@ -752,13 +768,22 @@ void PHPQt5::zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS)
     } break;
 
     default:
+#if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(argc, 1, 2);
+#else
+        zend_wrong_parameters_count_error(argc, 1, 2);
+#endif
+
         PQDBG_LVL_DONE();
         RETURN_NULL();
     }
 
     if(Z_TYPE_P(zobject) != IS_OBJECT) {
+#if (PHP_VERSION_ID < 70101)
         zend_wrong_paramer_type_error(1, zend_expected_type(IS_OBJECT), zobject);
+#else
+        zend_wrong_parameter_type_error(1, zend_expected_type(IS_OBJECT), zobject);
+#endif
         PQDBG_LVL_DONE();
         RETURN_NULL();
     }

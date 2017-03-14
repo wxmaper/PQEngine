@@ -25,6 +25,7 @@ bool PQEngine::pqeInitialized = false;
 PQExtensionList PQEngine::pqeExtensions;
 QString PQEngine::pqeCoreName;
 
+#include <QMutex>
 #include <QtGlobal>
 
 /* PQEngine class */
@@ -120,11 +121,17 @@ int __pqdbg_current_d_lvl = 0;
 int __pqdbg_current_d_line = 0;
 
 int pqdbg_get_current_lvl() {
-    return __pqdbg_current_d_lvl;
+    static QMutex mutex;
+
+    mutex.lock();
+    int retval = __pqdbg_current_d_lvl;
+    mutex.unlock();
+
+    return retval;
 }
 
 QString pqdbg_get_current_line() {
-    QString line = QString::number(__pqdbg_current_d_line);
+    QString line = QString::number(pqdbg_get_current_lvl());
 
     while(line.length() < 7) {
         line.prepend("0");
@@ -134,11 +141,19 @@ QString pqdbg_get_current_line() {
 }
 
 void pqdbg_current_line_inc() {
+    static QMutex mutex;
+
+    mutex.lock();
     __pqdbg_current_d_line++;
+    mutex.unlock();
 }
 
 void pqdbg_set_current_lvl(int lvl) {
+    static QMutex mutex;
+
+    mutex.lock();
     __pqdbg_current_d_lvl = lvl;
+    mutex.unlock();
 }
 #endif
 

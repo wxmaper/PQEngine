@@ -1,8 +1,13 @@
 #include "phpqt5.h"
 
+#include <QMutex>
+
 void pqdbg_send_message(int lvl, const QString &msg, const QString &title)
 {
 #ifdef PQDEBUG
+    static QMutex mutex;
+
+    mutex.lock();
     QLocalSocket *debugSocket = PHPQt5::debugSocket();
 
     if(debugSocket->isOpen()) {
@@ -48,6 +53,8 @@ void pqdbg_send_message(int lvl, const QString &msg, const QString &title)
         debugSocket->write(str.toUtf8());
         debugSocket->waitForBytesWritten();
     }
+
+    mutex.unlock();
 #else
     Q_UNUSED(lvl);
     Q_UNUSED(msg);

@@ -281,7 +281,6 @@ void PHPQt5::pq_emit(QObject *qo, const QByteArray signalSignature, zval *args)
         QVariantList vargs;
 
         ZEND_HASH_FOREACH_NUM_KEY_VAL(Z_ARRVAL_P(args), index, arg) {
-
             switch(Z_TYPE_P(arg)) {
             case IS_TRUE:
             case IS_FALSE:

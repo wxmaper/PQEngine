@@ -106,7 +106,7 @@ void PQEnginePrivate::php_pqengine_register_variables(zval *track_vars_array)
     }
 }
 #include <QTextCodec>
-void PQEnginePrivate::php_pqengine_log_message(char *message)
+void PQEnginePrivate::php_pqengine_log_message(char *message, int syslog_type_int)
 {
 #ifdef PQDEBUG
     PQDBG2("PQEnginePrivate::php_pqengine_log_message()", message);

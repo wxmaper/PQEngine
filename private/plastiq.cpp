@@ -5,7 +5,35 @@
 
 zval PHPQt5::engineErrorHandler;
 
-zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName, int argc, zval *argv, const PlastiQMetaObject *metaObject)
+bool PHPQt5::downCastTest(const PlastiQMetaObject *metaObject, const QString &className) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    bool cancast = false;
+    QString objectClassName = QLatin1String(metaObject->className());
+
+    foreach (PlastiQMetaObject* inherit, *metaObject->d.inherits) {
+        PQDBGLPUP(QString("%1 -> %2").arg(objectClassName).arg(inherit->className()));
+        objectClassName = inherit->className();
+
+        if(objectClassName == className /*|| downCastTest(inherit, className)*/) {
+            // stack[sidx].s_voidp = epqobject->object->plastiq_data();
+            cancast = true;
+            break;
+        }
+    }
+
+    PQDBGLPUP(QString("test downcast %1 to %2: %3")
+              .arg(metaObject->className())
+              .arg(className).arg(cancast));
+
+    PQDBG_LVL_DONE();
+    return cancast;
+}
+
+zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName,
+                         int argc, zval *argv, const PlastiQMetaObject *metaObject)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
@@ -32,6 +60,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
     QByteArray argsTypes = "";
     PMOGStack stack = new PMOGStackItem[argc+1];
+    // [argc+1] -> нулевой индекс используется для передачи возвращаемого значения
 
     zval *entry;
     ulong argnum;
@@ -161,7 +190,11 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         ? ",Closure" : "Closure";
             }
             else {
+#if (PHP_VERSION_ID < 70101)
                 zend_wrong_paramer_class_error(argnum, (char*) "Object", entry);
+#else
+                zend_wrong_parameter_class_error(argnum, (char*) "Object", entry);
+#endif
             }
         } break;
 
@@ -259,7 +292,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                 zval *entry = &Z_ARRVAL_P(argv)->arData[idx].val;
 
                 switch(Z_TYPE_P(entry)) {
-                case IS_STRING:
+                case IS_STRING: {
                     if(methodType == "char*" || methodType == "char**" || methodType == "const char*") {
                         stack[sidx].s_voidp = Z_STRVAL_P(entry);
                     }
@@ -294,13 +327,22 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     }
                     else if(methodType == "QVariant") {
                         if(!isref) {
-                            stack[sidx].s_variant = QVariant(QByteArray(Z_STRVAL_P(entry)));
+                            QString str = QString::fromLatin1(Z_STRVAL_P(entry));
+
+                            if(str.length() == Z_STR_P(entry)->len) {
+                                PQDBGLPUP("DECODE STRING AS `QString`");
+                                stack[sidx].s_variant = QString::fromUtf8(Z_STRVAL_P(entry));
+                            }
+                            else {
+                                PQDBGLPUP("DECODE STRING AS `QByteArray`");
+                                stack[sidx].s_variant = QVariant(QByteArray(Z_STRVAL_P(entry)));
+                            }
                         }
                         else right = false;
                     }
 
                     else right = false;
-                    break;
+                } break;
 
                 case IS_LONG:
                     if(methodType == "long") {
@@ -580,6 +622,12 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                         if(methodName == "moveToThread") {
                                             QThread *thread = reinterpret_cast<QThread*>(epqobject->object->plastiq_data());
                                             // pqobject->ctx = PHPQt5::threadCreator()->get_tsrmls_cache(thread);
+
+                                            PQDBGLPUP(QString("change thread %1[id:%2] -> %3")
+                                                      .arg(pqobject->zo.ce->name->val)
+                                                      .arg(reinterpret_cast<quint64>(pqobject->object->plastiq_data()))
+                                                      .arg(reinterpret_cast<quint64>(thread)));
+
                                             pqobject->thread = thread;
 
                                             PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
@@ -592,20 +640,27 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                     }
                                     else {
                                         //do {
-                                            objectClassName = metaObject->className();
-                                            foreach(PlastiQMetaObject* inherit, *metaObject->d.inherits) {
-                                                PQDBGLPUP(QString("downcast %1 to %2").arg(objectClassName.constData()).arg(inherit->className()));
-                                                objectClassName = inherit->className();
 
-                                                if(fMethodType == QString(objectClassName).append("*")
-                                                        || fMethodType == QString(objectClassName).prepend("const ").append("*")) {
-                                                    stack[sidx].s_voidp = epqobject->object->plastiq_data();
-                                                    cancast = true;
-                                                    break;
-                                                }
+                                        objectClassName = metaObject->className();
+                                        foreach (PlastiQMetaObject* inherit, *metaObject->d.inherits) {
+                                            PQDBGLPUP(QString("downcast %1 to %2").arg(objectClassName.constData()).arg(inherit->className()));
+                                            objectClassName = inherit->className();
 
+                                            if(fMethodType == QString(objectClassName).append("*")
+                                                    || fMethodType == QString(objectClassName).prepend("const ").append("*")) {
+                                                stack[sidx].s_voidp = epqobject->object->plastiq_data();
+                                                cancast = true;
+                                                break;
                                             }
+
+                                        }
+
                                         //} while((metaObject = metaObject->d.superdata) && !cancast);
+
+                                        //cancast = downCastTest(metaObject, QString(fMethodType).replace("*","").replace("const ",""));
+                                        //if (cancast) {
+                                        //    stack[sidx].s_voidp = epqobject->object->plastiq_data();
+                                        //}
                                     }
 
                                     if(cancast) {
@@ -853,6 +908,36 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
     return pqobject;
 }
 
+bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject,
+                               const QByteArray &methodSignature) {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    if (pqobject != Q_NULLPTR && pqobject->virtualMethods != Q_NULLPTR) {
+        PQDBG_LVL_DONE();
+        return pqobject->virtualMethods->contains(methodSignature);
+    }
+
+    PQDBG_LVL_DONE();
+    return false;
+}
+
+void PlastiQ_virtual_call(PQObjectWrapper *pqobject,
+                          const QByteArray &methodSignature,
+                          PMOGStack stack)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+    //if (pqobject != Q_NULLPTR && pqobject->virtualMethods != Q_NULLPTR) {
+    pqobject->virtualMethods->value(methodSignature).call(pqobject, stack);
+
+    //}
+    PQDBG_LVL_DONE();
+}
+
+
 zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
 {
 #ifdef PQDEBUG
@@ -908,6 +993,12 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
 
             QObject *qobject = reinterpret_cast<QObject*>(stackItem.s_voidp);
             className = qobject->metaObject()->className();
+
+            if (className.indexOf("::"))
+                className = className.mid(className.indexOf("::")+2);
+
+            if (!objectFactory()->havePlastiQMetaObject(className))
+                className = stackItem.name;
 
             PQDBGLPUP(QString("QObject className: %1").arg(className.constData()));
 
@@ -1051,8 +1142,8 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
             // }
         }
         else {
-           // php_error(E_ERROR, QString("Uncaught error: class '%1' not found")
-           //           .arg(stackItem.name.constData()).toUtf8().constData());
+            // php_error(E_ERROR, QString("Uncaught error: class '%1' not found")
+            //           .arg(stackItem.name.constData()).toUtf8().constData());
 
             zend_throw_error(0, QString("class '%1' not found")
                              .arg(stackItem.name.constData()).toUtf8().constData());
@@ -1073,7 +1164,16 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
         }
     } break;
 
+    case PlastiQ::Void: {
+        ZVAL_UNDEF(&retval);
+    } break;
+
     default:
+        PQDBGLPUP(QStringLiteral("Unknown typecast from typeId %1")
+                  .arg(stackItem.type).toUtf8().constData());
+        zend_throw_error(NULL,
+                         QStringLiteral("Unknown typecast from typeId %1")
+                         .arg(stackItem.type).toUtf8().constData());
         ZVAL_NULL(&retval);
     }
 
@@ -1205,6 +1305,126 @@ zval PHPQt5::plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeN
     return retval;
 }
 
+PMOGStackItem PHPQt5::plastiq_cast_to_stackItem(zval *zv)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    PMOGStackItem stackItem;
+    QString argsTypes;
+
+    switch(Z_TYPE_P(zv)) {
+    case IS_TRUE:
+        argsTypes += argsTypes.length()
+                ? ",bool" : "bool";
+        stackItem.s_bool = true;
+        break;
+
+    case IS_FALSE:
+        argsTypes += argsTypes.length()
+                ? ",bool" : "bool";
+        stackItem.s_bool = false;
+        break;
+
+    case IS_STRING: {
+        // определение типа данных
+        QString str = QString::fromLatin1(Z_STRVAL_P(zv));
+
+        if(str.length() == Z_STR_P(zv)->len) {
+            argsTypes += argsTypes.length()
+                    ? ",QString" : "QString";
+            stackItem.s_string = QString::fromUtf8(Z_STRVAL_P(zv));;
+        }
+        else {
+            argsTypes += argsTypes.length()
+                    ? ",QByteArray" : "QByteArray";
+            stackItem.s_bytearray = QByteArray::fromRawData(Z_STRVAL_P(zv), Z_STR_P(zv)->len);
+        }
+        break;
+    }
+
+    case IS_LONG:
+        argsTypes += argsTypes.length()
+                ? ",int" : "int";
+        stackItem.s_int = Z_LVAL_P(zv);
+        break;
+
+    case IS_DOUBLE:
+        argsTypes += argsTypes.length()
+                ? ",double" : "double";
+        stackItem.s_double = Z_DVAL_P(zv);
+        break;
+
+        /*
+    case IS_ARRAY: {
+        argsTypes += argsTypes.length()
+                ? ",ZendArray" : "ZendArray";
+        break;
+    }
+    */
+
+    case IS_NULL:
+        argsTypes += argsTypes.length()
+                ? ",Q_NULLPTR" : "Q_NULLPTR";
+        break;
+
+    case IS_OBJECT: {
+        zend_class_entry *ce = Z_OBJCE_P(zv);
+        QByteArray className;
+
+        if(Z_OBJCE_NAME_P(zv) == QByteArrayLiteral("QEnum")) {
+            className = QByteArrayLiteral("QEnum");
+        }
+        else {
+            do {
+                if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
+                    className = QByteArray(ce->name->val);
+                    break;
+                }
+            } while(ce = ce->parent);
+        }
+
+        if(className.length()) {
+            PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(zv));
+            PlastiQObject *eobject = epqobject->object;
+
+            if(epqobject->isEnum) {
+                PQDBGLPUP(QString("arg object: QEnum(%1)").arg(epqobject->enumVal));
+
+                argsTypes += argsTypes.length()
+                        ? ",enum" : "enum";
+
+                stackItem.s_int64 = epqobject->enumVal;
+            }
+            else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
+                PQDBGLPUP(QString("arg object: %1").arg(eobject->plastiq_metaObject()->className()));
+
+                argsTypes += argsTypes.length()
+                        ? "," + className : className;
+
+                stackItem.s_voidp = eobject->plastiq_data();
+            }
+            else {
+                php_error(E_ERROR,
+                          QString("ACCESS TO NULL PlastiQObject: %1")
+                          .arg(zend_zval_type_name(zv))
+                          .toUtf8().constData());
+            }
+        }
+    } break;
+
+    default:
+        php_error(E_ERROR,
+                  QString("Unknown type `%1` (%2)")
+                  .arg(zend_zval_type_name(zv))
+                  .arg(Z_TYPE_P(zv))
+                  .toUtf8().constData());
+    }
+
+    PQDBG_LVL_DONE();
+    return stackItem;
+}
 
 void *PHPQt5::plastiq_cast_to_s_voidp(const PMOGStackItem &stackItem)
 {

@@ -90,7 +90,7 @@ struct qrc_stream_data {
 };
 
 typedef struct _pq_tmp_call_info {
-    PlastiQObject *po;
+    PQObjectWrapper *pqo;
     zval *zv;
     bool haveParent;
 } pq_tmp_call_info;

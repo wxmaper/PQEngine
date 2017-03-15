@@ -87,6 +87,20 @@ bool PHPQt5ObjectFactory::createPlastiQObject(const QByteArray &className,
 #endif
 
     switch(objectType) {
+    case PlastiQ::IsQtItem: {
+        PQDBGLPUP("object type: IsQtItem");
+
+        if(object->plastiq_haveParent()) {
+            // If item has a parent, it will be deleted by parent
+            pqobject->isExtra = true;
+        }
+
+        pqobject->thread = QThread::currentThread();
+        PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
+                  .arg(reinterpret_cast<quint64>(QThread::currentThread()))
+                  .arg(reinterpret_cast<quint64>(pqobject->ctx)));
+    } break;
+
     case PlastiQ::IsQtObject: {
         PQDBGLPUP("object type: IsQtObject");
 
@@ -560,8 +574,16 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
     PQObjectWrapper *pqobject = fetch_pqobject(zobject);
 
     if(pqobject->object != Q_NULLPTR && pqobject->isValid) {
+        const PlastiQ::ObjectType objectType = *(pqobject->object->plastiq_metaObject()->d.objectType);
+
         quint64 objectId = reinterpret_cast<quint64>(pqobject->object->plastiq_data());
         removeObject(pqobject, objectId);
+
+        if (objectType == PlastiQ::IsQtItem && !pqobject->isExtra && pqobject->object->plastiq_haveParent()) {
+            PQDBGLPUP("QtItem's with parents do not need to be removed");
+            PQDBG_LVL_DONE();
+            return;
+        }
 
         if(pqobject->userProperties != Q_NULLPTR) {
             QMutableHashIterator<QByteArray,zval> propertiesIter(*pqobject->userProperties);

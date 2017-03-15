@@ -251,10 +251,9 @@ bool PlastiQMetaObject::haveParent(PlastiQObject *object)
 
     delete [] stack;
 
-    PQDBGLPUP(QString("have parent: %1").arg(haveParent));
+    PQDBGLPUP(QStringLiteral("%1::haveParent: %2").arg(object->plastiq_metaObject()->className()).arg(haveParent));
 
     PQDBG_LVL_DONE();
-
     return haveParent;
 }
 

@@ -168,9 +168,10 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     case PlastiQ::IsQtObject:
                     case PlastiQ::IsQObject:
                     case PlastiQ::IsQWidget:
-                    case PlastiQ::IsQWindow: {
+                    case PlastiQ::IsQWindow:
+                    case PlastiQ::IsQtItem: {
                         bool haveParent = eobject->plastiq_haveParent();
-                        tciList << pq_tmp_call_info { eobject, entry, haveParent };
+                        tciList << pq_tmp_call_info { epqobject, entry, haveParent };
                     } break;
 
                     default: ;
@@ -238,7 +239,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
         if(pqobject) {
             bool haveParentBefore = object->plastiq_haveParent();
             ZVAL_OBJ(&zobject, &pqobject->zo);
-            tciList << pq_tmp_call_info { object, &zobject, haveParentBefore };
+            tciList << pq_tmp_call_info { pqobject, &zobject, haveParentBefore };
         }
 
         PQDBGLPUP(QString("fast call methodId: %1").arg(mid));
@@ -695,9 +696,10 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                 case PlastiQ::IsQtObject:
                                 case PlastiQ::IsQObject:
                                 case PlastiQ::IsQWidget:
-                                case PlastiQ::IsQWindow: {
+                                case PlastiQ::IsQWindow:
+                                case PlastiQ::IsQtItem: {
                                     bool haveParent = eobject->plastiq_haveParent();
-                                    tciList << pq_tmp_call_info { eobject, entry, haveParent };
+                                    tciList << pq_tmp_call_info { epqobject, entry, haveParent };
                                 } break;
 
                                 default: ;
@@ -747,7 +749,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             if(pqobject) {
                 bool haveParentBefore = object->plastiq_haveParent();
                 ZVAL_OBJ(&zobject, &pqobject->zo);
-                tciList << pq_tmp_call_info { object, &zobject, haveParentBefore };
+                tciList << pq_tmp_call_info { pqobject, &zobject, haveParentBefore };
             }
 
             PQDBGLPUP(QString("call candidate method: %1(%2)")
@@ -787,7 +789,8 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
     PQDBGLPUP("check parents");
     foreach(pq_tmp_call_info tci, tciList) {
         bool haveParentBefore = tci.haveParent;
-        bool haveParentAfter = tci.po->plastiq_haveParent();
+        bool haveParentAfter = tci.pqo->object->plastiq_haveParent();
+        const PlastiQ::ObjectType objectType = *(tci.pqo->object->plastiq_metaObject()->d.objectType);
 
         // не было родителя и появился
         if(!haveParentBefore && haveParentAfter) {
@@ -932,11 +935,31 @@ void PlastiQ_virtual_call(PQObjectWrapper *pqobject,
 #endif
     //if (pqobject != Q_NULLPTR && pqobject->virtualMethods != Q_NULLPTR) {
     pqobject->virtualMethods->value(methodSignature).call(pqobject, stack);
-
     //}
     PQDBG_LVL_DONE();
 }
 
+void PlastiQ_self_destroy(PQObjectWrapper *pqobject)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    PQDBGLPUP(QStringLiteral("className: %1").arg(pqobject->object->plastiq_metaObject()->className()));
+
+    if (pqobject->isValid) {
+        zval zobject;
+        ZVAL_OBJ(&zobject, &pqobject->zo);
+
+        PQDBGLPUP(QStringLiteral("DELREF(%1)").arg(Z_OBJCE_NAME(zobject)));
+        Z_DELREF(zobject);
+
+        pqobject->isExtra = true; // Set object as extra for protection against double free
+        ZVAL_DESTRUCTOR(&zobject);
+    }
+
+    PQDBG_LVL_DONE();
+}
 
 zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
 {

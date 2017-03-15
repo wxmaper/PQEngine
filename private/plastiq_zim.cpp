@@ -174,9 +174,10 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                     case PlastiQ::IsQtObject:
                     case PlastiQ::IsQObject:
                     case PlastiQ::IsQWidget:
-                    case PlastiQ::IsQWindow: {
+                    case PlastiQ::IsQWindow:
+                    case PlastiQ::IsQtItem: {
                         bool haveParent = eobject->plastiq_haveParent();
-                        tciList << pq_tmp_call_info { eobject, entry, haveParent };
+                        tciList << pq_tmp_call_info { epqobject, entry, haveParent };
                     } break;
 
                     default: ;
@@ -530,9 +531,10 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                                 case PlastiQ::IsQtObject:
                                 case PlastiQ::IsQObject:
                                 case PlastiQ::IsQWidget:
-                                case PlastiQ::IsQWindow: {
+                                case PlastiQ::IsQWindow:
+                                case PlastiQ::IsQtItem: {
                                     bool haveParent = object->plastiq_haveParent();
-                                    tciList << pq_tmp_call_info { object, entry, haveParent };
+                                    tciList << pq_tmp_call_info { epqobject, entry, haveParent };
                                 } break;
 
                                 default: ;
@@ -575,7 +577,8 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
 
     foreach(pq_tmp_call_info tci, tciList) {
         bool haveParentBefore = tci.haveParent;
-        bool haveParentAfter = tci.po->plastiq_haveParent();
+        bool haveParentAfter = tci.pqo->object->plastiq_haveParent();
+        const PlastiQ::ObjectType objectType = *(tci.pqo->object->plastiq_metaObject()->d.objectType);
 
         // не было родителя и появился
         if(!haveParentBefore && haveParentAfter) {

@@ -48,6 +48,7 @@ namespace PlastiQ {
         IsQWidget,
         IsQWindow,
         IsQtObject, // any Qt object (without Q_OBJECT macros)
+        IsQtItem, // any Qt item
         IsNamespace, // no any functions/methods/constructors
         IsQEvent
     };

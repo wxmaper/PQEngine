@@ -1,5 +1,6 @@
-PQ_PHP_VERSION=7.0.7
+PQ_PHP_VERSION=7.1.1
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
+
 
 # for Windows only
 DEFINES += ZEND_WIN32
@@ -12,7 +13,12 @@ DEFINES += WIN32
 # use this define for debug messages
 #DEFINES += PQDEBUG
 #DEFINES += PQDETAILEDDEBUG
+
 DEFINES += PQSTATIC
+
+QMAKE_CXXFLAGS += -std=gnu++0x -pthread
+QMAKE_CFLAGS += -std=gnu++0x -pthread
+LIBS += -lpthread
 
 DEFINES += ZEND_ENABLE_STATIC_TSRMLS_CACHE
 
@@ -27,6 +33,7 @@ INCLUDEPATH += \
 LIBS += -L"$${PHP_SRC_PATH}/dev/" -lphp7ts
 INCLUDEPATH += "$${PHP_SRC_PATH}/dev"
 DEPENDPATH += "$${PHP_SRC_PATH}/dev"
+INCLUDEPATH += pthreads
 
 ##########################################
 ##########################################

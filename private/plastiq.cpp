@@ -44,13 +44,16 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
     zval zobject;
 
     if(pqobject) {
-        object = pqobject->object;
+        if (pqobject->isValid) {
+            object = pqobject->object;
 
-        if(!metaObject) {
-            metaObject = pqobject->object->plastiq_metaObject();
+            if(!metaObject) {
+                metaObject = pqobject->object->plastiq_metaObject();
+            }
         }
     }
-    else if(!metaObject) {
+
+    if(!metaObject) {
         ZVAL_UNDEF(&retVal);
         PQDBG_LVL_DONE();
         return retVal;
@@ -223,6 +226,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
     /* FIXME evil shit code for refernces :-) */
     QString *strvala;
     QStringList *slvala;
+    QByteArray *bavala;
     long *lvala;
     int *ivala;
     bool *bvala;
@@ -252,6 +256,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
         /* FIXME evil shit code for refernces :-) */
         strvala = new QString[argc+1];
         slvala = new QStringList[argc+1];
+        bavala = new QByteArray[argc+1];
         lvala = new long[argc+1];
         ivala = new int[argc+1];
         bvala = new bool[argc+1];
@@ -311,7 +316,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
                         if(str.length() == Z_STR_P(entry)->len) {
                             if(isref) {
-                                stack[sidx].s_voidp = &QByteArray(Z_STRVAL_P(entry));
+                                //stack[sidx].s_voidp = &QByteArray(Z_STRVAL_P(entry));
+                                bavala[sidx] = QByteArray(Z_STRVAL_P(entry));
+                                stack[sidx].s_voidp = reinterpret_cast<void*>(&bavala[sidx]);
                             }
                             else {
                                 stack[sidx].s_bytearray = QByteArray(Z_STRVAL_P(entry));
@@ -319,7 +326,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                         else {
                             if(isref) {
-                                stack[sidx].s_voidp = &QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
+                                bavala[sidx] = QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
+                                stack[sidx].s_voidp = reinterpret_cast<void*>(&bavala[sidx]);
+                                //stack[sidx].s_voidp = &QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
                             }
                             else {
                                 stack[sidx].s_bytearray = QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
@@ -822,6 +831,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
     if(!fastCall) {
         delete [] strvala;
         delete [] slvala;
+        delete [] bavala;
         delete [] lvala;
         delete [] ivala;
         delete [] bvala;
@@ -933,9 +943,11 @@ void PlastiQ_virtual_call(PQObjectWrapper *pqobject,
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
-    //if (pqobject != Q_NULLPTR && pqobject->virtualMethods != Q_NULLPTR) {
-    pqobject->virtualMethods->value(methodSignature).call(pqobject, stack);
-    //}
+
+    if (pqobject != Q_NULLPTR && pqobject->isValid) {
+        pqobject->virtualMethods->value(methodSignature).call(pqobject, stack);
+    }
+
     PQDBG_LVL_DONE();
 }
 
@@ -945,18 +957,17 @@ void PlastiQ_self_destroy(PQObjectWrapper *pqobject)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    PQDBGLPUP(QStringLiteral("className: %1").arg(pqobject->object->plastiq_metaObject()->className()));
+    pqobject->selfDestroy = true;
 
-    if (pqobject->isValid) {
-        zval zobject;
-        ZVAL_OBJ(&zobject, &pqobject->zo);
+    zval zobject;
+    ZVAL_OBJ(&zobject, &pqobject->zo);
+    PQDBGLPUP(QStringLiteral("className: %1").arg(Z_OBJCE_NAME(zobject)));
 
-        PQDBGLPUP(QStringLiteral("DELREF(%1)").arg(Z_OBJCE_NAME(zobject)));
-        Z_DELREF(zobject);
+    zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, 0);
+    PHPQt5::objectFactory()->freeObject(&pqobject->zo);
 
-        pqobject->isExtra = true; // Set object as extra for protection against double free
-        ZVAL_DESTRUCTOR(&zobject);
-    }
+    zend_class_entry *ce = PHPQt5::objectFactory()->getClassEntry("PlastiQDestroyedObject");
+    Z_OBJCE(zobject) = ce;
 
     PQDBG_LVL_DONE();
 }
@@ -1529,6 +1540,7 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
 
         zval argv, _parent, _title, _message;
         if(PHPQt5::objectFactory()->havePlastiQMetaObject("QMessageBox")) {
+            PlastiQMetaObject metaObject = PHPQt5::objectFactory()->getMetaObject("QMessageBox");
             ZVAL_NULL(&_parent);
             ZVAL_STRING(&_message, QString(buffer).replace("\n", "<br>").toUtf8().constData());
 
@@ -1543,7 +1555,7 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                 ZVAL_STRING(&_title, "Error");
                 add_next_index_zval(&argv, &_title);
                 add_next_index_zval(&argv, &_message);
-                PHPQt5::plastiqCall(Q_NULLPTR, "critical", 3, &argv, &PHPQt5::objectFactory()->getMetaObject("QMessageBox"));
+                PHPQt5::plastiqCall(Q_NULLPTR, "critical", 3, &argv, &metaObject);
                 PQDBGLPUP("php_request_shutdown");
                 php_request_shutdown(Q_NULLPTR);
                 break;
@@ -1556,7 +1568,7 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                 ZVAL_STRING(&_title, "Warning");
                 add_next_index_zval(&argv, &_title);
                 add_next_index_zval(&argv, &_message);
-                PHPQt5::plastiqCall(Q_NULLPTR, "warning", 3, &argv, &PHPQt5::objectFactory()->getMetaObject("QMessageBox"));
+                PHPQt5::plastiqCall(Q_NULLPTR, "warning", 3, &argv, &metaObject);
                 PQDBGLPUP("php_request_shutdown");
                 php_request_shutdown(Q_NULLPTR);
                 break;
@@ -1566,7 +1578,7 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                 ZVAL_STRING(&_title, "Notice");
                 add_next_index_zval(&argv, &_title);
                 add_next_index_zval(&argv, &_message);
-                PHPQt5::plastiqCall(Q_NULLPTR, "information", 3, &argv, &PHPQt5::objectFactory()->getMetaObject("QMessageBox"));
+                PHPQt5::plastiqCall(Q_NULLPTR, "information", 3, &argv, &metaObject);
                 break;
 
             default: ;

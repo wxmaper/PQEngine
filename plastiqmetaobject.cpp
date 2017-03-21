@@ -131,11 +131,12 @@ bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
             case PlastiQMethod::Virtual:
             case PlastiQMethod::VirtualProtected:
             case PlastiQMethod::VirtualPublic:
-                signature = m.returnType ;
+                signature = m.returnType;
                 signature.append(_space);
                 signature.append(i.key());
 
                 return true;
+
             default:
                 return false;
             }

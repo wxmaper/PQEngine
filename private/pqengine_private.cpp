@@ -177,7 +177,7 @@ bool test_pmd5(QString pmd5) {
         #ifdef WIN32
             QFile php7ts_file(normalizePathName(qApp->applicationDirPath()).append("/php7ts.dll"));
         #else
-            QFile php7ts_file(qApp->applicationDirPath()).append("/php7ts.so");
+            QFile php7ts_file(qApp->applicationDirPath().append("/libphp7.so"));
         #endif
 
         if(php7ts_file.exists() && php7ts_file.open(QIODevice::ReadOnly)) {

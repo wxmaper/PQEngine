@@ -62,6 +62,7 @@ struct PQObjectWrapper {
     PlastiQObject *object;
     bool isExtra = false;       // true if object created from return value
     bool isValid = false;       // false if object not created or has destroyed
+    bool selfDestroy = false;   // true if object removed by parent
 
     zend_object *zoptr;         // closure object
     bool isClosure = false;     // true if this is a Closure object, then zoptr is a pointer to Closure object

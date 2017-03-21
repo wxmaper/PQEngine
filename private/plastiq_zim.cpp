@@ -226,6 +226,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
 
     /* FIXME evil shit code for refernces :-) */
     QString *strvala = new QString[10];
+    QByteArray *bavala = new QByteArray[10];
     QStringList *slvala = new QStringList[10];
     long *lvala = new long[10];
     int *ivala = new int[10];
@@ -304,7 +305,9 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
 
                         if(str.length() == Z_STR_P(entry)->len) {
                             if(isref) {
-                                stack[sidx].s_voidp = &QByteArray(Z_STRVAL_P(entry));
+                                bavala[sidx] = QByteArray(Z_STRVAL_P(entry));
+                                stack[sidx].s_voidp = reinterpret_cast<void*>(&bavala[sidx]);
+                                //stack[sidx].s_voidp = &QByteArray(Z_STRVAL_P(entry));
                             }
                             else {
                                 stack[sidx].s_bytearray = QByteArray(Z_STRVAL_P(entry));
@@ -312,7 +315,9 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                         }
                         else {
                             if(isref) {
-                                stack[sidx].s_voidp = &QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
+                                bavala[sidx] = QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
+                                stack[sidx].s_voidp = reinterpret_cast<void*>(&bavala[sidx]);
+                                //stack[sidx].s_voidp = &QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
                             }
                             else {
                                 stack[sidx].s_bytearray = QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
@@ -595,6 +600,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
     delete [] stack;
 
     delete [] strvala;
+    delete [] bavala;
     delete [] slvala;
     delete [] lvala;
     delete [] ivala;
@@ -918,8 +924,9 @@ void PHPQt5::zim_plastiq_free(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    objectFactory()->freeObject(Z_OBJ_P(getThis()));
     zend_update_property_long(Z_OBJCE_P(getThis()), getThis(), "__pq_uid", sizeof("__pq_uid")-1, 0);
+    objectFactory()->freeObject(Z_OBJ_P(getThis()));
+
     zend_class_entry *ce = objectFactory()->getClassEntry("PlastiQDestroyedObject");
     Z_OBJ_P(getThis())->ce = ce;
 

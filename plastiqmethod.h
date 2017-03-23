@@ -32,9 +32,9 @@ struct PlastiQMethod {
         Signal
     };
 
-    QByteArray name = "";
-    QByteArray argTypes = "";
-    QByteArray returnType = "";
+    QByteArray name;
+    QByteArray argTypes;
+    QByteArray returnType;
     int index = -1;
     int offset = 0;
     Access access = None;
@@ -45,11 +45,11 @@ struct PlastiQMethod {
     PlastiQMethod();
 
     PlastiQMethod(const QByteArray &_n,
-               const QByteArray &_at,
-               const QByteArray &_r,
-               int _i,
-               Access _a,
-               Type _t);
+                  const QByteArray &_at,
+                  const QByteArray &_r,
+                  int _i,
+                  Access _a,
+                  Type _t);
 
     PlastiQMethod &operator =(const PlastiQMethod &other);
 };

@@ -158,7 +158,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                     argsTypes += argsTypes.length()
                             ? ",enum" : "enum";
 
-                    stack[sidx].s_int64 = epqobject->enumVal;
+                    stack[sidx].s_enum = epqobject->enumVal;
                 }
                 else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                     PQDBGLPUP(QString("arg object: %1").arg(eobject->plastiq_metaObject()->className()));
@@ -347,7 +347,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                         }
                     }
                     else if(methodType == "enum") {
-                        stack[sidx].s_int64 = qint64(Z_LVAL_P(entry));
+                        stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
                     else right = false;
                     break;
@@ -398,7 +398,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                         }
                     }
                     else if(methodType == "enum") {
-                        stack[sidx].s_int64 = qint64(Z_LVAL_P(entry));
+                        stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
                     else right = false;
                 } break;
@@ -466,7 +466,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                             argsTypes += argsTypes.length()
                                     ? ",enum" : "enum";
 
-                            stack[sidx].s_int64 = epqobject->enumVal;
+                            stack[sidx].s_enum = epqobject->enumVal;
                         }
                         else if(object != Q_NULLPTR && object->plastiq_data() != Q_NULLPTR) {
                             PQDBGLPUP(QString("arg object: %1").arg(epqobject->object->plastiq_metaObject()->className()));

@@ -1,6 +1,8 @@
 PQ_PHP_VERSION=7.1.1
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 
+# remove this define if need to build the standalone app
+DEFINES += PQENGINE_LIBRARY
 
 # for Windows only {
 DEFINES += ZEND_WIN32
@@ -49,8 +51,15 @@ contains(DEFINES, PQDEBUG) {
     TARGET = pqengine
 }
 
-TEMPLATE = lib
-CONFIG += c++11 qt staticlib
+contains(DEFINES, PQENGINE_LIBRARY) {
+    TEMPLATE = lib
+    CONFIG += c++11 qt staticlib
+} else {
+    TEMPLATE = app
+    CONFIG += c++11 qt
+    SOURCES += main.cpp
+}
+
 
 DEFINES += ZTS
 DEFINES += "ZEND_DEBUG=0"

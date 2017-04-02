@@ -38,6 +38,7 @@ struct PMOGStackItem {
     float s_float;
     double s_double;
     char s_char;
+    uchar s_uchar;
 
     //quint16 s_uint16;
     //quint32 s_uint32;

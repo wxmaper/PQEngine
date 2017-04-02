@@ -218,11 +218,14 @@ void PHPQt5ObjectFactory::addObject(PQObjectWrapper *pqobject, quint64 objectId)
     PQDBGLPUP(QString("objectId: %1").arg(addId));
     m_plastiqObjects.insert(addId, pqobject);
 
+    /*
+     * no need more
     QObject *qobject;
     if(qobject = pqobject->object->plastiq_toQObject()) {
         connect(qobject, SIGNAL(destroyed(QObject*)),
                 this, SLOT(freeObject_slot(QObject*)));
     }
+    */
 
     PQDBG_LVL_DONE_LPUP();
 }
@@ -477,7 +480,7 @@ void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval 
             void *ptr = Z_PTR_P(zv);
             op_array = reinterpret_cast<zend_op_array*>(ptr);
 
-            PQDBGLPUP(QStringLiteral("check method %1 (%2) %3")
+            PQDBGLPUP(QStringLiteral("check method %1 (%2)")
                       .arg(functionName)
                       .arg(op_array->type));
 
@@ -674,6 +677,8 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
     PQDBG_LVL_DONE();
 }
 
+/*
+ * no need more
 void PHPQt5ObjectFactory::freeObject_slot(QObject *qobject)
 {
 #ifdef PQDEBUG
@@ -711,6 +716,7 @@ void PHPQt5ObjectFactory::freeObject_slot(QObject *qobject)
 
     PQDBG_LVL_DONE();
 }
+*/
 
 void PHPQt5ObjectFactory::registerZendClassEntry(QString className, zend_class_entry *ce_ptr)
 {

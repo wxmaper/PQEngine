@@ -2,13 +2,15 @@ PQ_PHP_VERSION=7.1.1
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 
 
-# for Windows only
+# for Windows only {
 DEFINES += ZEND_WIN32
 DEFINES += PHP_WIN32
 DEFINES += WIN32
+# } for Windows only
 
-# for Linux only
+# for Linux only {
 #DEFINES += PTHREADS
+# } for Linux only
 
 # use this define for debug messages
 DEFINES += PQDEBUG

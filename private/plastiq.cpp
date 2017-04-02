@@ -155,7 +155,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     argsTypes += argsTypes.length()
                             ? ",enum" : "enum";
 
-                    stack[sidx].s_int64 = epqobject->enumVal;
+                    stack[sidx].s_enum = epqobject->enumVal;
                 }
                 else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                     PQDBGLPUP(QString("arg object: %1").arg(eobject->plastiq_metaObject()->className()));
@@ -374,7 +374,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                     }
                     else if(methodType == "enum") {
-                        stack[sidx].s_int64 = qint64(Z_LVAL_P(entry));
+                        stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
                     else if(methodType == "QVariant") {
                         if(!isref) {
@@ -507,7 +507,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                     }
                     else if(methodType == "enum") {
-                        stack[sidx].s_int64 = qint64(Z_LVAL_P(entry));
+                        stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
                     else if(methodType == "QVariant") {
                         if(!isref) {
@@ -609,7 +609,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             argsTypes += argsTypes.length()
                                     ? ",enum" : "enum";
 
-                            stack[sidx].s_int64 = epqobject->enumVal;
+                            stack[sidx].s_enum = epqobject->enumVal;
                         }
                         else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                             PQDBGLPUP(QString("arg object: %1").arg(epqobject->object->plastiq_metaObject()->className()));
@@ -690,7 +690,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                 else if(methodType == "QVariant" && epqobject->object->plastiq_objectType() == PlastiQ::IsQtObject) {
                                     int metaTypeId = QMetaType::type(objectClassName);
                                     if(metaTypeId != QMetaType::UnknownType) {
-                                        stack[sidx].s_variant.create(metaTypeId, epqobject->object->plastiq_data());
+                                        stack[sidx].s_variant = QVariant(metaTypeId, epqobject->object->plastiq_data());
                                         cancast = true;
                                         break;
                                     }
@@ -957,19 +957,35 @@ void PlastiQ_self_destroy(PQObjectWrapper *pqobject)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    pqobject->selfDestroy = true;
+    if (pqobject->isValid) {
+        pqobject->selfDestroy = true;
 
-    zval zobject;
-    ZVAL_OBJ(&zobject, &pqobject->zo);
-    PQDBGLPUP(QStringLiteral("className: %1").arg(Z_OBJCE_NAME(zobject)));
+        zval zobject;
+        ZVAL_OBJ(&zobject, &pqobject->zo);
+        PQDBGLPUP(QStringLiteral("className: %1").arg(Z_OBJCE_NAME(zobject)));
 
-    zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, 0);
-    PHPQt5::objectFactory()->freeObject(&pqobject->zo);
+        //PQDBGLPUP(QString("REFCOUNT: %1").arg(Z_REFCOUNT(zobject)));
+        //Z_DELREF(zobject);
 
-    zend_class_entry *ce = PHPQt5::objectFactory()->getClassEntry("PlastiQDestroyedObject");
-    Z_OBJCE(zobject) = ce;
+        if (Z_REFCOUNT(zobject) == 1) {
+            PQDBGLPUP("ZVAL_DESTRUCTOR");
+            ZVAL_DESTRUCTOR(&zobject);
+        }
+        else {
+            zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, 0);
+            PHPQt5::objectFactory()->freeObject(&pqobject->zo);
 
-    PQDBG_LVL_DONE();
+            zend_class_entry *ce = PHPQt5::objectFactory()->getClassEntry("PlastiQDestroyedObject");
+            Z_OBJCE(zobject) = ce;
+        }
+    }
+#ifdef PQDEBUG
+    else {
+        PQDBGLPUP("skipping deleted object");
+    }
+#endif
+
+    PQDBG_LVL_DONE_LPUP();
 }
 
 zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
@@ -988,7 +1004,7 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
         break;
 
     case PlastiQ::Enum:
-        ZVAL_DOUBLE(&retval, ((double)stackItem.s_int64));
+        ZVAL_DOUBLE(&retval, ((double) stackItem.s_enum));
         break;
 
     case PlastiQ::Long:
@@ -1429,7 +1445,7 @@ PMOGStackItem PHPQt5::plastiq_cast_to_stackItem(zval *zv)
                 argsTypes += argsTypes.length()
                         ? ",enum" : "enum";
 
-                stackItem.s_int64 = epqobject->enumVal;
+                stackItem.s_enum = epqobject->enumVal;
             }
             else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                 PQDBGLPUP(QString("arg object: %1").arg(eobject->plastiq_metaObject()->className()));

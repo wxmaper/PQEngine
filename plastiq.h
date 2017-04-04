@@ -38,8 +38,11 @@ namespace PlastiQ {
         QEventStar, // QEvent object // 25
         PlastiQObjectStar, // PlastiQObject instance // 26
         FunctorOrLambda, // 27
+        UInt, // 28
+        ULong, // 29
+        Variant, // 30
 
-        Error // 28
+        Error // 31
     };
 
     enum ObjectType {

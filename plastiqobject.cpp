@@ -89,7 +89,7 @@ PlastiQObject::~PlastiQObject()
        // delete ddptr;
     }
 
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
 }
 
 void PlastiQObject::plastiq_setData(void *data, PlastiQObject *ddata) {

@@ -26,27 +26,36 @@ struct PMOGStackItem {
     void** s_voidpp;
     PlastiQObject* s_object;
     PQObjectWrapper* s_pqobject;
+    char *s_charstar;
 
     bool s_bool;
 
     long s_long;
     int s_int;
+    unsigned long s_ulong;
+    unsigned int s_uint;
 
     float s_float;
     double s_double;
-    char *s_charstar;
     char s_char;
+    uchar s_uchar;
 
-    quint16 s_uint16;
-    quint32 s_uint32;
-    quint64 s_uint64;
+    //quint16 s_uint16;
+    //quint32 s_uint32;
+    //quint64 s_uint64;
 
-    qint16 s_int16;
-    qint32 s_int32;
-    qint64 s_int64;
+    //qint16 s_int16;
+    //qint32 s_int32;
+    //qint64 s_int64;
 
-    QByteArray s_bytearray;
+#ifdef Q_PROCESSOR_X86_64
+    int s_enum;
+#else
+    qint64 s_enum;
+#endif
+
     QString s_string;
+    QByteArray s_bytearray;
     QVariant s_variant;
 };
 

@@ -158,7 +158,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                     argsTypes += argsTypes.length()
                             ? ",enum" : "enum";
 
-                    stack[sidx].s_int64 = epqobject->enumVal;
+                    stack[sidx].s_enum = epqobject->enumVal;
                 }
                 else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                     PQDBGLPUP(QString("arg object: %1").arg(eobject->plastiq_metaObject()->className()));
@@ -166,21 +166,32 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                     argsTypes += argsTypes.length()
                             ? "," + className : className;
 
-                    stack[sidx].s_voidp = eobject->plastiq_data();
+                    if (className == "QString") {
+                        stack[sidx].s_string = *(reinterpret_cast<QString*>(eobject->plastiq_data()));
+                    }
+                    else if (className == "QByteArray") {
+                        stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(eobject->plastiq_data()));
+                    }
+                    //else if (className == "QVariant") {
+                    //    stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(eobject->plastiq_data()));
+                    //}
+                    else {
+                        stack[sidx].s_voidp = eobject->plastiq_data();
 
-                    PlastiQ::ObjectType objectType = *(eobject->plastiq_metaObject()->d.objectType);
+                        PlastiQ::ObjectType objectType = *(eobject->plastiq_metaObject()->d.objectType);
 
-                    switch(objectType) {
-                    case PlastiQ::IsQtObject:
-                    case PlastiQ::IsQObject:
-                    case PlastiQ::IsQWidget:
-                    case PlastiQ::IsQWindow:
-                    case PlastiQ::IsQtItem: {
-                        bool haveParent = eobject->plastiq_haveParent();
-                        tciList << pq_tmp_call_info { epqobject, entry, haveParent };
-                    } break;
+                        switch(objectType) {
+                        case PlastiQ::IsQtObject:
+                        case PlastiQ::IsQObject:
+                        case PlastiQ::IsQWidget:
+                        case PlastiQ::IsQWindow:
+                        case PlastiQ::IsQtItem: {
+                            bool haveParent = eobject->plastiq_haveParent();
+                            tciList << pq_tmp_call_info { epqobject, entry, haveParent };
+                        } break;
 
-                    default: ;
+                        default: ;
+                        }
                     }
                 }
                 else {
@@ -283,13 +294,17 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                           .arg(idx)
                           .arg(methodType));
 
-                zval *entry = &args[idx];
 
+
+                zval *entry = &args[idx];
 
                 switch(Z_TYPE_P(entry)) {
                 case IS_STRING:
                     if(methodType == "char*" || methodType == "char**") {
                         stack[sidx].s_voidp = Z_STRVAL_P(entry);
+                    }
+                    else if (methodType == "char" && ZSTR_LEN(Z_STR_P(entry)) == 1) {
+                        stack[sidx].s_char = Z_STRVAL_P(entry)[0];
                     }
                     else if(methodType == "QString") {
                         if(isref) {
@@ -328,7 +343,10 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                     break;
 
                 case IS_LONG:
-                    if(methodType == "long") {
+                    if (methodType == "char" && Z_LVAL_P(entry) >= 0 && Z_LVAL_P(entry) <= 9) {
+                        stack[sidx].s_char = Z_LVAL_P(entry);
+                    }
+                    else if(methodType == "long") {
                         if(isref) {
                             lvala[sidx] = Z_LVAL_P(entry);
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&lvala[sidx]);
@@ -347,7 +365,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                         }
                     }
                     else if(methodType == "enum") {
-                        stack[sidx].s_int64 = qint64(Z_LVAL_P(entry));
+                        stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
                     else right = false;
                     break;
@@ -398,7 +416,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                         }
                     }
                     else if(methodType == "enum") {
-                        stack[sidx].s_int64 = qint64(Z_LVAL_P(entry));
+                        stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
                     else right = false;
                 } break;
@@ -466,87 +484,101 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                             argsTypes += argsTypes.length()
                                     ? ",enum" : "enum";
 
-                            stack[sidx].s_int64 = epqobject->enumVal;
+                            stack[sidx].s_enum = epqobject->enumVal;
                         }
                         else if(object != Q_NULLPTR && object->plastiq_data() != Q_NULLPTR) {
                             PQDBGLPUP(QString("arg object: %1").arg(epqobject->object->plastiq_metaObject()->className()));
 
-                            const PlastiQMetaObject *metaObject = epqobject->object->plastiq_metaObject();
-                            bool cancast = false;
-                            do {
-                                QByteArray objectClassName = metaObject->className();
+                            if (className == "QString") {
+                                stack[sidx].s_string = *(reinterpret_cast<QString*>(object->plastiq_data()));
+                                right = true;
+                            }
+                            else if (className == "QByteArray") {
+                                stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(object->plastiq_data()));
+                                right = true;
+                            }
+                            //else if (className == "QVariant") {
+                            //    stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(object->plastiq_data()));
+                            //    right = true;
+                            //}
+                            else {
+                                const PlastiQMetaObject *metaObject = epqobject->object->plastiq_metaObject();
+                                bool cancast = false;
+                                do {
+                                    QByteArray objectClassName = metaObject->className();
 
-                                if(methodType == objectClassName) {
-                                    stack[sidx].s_voidp = epqobject->object->plastiq_data();
-                                    cancast = true;
-                                    break;
-                                }
-                                else if(fMethodType.contains("*")) {
-                                    if(fMethodType == QString(objectClassName).append("*")
-                                            || fMethodType == QString(objectClassName).prepend("const ").append("*")) {
+                                    if(methodType == objectClassName) {
                                         stack[sidx].s_voidp = epqobject->object->plastiq_data();
                                         cancast = true;
                                         break;
                                     }
-                                    else {
-                                        objectClassName = metaObject->className();
-                                        foreach(PlastiQMetaObject* inherit, *metaObject->d.inherits) {
-                                            PQDBGLPUP(QString("downcast %1 to %2").arg(objectClassName.constData()).arg(inherit->className()));
-                                            objectClassName = inherit->className();
+                                    else if(fMethodType.contains("*")) {
+                                        if(fMethodType == QString(objectClassName).append("*")
+                                                || fMethodType == QString(objectClassName).prepend("const ").append("*")) {
+                                            stack[sidx].s_voidp = epqobject->object->plastiq_data();
+                                            cancast = true;
+                                            break;
+                                        }
+                                        else {
+                                            objectClassName = metaObject->className();
+                                            foreach(PlastiQMetaObject* inherit, *metaObject->d.inherits) {
+                                                PQDBGLPUP(QString("downcast %1 to %2").arg(objectClassName.constData()).arg(inherit->className()));
+                                                objectClassName = inherit->className();
 
-                                            if(fMethodType == QString(objectClassName).append("*")
-                                                    || fMethodType == QString(objectClassName).prepend("const ").append("*")) {
-                                                // stack[sidx].s_voidp = epqobject->object->plastiq_data();
+                                                if(fMethodType == QString(objectClassName).append("*")
+                                                        || fMethodType == QString(objectClassName).prepend("const ").append("*")) {
+                                                    // stack[sidx].s_voidp = epqobject->object->plastiq_data();
 
-                                                PMOGStack downCastStack = new PMOGStackItem[2];
-                                                downCastStack[1].s_bytearray = objectClassName;
-                                                metaObject->d.static_metacall(epqobject->object, PlastiQMetaObject::DownCast, -1, downCastStack);
+                                                    PMOGStack downCastStack = new PMOGStackItem[2];
+                                                    downCastStack[1].s_bytearray = objectClassName;
+                                                    metaObject->d.static_metacall(epqobject->object, PlastiQMetaObject::DownCast, -1, downCastStack);
 
-                                                stack[sidx].s_voidp = downCastStack[0].s_voidp;
+                                                    stack[sidx].s_voidp = downCastStack[0].s_voidp;
 
-                                                delete [] downCastStack;
+                                                    delete [] downCastStack;
 
-                                                cancast = true;
-                                                break;
+                                                    cancast = true;
+                                                    break;
+                                                }
                                             }
                                         }
-                                    }
 
-                                    if(cancast) {
+                                        if(cancast) {
+                                            break;
+                                        }
+                                    }
+                                    else if(fMethodType == QByteArray(objectClassName).append("&")) {
+                                        stack[sidx].s_voidp = epqobject->object->plastiq_data();
+                                        cancast = true;
                                         break;
                                     }
-                                }
-                                else if(fMethodType == QByteArray(objectClassName).append("&")) {
-                                    stack[sidx].s_voidp = epqobject->object->plastiq_data();
-                                    cancast = true;
-                                    break;
-                                }
-                                else if(fMethodType == QByteArray(objectClassName).prepend("const ").append("&")) {
-                                    stack[sidx].s_voidp = epqobject->object->plastiq_data();
-                                    cancast = true;
-                                    break;
-                                }
-                                else continue;
-                            } while((metaObject = metaObject->d.superdata) && !cancast);
+                                    else if(fMethodType == QByteArray(objectClassName).prepend("const ").append("&")) {
+                                        stack[sidx].s_voidp = epqobject->object->plastiq_data();
+                                        cancast = true;
+                                        break;
+                                    }
+                                    else continue;
+                                } while((metaObject = metaObject->d.superdata) && !cancast);
 
-                            if(cancast) {
-                                PlastiQ::ObjectType objectType = *(object->plastiq_metaObject()->d.objectType);
+                                if(cancast) {
+                                    PlastiQ::ObjectType objectType = *(object->plastiq_metaObject()->d.objectType);
 
-                                switch(objectType) {
-                                case PlastiQ::IsQtObject:
-                                case PlastiQ::IsQObject:
-                                case PlastiQ::IsQWidget:
-                                case PlastiQ::IsQWindow:
-                                case PlastiQ::IsQtItem: {
-                                    bool haveParent = object->plastiq_haveParent();
-                                    tciList << pq_tmp_call_info { epqobject, entry, haveParent };
-                                } break;
+                                    switch(objectType) {
+                                    case PlastiQ::IsQtObject:
+                                    case PlastiQ::IsQObject:
+                                    case PlastiQ::IsQWidget:
+                                    case PlastiQ::IsQWindow:
+                                    case PlastiQ::IsQtItem: {
+                                        bool haveParent = object->plastiq_haveParent();
+                                        tciList << pq_tmp_call_info { epqobject, entry, haveParent };
+                                    } break;
 
-                                default: ;
+                                    default: ;
+                                    }
                                 }
+
+                                right = cancast;
                             }
-
-                            right = cancast;
                         }
                         else right = false;
                     }
@@ -882,6 +914,15 @@ void PHPQt5::zim_plastiq___toString(INTERNAL_FUNCTION_PARAMETERS)
 
     const PlastiQMetaObject *metaObject = pqobject->object->plastiq_metaObject();
     const PlastiQ::ObjectType objectType = pqobject->object->plastiq_objectType();
+
+    if (objectType == PlastiQ::String || metaObject->className() == "QString") {
+        QString str = *(reinterpret_cast<QString*>(pqobject->object->plastiq_data()));
+        RETURN_STRING(str.toUtf8().constData());
+    }
+    else if (objectType == PlastiQ::ByteArray || metaObject->className() == "QByteArray") {
+        QByteArray ba = *(reinterpret_cast<QByteArray*>(pqobject->object->plastiq_data()));
+        RETURN_STRING(ba.constData());
+    }
 
     if(objectType == PlastiQ::IsQObject
             || objectType == PlastiQ::IsQWidget

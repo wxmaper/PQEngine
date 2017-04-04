@@ -819,7 +819,8 @@ void VirtualMethod::call(PQObjectWrapper *pqobject, PMOGStack stack) const
     zval *params = new zval[_argc];
 
     for (int i = 0; i < _argc; i++) {
-        ZVAL_ZVAL(&params[i], &PHPQt5::plastiq_cast_to_zval(stack[i+1]), 1, 0);
+        zval tmpz = PHPQt5::plastiq_cast_to_zval(stack[i+1]);
+        ZVAL_ZVAL(&params[i], &tmpz, 1, 0);
     }
 
     PQDBGLPUP("generate call info");

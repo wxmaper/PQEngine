@@ -129,8 +129,8 @@ public:
     PQObjectWrapper *                   createObjectFromData(const QByteArray &className, void *d, zval *pzval);
 
 
-public slots:
-    void                                freeObject_slot(QObject *qobject);
+//public slots:
+//    void                                freeObject_slot(QObject *qobject);
 
 protected:
     QMap<QString, pqof_class_entry>     m_classes;

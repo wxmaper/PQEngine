@@ -3,12 +3,16 @@ PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 
 
 # for Windows only
-DEFINES += ZEND_WIN32
-DEFINES += PHP_WIN32
-DEFINES += WIN32
+win32 {
+    DEFINES += ZEND_WIN32
+    DEFINES += PHP_WIN32
+    DEFINES += WIN32
+}
 
 # for Linux only
-#DEFINES += PTHREADS
+unix {
+    DEFINES += PTHREADS
+}
 
 # use this define for debug messages
 DEFINES += PQDEBUG
@@ -30,7 +34,9 @@ INCLUDEPATH += \
     $${PHP_SRC_PATH}/ext/standard\
     private
 
-LIBS += -L"$${PHP_SRC_PATH}/dev/" -lphp7ts
+win32:LIBS += "$${PHP_SRC_PATH}/dev/" -lphp7ts
+unix:LIBS += "$${PHP_SRC_PATH}/dev/" -lphp7
+macx:LIBS += "$${PHP_SRC_PATH}/dev/libphp7.a"
 INCLUDEPATH += "$${PHP_SRC_PATH}/dev"
 DEPENDPATH += "$${PHP_SRC_PATH}/dev"
 INCLUDEPATH += pthreads

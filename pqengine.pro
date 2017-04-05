@@ -43,14 +43,14 @@ contains(DEFINES, PQENGINE_LIBRARY) {
 }
 
 win32 {
-    LIBS += -L"$${PHP_LIB_PATH}/dev/" -lphp7ts
+    LIBS += -L"$${PHP_LIB_PATH}/" -lphp7ts
     DEFINES += ZEND_WIN32
     DEFINES += PHP_WIN32
     DEFINES += WIN32
 }
 
 unix {
-    LIBS += -L"$${PHP_LIB_PATH}/dev/" -lphp7
+    LIBS += -L"$${PHP_LIB_PATH}/" -lphp7
     DEFINES += PTHREADS
 }
 

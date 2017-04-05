@@ -225,6 +225,7 @@ public:
     static zend_object *    pqobject_create(zend_class_entry *class_type);
     static void             pqobject_object_free(zend_object *zobject);
     static void             pqobject_object_dtor(zend_object *zobject);
+    static int              pqobject_compare_objects(zval *op1, zval *op2);
 
     static zend_object *    pqenum_create(zend_class_entry *ce);
     static void             pqenum_object_free(zend_object *zenum);

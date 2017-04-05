@@ -215,6 +215,7 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     pqobject_handlers.free_obj = pqobject_object_free;
     pqobject_handlers.dtor_obj = pqobject_object_dtor;
     pqobject_handlers.clone_obj = NULL;
+    pqobject_handlers.compare_objects = pqobject_compare_objects;
 
     // QEnum
 //    memcpy(&pqenum_handlers,

@@ -294,8 +294,6 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                           .arg(idx)
                           .arg(methodType));
 
-
-
                 zval *entry = &args[idx];
 
                 switch(Z_TYPE_P(entry)) {

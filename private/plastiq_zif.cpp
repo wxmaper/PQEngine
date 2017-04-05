@@ -49,6 +49,9 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    static const QByteArray QUiLoader_className(QByteArrayLiteral("QUiLoader"));
+    static const QByteArray QFile_className(QByteArrayLiteral("QFile"));
+
     zval *zobject;
     char *uiPath;
     int uiPathLen;
@@ -56,9 +59,6 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     if(zend_parse_parameters(ZEND_NUM_ARGS(), "so", &uiPath, &uiPathLen, &zobject) == FAILURE) {
         return;
     }
-
-    QByteArray QUiLoader_className(QByteArrayLiteral("QUiLoader"));
-    QByteArray QFile_className(QByteArrayLiteral("QFile"));
 
     QFile *file = new QFile(uiPath);
     if (file->exists()) {

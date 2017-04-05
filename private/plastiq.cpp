@@ -1546,13 +1546,20 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    static const QByteArray QMessageBox_className = QByteArrayLiteral("QMessageBox");
+    static const QByteArray PQScrollMessageBox_className = QByteArrayLiteral("PQScrollMessageBox");
+    static const QByteArray QApplication_className = QByteArrayLiteral("QApplication");
+    static const QByteArray QApplication_signature = QByteArrayLiteral("QApplication(int&,char**)");
+
     PQDBGLPUP("load buffer:");
-    char buffer[1024];
+    char buffer[2048];
     int length = vsprintf(buffer, format, args);
 
+    QString fullError = QStringLiteral("In file `%1` at line %2: error %3: %4")
+            .arg(error_filename).arg(error_lineno).arg(error_num).arg(buffer).toUtf8().constData();
+
 #ifdef PQDEBUG
-    qDebug() << QString("In file `%1` at line %2: error %3: %4")
-                .arg(error_filename).arg(error_lineno).arg(error_num).arg(buffer).toUtf8().constData();
+    qDebug() << fullError;
 #endif
 
     if(Z_TYPE(engineErrorHandler) != IS_UNDEF) {
@@ -1613,53 +1620,93 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
         PQDBGLPUP("engineErrorHandler function have not been set");
         default_ub_write(QString(buffer), "");
 
-        zval argv, _parent, _title, _message;
-        if(PHPQt5::objectFactory()->havePlastiQMetaObject("QMessageBox")) {
-            PlastiQMetaObject metaObject = PHPQt5::objectFactory()->getMetaObject("QMessageBox");
-            ZVAL_NULL(&_parent);
-            ZVAL_STRING(&_message, QString(buffer).replace("\n", "<br>").toUtf8().constData());
+        QByteArray messageBoxClassName;
+        if(objectFactory()->havePlastiQMetaObject(PQScrollMessageBox_className)) {
+            messageBoxClassName = PQScrollMessageBox_className;
+        }
+        else if(objectFactory()->havePlastiQMetaObject(QMessageBox_className)) {
+            messageBoxClassName = QMessageBox_className;
+        }
 
-            array_init(&argv);
-            add_next_index_zval(&argv, &_parent);
+        if(!messageBoxClassName.isEmpty()) {
+            if (qApp == Q_NULLPTR) {
+                if(objectFactory()->havePlastiQMetaObject(QApplication_className)) {
+                    zval zQApp;
+                    zend_class_entry *ce = objectFactory()->getClassEntry(QApplication_className);
+                    object_init_ex(&zQApp, ce);
 
-            switch(error_num) {
-            case E_ERROR:
-            case E_USER_ERROR:
-            case E_CORE_ERROR:
-            case E_COMPILE_ERROR:
-                ZVAL_STRING(&_title, "Error");
-                add_next_index_zval(&argv, &_title);
-                add_next_index_zval(&argv, &_message);
-                PHPQt5::plastiqCall(Q_NULLPTR, "critical", 3, &argv, &metaObject);
-                PQDBGLPUP("php_request_shutdown");
-                php_request_shutdown(Q_NULLPTR);
-                break;
+                    int _argc = 0;
+                    char ** _argv = new char *[1];
+                    //_argv[0] = (char*) "";
 
-            case E_WARNING:
-            case E_PARSE:
-            case E_USER_WARNING:
-            case E_CORE_WARNING:
-            case E_COMPILE_WARNING:
-                ZVAL_STRING(&_title, "Warning");
-                add_next_index_zval(&argv, &_title);
-                add_next_index_zval(&argv, &_message);
-                PHPQt5::plastiqCall(Q_NULLPTR, "warning", 3, &argv, &metaObject);
-                PQDBGLPUP("php_request_shutdown");
-                php_request_shutdown(Q_NULLPTR);
-                break;
+                    PMOGStack stack = new PMOGStackItem[3];
+                    stack[1].s_voidp = reinterpret_cast<void*>(&_argc);
+                    stack[2].s_voidp = reinterpret_cast<void*>(_argv);
 
-            case E_NOTICE:
-            case E_USER_NOTICE:
-                ZVAL_STRING(&_title, "Notice");
-                add_next_index_zval(&argv, &_title);
-                add_next_index_zval(&argv, &_message);
-                PHPQt5::plastiqCall(Q_NULLPTR, "information", 3, &argv, &metaObject);
-                break;
+                    objectFactory()->createPlastiQObject(QApplication_className,
+                                                         QApplication_signature,
+                                                         &zQApp,
+                                                         false,
+                                                         stack);
 
-            default: ;
+                    delete [] stack;
+                    stack = 0;
+
+                    delete [] _argv;
+                    _argv = 0;
+                }
             }
 
-            zval_dtor(&argv);
+            if (qApp != Q_NULLPTR) {
+                zval argv, _parent, _title, _message;
+
+                PlastiQMetaObject metaObject = objectFactory()->getMetaObject(messageBoxClassName);
+                ZVAL_NULL(&_parent);
+                ZVAL_STRING(&_message,
+                            fullError.replace("\n", "<br>").replace("\t", "    ").toUtf8().constData());
+
+                array_init(&argv);
+                add_next_index_zval(&argv, &_parent);
+
+                switch(error_num) {
+                case E_ERROR:
+                case E_USER_ERROR:
+                case E_CORE_ERROR:
+                case E_COMPILE_ERROR:
+                    ZVAL_STRING(&_title, "Error");
+                    add_next_index_zval(&argv, &_title);
+                    add_next_index_zval(&argv, &_message);
+                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("critical"), 3, &argv, &metaObject);
+                    PQDBGLPUP("php_request_shutdown");
+                    php_request_shutdown(Q_NULLPTR);
+                    break;
+
+                case E_WARNING:
+                case E_PARSE:
+                case E_USER_WARNING:
+                case E_CORE_WARNING:
+                case E_COMPILE_WARNING:
+                    ZVAL_STRING(&_title, "Warning");
+                    add_next_index_zval(&argv, &_title);
+                    add_next_index_zval(&argv, &_message);
+                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("warning"), 3, &argv, &metaObject);
+                    PQDBGLPUP("php_request_shutdown");
+                    php_request_shutdown(Q_NULLPTR);
+                    break;
+
+                case E_NOTICE:
+                case E_USER_NOTICE:
+                    ZVAL_STRING(&_title, "Notice");
+                    add_next_index_zval(&argv, &_title);
+                    add_next_index_zval(&argv, &_message);
+                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("information"), 3, &argv, &metaObject);
+                    break;
+
+                default: ;
+                }
+
+                zval_dtor(&argv);
+            }
         }
     }
 

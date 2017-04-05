@@ -22,7 +22,7 @@ struct PMOGStackItem {
     QByteArray name;
     bool isRef = false;
 
-    void* s_voidp;
+    void* s_voidp = Q_NULLPTR;
     void** s_voidpp;
     PlastiQObject* s_object;
     PQObjectWrapper* s_pqobject;

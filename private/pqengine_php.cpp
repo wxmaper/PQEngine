@@ -19,10 +19,6 @@
 
 int PQEnginePrivate::php_pqengine_startup(sapi_module_struct *sapi_module)
 {
-#ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::php_pqengine_startup()");
-#endif
-
     /*
     if (php_module_startup(sapi_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
         return FAILURE;
@@ -34,10 +30,6 @@ int PQEnginePrivate::php_pqengine_startup(sapi_module_struct *sapi_module)
 
 int PQEnginePrivate::php_pqengine_deactivate()
 {
-#ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::php_pqengine_deactivate()");
-#endif
-
     return SUCCESS;
 }
 
@@ -59,13 +51,7 @@ void PQEnginePrivate::php_pqengine_error(int type, const char *format, ...)
 
 void PQEnginePrivate::php_pqengine_flush(void *server_context)
 {
-#ifdef PQDEBUG
-    PQDBG("PQEnginePrivate::php_pqengine_flush()");
-#endif
-
     Q_UNUSED(server_context)
-
-  //  php_handle_aborted_connection();
 }
 
 void PQEnginePrivate::php_pqengine_send_header(sapi_header_struct *sapi_header, void *server_context)

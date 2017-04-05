@@ -174,11 +174,11 @@ bool test_pmd5(QString pmd5) {
     /* проверка хеша php7ts.dll */
     QByteArray php7ts_file_md5 = pmd5_list.at(0).toLatin1();
     if(php7ts_file_md5.size() == 32) {
-        #ifdef WIN32
-            QFile php7ts_file(normalizePathName(qApp->applicationDirPath()).append("/php7ts.dll"));
-        #else
-            QFile php7ts_file(qApp->applicationDirPath().append("/libphp7.so"));
-        #endif
+#ifdef WIN32
+        QFile php7ts_file(normalizePathName(qApp->applicationDirPath()).append("/php7ts.dll"));
+#else
+        QFile php7ts_file(qApp->applicationDirPath().append("/libphp7.so"));
+#endif
 
         if(php7ts_file.exists() && php7ts_file.open(QIODevice::ReadOnly)) {
             QCryptographicHash hash(QCryptographicHash::Md5);
@@ -410,7 +410,6 @@ void PQEnginePrivate::shutdown(PQDBG_LVL_D)
 #endif
 
     php_request_shutdown((void *) 0);
-    //SG(server_context) = NULL;
     php_module_shutdown();
     sapi_shutdown();
     tsrm_shutdown();
@@ -440,19 +439,41 @@ int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
         file_handle.free_filename = 0;
         file_handle.opened_path = NULL;
 
-        // old implementation
-        //if(php_execute_script(&file_handle) == SUCCESS)
-        //    return 0;
-        //else
-        //    return 1;
+        //        old old implementation
+        //        if(php_execute_script(&file_handle) == SUCCESS)
+        //            return 0;
+        //        else
+        //            return 1;
 
-        // new implementation
+        //        old implementation
+        //        zend_try {
+        //            if (php_execute_simple_script(&file_handle, &ret) == FAILURE) {
+        //                ZVAL_LONG(&ret, 1);
+        //            }
+        //        } zend_end_try();
+
+        //      new implementation
         zval ret;
 
         void *TSRMLS_CACHE = 0;
         TSRMLS_CACHE_UPDATE();
         zend_try {
-            if(php_execute_simple_script(&file_handle, &ret) == FAILURE) {
+            zend_op_array *op_array = compile_file(&file_handle, ZEND_INCLUDE); // dont use zend_compile_file
+            if (op_array) {
+                zend_execute(op_array, &ret);
+                zend_exception_restore();
+                zend_try_exception_handler();
+
+                if (EG(exception)) {
+                    zend_exception_error(EG(exception), E_ERROR);
+                }
+
+                destroy_op_array(op_array);
+                efree_size(op_array, sizeof(zend_op_array));
+            }
+            else {
+                // error on compile file
+                php_execute_script(&file_handle);
                 ZVAL_LONG(&ret, 1);
             }
         } zend_end_try();
@@ -506,8 +527,6 @@ QByteArray *PQEnginePrivate::pqe_unpack(const QByteArray &pqeData, qlonglong key
     base64_ba.fill(0);
     base64_ba.clear();
 
-    //QByteArray *decrypted_ba = crypto->decryptToByteArray(encrypted_ba);
-    //QByteArray ba = ;
     QByteArray decrypted_ba = crypto->decryptToByteArray(encrypted_ba);
     QByteArray *ret_ba = new QByteArray(decrypted_ba);
 
@@ -576,7 +595,6 @@ int PQEnginePrivate::execpq(PQDBG_LVL_D)
     QDataStream dataStream(data, QIODevice::ReadOnly);
 
     zend_op_array *op;
-
     {
         zend_stream zs;
         zs.reader = pq_stream_reader;

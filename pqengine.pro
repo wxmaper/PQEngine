@@ -1,76 +1,78 @@
 PQ_PHP_VERSION=7.1.1
+
+# Path to PHP sources
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 
-# remove this define if need to build the standalone app
+# Path to directory containing the PHP library
+# > php7ts.dll or php7ts.lib for Windows OS
+# > libphp.so or libphp7.a for Unix-like OS
+PHP_LIB_PATH="D:/src/php-$${PQ_PHP_VERSION}-src/dev"
+
+# Remove this define if need to build the standalone app
 DEFINES += PQENGINE_LIBRARY
 
-# for Windows only {
-DEFINES += ZEND_WIN32
-DEFINES += PHP_WIN32
-DEFINES += WIN32
-# } for Windows only
-
-# for Linux only {
-#DEFINES += PTHREADS
-# } for Linux only
-
-# use this define for debug messages
-DEFINES += PQDEBUG
-DEFINES += PQDETAILEDDEBUG
-
+# Use this define for build a statically library
 DEFINES += PQSTATIC
 
-QMAKE_CXXFLAGS += -std=gnu++0x -pthread
-QMAKE_CFLAGS += -std=gnu++0x -pthread
-LIBS += -lpthread
-
-DEFINES += ZEND_ENABLE_STATIC_TSRMLS_CACHE
-
-INCLUDEPATH += \
-    $${PHP_SRC_PATH}\
-    $${PHP_SRC_PATH}/main\
-    $${PHP_SRC_PATH}/Zend\
-    $${PHP_SRC_PATH}/TSRM\
-    $${PHP_SRC_PATH}/ext/standard\
-    private
-
-LIBS += -L"$${PHP_SRC_PATH}/dev/" -lphp7ts
-INCLUDEPATH += "$${PHP_SRC_PATH}/dev"
-DEPENDPATH += "$${PHP_SRC_PATH}/dev"
-INCLUDEPATH += pthreads
+# Use this define for debug messages
+#DEFINES += PQDEBUG
+#DEFINES += PQDETAILEDDEBUG
 
 ##########################################
+###### Don't change contents below! ######
 ##########################################
-##########################################
-QT       += core xml
+QT += core xml
 
 contains(DEFINES, PQDEBUG) {
-    TARGET = pqengine-debug
     QT += network
+    TARGET = pqengine-debug
 } else {
     TARGET = pqengine
 }
 
 contains(DEFINES, PQENGINE_LIBRARY) {
+    contains(DEFINES, PQENGINE_LIBRARY) {
+        CONFIG += staticlib
+    }
     TEMPLATE = lib
-    CONFIG += c++11 qt staticlib
+    CONFIG += c++11 qt
 } else {
     TEMPLATE = app
     CONFIG += c++11 qt
     SOURCES += main.cpp
 }
 
+win32 {
+    LIBS += -L"$${PHP_LIB_PATH}/dev/" -lphp7ts
+    DEFINES += ZEND_WIN32
+    DEFINES += PHP_WIN32
+    DEFINES += WIN32
+}
+
+unix {
+    LIBS += -L"$${PHP_LIB_PATH}/dev/" -lphp7
+    DEFINES += PTHREADS
+}
 
 DEFINES += ZTS
+DEFINES += ZEND_ENABLE_STATIC_TSRMLS_CACHE
 DEFINES += "ZEND_DEBUG=0"
 
 MOC_DIR = .moc
 OBJECTS_DIR = .obj
 
-INCLUDEPATH += "plastiqclasses/core"
-INCLUDEPATH += "plastiqclasses/widgets"
-INCLUDEPATH += "plastiqclasses/gui"
-INCLUDEPATH += "plastiqclasses"
+INCLUDEPATH += \
+    $${PHP_LIB_PATH}\
+    $${PHP_SRC_PATH}\
+    $${PHP_SRC_PATH}/main\
+    $${PHP_SRC_PATH}/Zend\
+    $${PHP_SRC_PATH}/TSRM\
+    $${PHP_SRC_PATH}/ext/standard\
+    plastiqclasses/core\
+    plastiqclasses\
+    private
+
+DEPENDPATH += "$${PHP_LIB_PATH}"
 
 SOURCES += \
     pqengine.cpp \

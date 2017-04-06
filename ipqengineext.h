@@ -37,10 +37,6 @@ class PlastiQMetaObjectList : public QList<PlastiQMetaObject> {};
 typedef struct pqext_entry {
     const char *fullName;
 
-    bool                    have_instance;
-    bool                    use_instance;
-    QCoreApplication *      (*instance)(int argc, char** argv);
-
     bool                    have_ub_write;
     bool                    use_ub_write;
     void                    (*ub_write)(const QString &msg);
@@ -54,9 +50,6 @@ typedef struct pqext_entry {
     PQExtensionEntry entry() { return pqExtEntry; }\
     PQExtensionEntry pqExtEntry = {\
         #extname,
-
-#define PQEXT_NO_INSTANCE false, false, 0,
-#define PQEXT_INSTANCE(extname) true, false, extname::instance,
 
 #define PQEXT_NO_UB_WRITE false, false, 0,
 #define PQEXT_UB_WRITE(extname) true, false, extname::ub_write,
@@ -80,7 +73,6 @@ public:
     virtual bool start() = 0;
     virtual bool finalize() = 0;
 
-    virtual void use_instance() = 0;
     virtual void use_ub_write() = 0;
     virtual void use_pre() = 0;
 

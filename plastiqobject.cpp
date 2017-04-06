@@ -11,11 +11,19 @@ const PlastiQ::ObjectType PlastiQObject::plastiq_static_objectType = PlastiQ::Is
 
 int PlastiQObject::plastiq_metacall(PlastiQMetaObject::Call call, int id, const PMOGStack &stack)
 {
+    Q_UNUSED(call)
+    Q_UNUSED(id)
+    Q_UNUSED(stack)
+
     return -1;
 }
 
 void PlastiQObject::plastiq_static_metacall(PlastiQObject *object, PlastiQMetaObject::Call call, int id, const PMOGStack &stack)
 {
+    Q_UNUSED(object)
+    Q_UNUSED(call)
+    Q_UNUSED(id)
+    Q_UNUSED(stack)
 }
 
 PlastiQObject::PlastiQObject()
@@ -49,21 +57,6 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
 {
     m_typeId = PlastiQClasses::typeId(m_typeName);
     dptr = data;
-
-    if(dptr != Q_NULLPTR) {
-        m_isNull = false;
-    }
-    else {
-        m_isNull = true;
-    }
-}
-
-PlastiQObject::PlastiQObject(const QByteArray &typeName, const QByteArray &constructorSignature, const PMOGStack &stack)
-    : m_typeName(typeName),
-      m_isWrapper(false)//, QObject()
-{
-    m_typeId = PlastiQClasses::typeId(m_typeName);
-    // invoke(PlastiQMetaObject::Call::CreateInstance, constructorSignature, stack);
 
     if(dptr != Q_NULLPTR) {
         m_isNull = false;

@@ -35,10 +35,6 @@ bool PQEngineCore::finalize() {
     return true;
 }
 
-QCoreApplication *PQEngineCore::instance(int argc, char** argv) {
-    return Q_NULLPTR;
-}
-
 void PQEngineCore::ub_write(const QString &msg)
 {
     default_ub_write(msg, "");

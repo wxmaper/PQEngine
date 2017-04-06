@@ -2,6 +2,7 @@
 
 #include "plastiqobject.h"
 #include "plastiqmethod.h"
+#include "phpqt5constants.h"
 
 QHash<QString,zval> PHPQt5::loadChilds(QObject *object) {
 #ifdef PQDEBUG
@@ -26,13 +27,8 @@ QHash<QString,zval> PHPQt5::loadChilds(QObject *object) {
         if (!objectName.isEmpty() && objectName.at(0) != '_'
                 && (child->parent() == object
                     || (child->parent() != Q_NULLPTR && child->parent()->objectName() == "centralwidget")))  {
-            zval zChild;
-
-            PQObjectWrapper *pqobjectChild =
-                    objectFactory()->createObjectFromData(child->metaObject()->className(),
-                                                          child, &zChild);
-            if (pqobjectChild) {
-                objectFactory()->addObject(pqobjectChild);
+            if (objectFactory()->havePlastiQMetaObject(child->metaObject()->className())) {
+                zval zChild = pq_create_extra_object(child->metaObject()->className(), child, true, true);
                 objectList.insert(objectName, zChild);
                 Z_ADDREF(zChild);
             }
@@ -49,8 +45,7 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    static const QByteArray QUiLoader_className(QByteArrayLiteral("QUiLoader"));
-    static const QByteArray QFile_className(QByteArrayLiteral("QFile"));
+    using namespace PHPQt5NS;
 
     zval *zobject;
     char *uiPath;
@@ -62,21 +57,18 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
 
     QFile *file = new QFile(uiPath);
     if (file->exists()) {
-        if (objectFactory()->havePlastiQMetaObject(QUiLoader_className)) {
-            zval zFile;
-            PQObjectWrapper *pqobjectFile =
-                    objectFactory()->createObjectFromData(QFile_className, file, &zFile);
-
-            if (pqobjectFile) {
+        if (objectFactory()->havePlastiQMetaObject(QUILOADER_CLASS)) {
+            if (objectFactory()->havePlastiQMetaObject(QFILE_CLASS)) {
+                zval zFile = pq_create_extra_object(QFILE_CLASS, file, false, true);
                 Z_DELREF(zFile);
 
                 zval zUiLoader;
-                zend_class_entry *ce = objectFactory()->getClassEntry(QUiLoader_className);
+                zend_class_entry *ce = objectFactory()->getClassEntry(QUILOADER_CLASS);
                 object_init_ex(&zUiLoader, ce);
 
                 PMOGStack stack = new PMOGStackItem[1];
 
-                objectFactory()->createPlastiQObject(QUiLoader_className,
+                objectFactory()->createPlastiQObject(QUILOADER_CLASS,
                                                      QByteArrayLiteral("QUiLoader()"),
                                                      &zUiLoader,
                                                      false,
@@ -181,14 +173,14 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
                 delete file;
                 zend_error(E_ERROR,
                            QString("Error loading UI file: Class '%1' not found")
-                           .arg(QFile_className.constData()).toUtf8().constData());
+                           .arg(QFILE_CLASS).toUtf8().constData());
             }
         }
         else {
             delete file;
             zend_error(E_ERROR,
                        QString("Error loading UI file: Class '%1' not found")
-                       .arg(QUiLoader_className.constData()).toUtf8().constData());
+                       .arg(QUILOADER_CLASS).toUtf8().constData());
         }
     }
     else {
@@ -259,6 +251,8 @@ void PHPQt5::zif_setEngineErrorHandler(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    RETVAL_NULL();
+
     zval *eh;
     zend_string *errorHandlerName = Q_NULLPTR;
 
@@ -321,29 +315,8 @@ void PHPQt5::zif_qApp(INTERNAL_FUNCTION_PARAMETERS)
     else {
         QByteArray className(qApp->metaObject()->className());
 
-        if(zend_class_entry *ce = objectFactory()->getClassEntry(className)) {
-            PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
-            PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
-
-            PlastiQObject *object = metaObject.createInstanceFromData(reinterpret_cast<void*>(qApp));
-            PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
-
-            PQDBGLPUP("object_init_ex");
-            object_init_ex(&zobject, ce);
-
-            PQDBGLPUP("fetch_pqobject");
-            pqobject = fetch_pqobject(Z_OBJ(zobject));
-            pqobject->object = object;
-            pqobject->isExtra = true;
-            pqobject->isValid = true;
-
-            quint32 zhandle = Z_OBJ_HANDLE(zobject);
-
-            zend_update_property_long(ce, &zobject, "__pq_uid", sizeof("__pq_uid")-1, objectId);
-            zend_update_property_long(ce, &zobject, "__pq_zhandle", sizeof("__pq_zhandle")-1, zhandle);
-
-            objectFactory()->addObject(pqobject, objectId);
-
+        if (objectFactory()->havePlastiQMetaObject(className)) {
+            zval zobject = PHPQt5::pq_create_extra_object(className, qApp, true, true);
             PQDBG_LVL_DONE();
             RETURN_ZVAL(&zobject, 1, 0);
         }
@@ -565,26 +538,6 @@ void PHPQt5::zif_pqStaticFunctions(INTERNAL_FUNCTION_PARAMETERS)
 
     PQDBG_LVL_DONE();
 }
-
-void PHPQt5::zif_test_ref(INTERNAL_FUNCTION_PARAMETERS)
-{
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-#endif
-
-    zval val;
-
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &val) == FAILURE) {
-        return;
-    }
-
-    PQDBGLPUP("---------------------------------");
-    PQDBGLPUP(Z_STRVAL(val));
-
-    PQDBG_LVL_DONE();
-}
-
-
 
 void PHPQt5::zif_pqSignals(INTERNAL_FUNCTION_PARAMETERS)
 {

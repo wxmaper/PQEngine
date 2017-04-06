@@ -60,6 +60,7 @@ void PHPQt5::zif_R(INTERNAL_FUNCTION_PARAMETERS)
     RETURN_STRING(rpath.constData());
 }
 
+/*
 void PHPQt5::zif_emit(INTERNAL_FUNCTION_PARAMETERS)
 {
 #ifdef PQDEBUG
@@ -72,11 +73,11 @@ void PHPQt5::zif_emit(INTERNAL_FUNCTION_PARAMETERS)
 
     zend_object *zo = zend_get_this_object(EG(current_execute_data));
 
-    if(zo && zo->ce) {
+    if (zo && zo->ce) {
         zval zobject;
         ZVAL_OBJ(&zobject, zo);
 
-        if(pq_test_ce(&zobject PQDBG_LVL_CC)) {
+        if (pq_test_ce(&zobject PQDBG_LVL_CC)) {
             className = QString(Z_OBJCE_NAME(zobject));
 
             char *signal_signature;
@@ -155,6 +156,7 @@ void PHPQt5::zif_emit(INTERNAL_FUNCTION_PARAMETERS)
         pq_php_error("Call EMIT without object!");
     }
 }
+*/
 
 void PHPQt5::zif_qenum(INTERNAL_FUNCTION_PARAMETERS)
 {
@@ -252,6 +254,8 @@ void PHPQt5::zif_disconnect(INTERNAL_FUNCTION_PARAMETERS)
     }
 
     PQDBG_LVL_DONE();
+    // FIXME: исправить 0_0
+    RETURN_FALSE;
     //RETURN_BOOL( pq_connect(z_sender, z_signal, z_receiver, z_slot, true PQDBG_LVL_CC) )
 }
 

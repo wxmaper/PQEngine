@@ -2,6 +2,7 @@
 #include "phpqt5.h"
 
 #include "plastiqobject.h"
+#include "phpqt5constants.h"
 
 bool PHPQt5ObjectFactory::havePlastiQMetaObject(const QByteArray &className)
 {
@@ -46,6 +47,7 @@ bool PHPQt5ObjectFactory::createPlastiQObject(const QByteArray &className,
                        });
 #endif
 
+    using namespace PHPQt5NS;
 
     if(!m_plastiqClasses.contains(className)) {
         PQDBG_LVL_DONE();
@@ -67,8 +69,9 @@ bool PHPQt5ObjectFactory::createPlastiQObject(const QByteArray &className,
     pqobject->object = object;
     object->setWrapperMark(isWrapper);
 
-    if (isWrapper)
+    if (isWrapper) {
         extractVirtualMethods(pqobject, pzval);
+    }
 
     PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
 
@@ -165,10 +168,9 @@ bool PHPQt5ObjectFactory::createPlastiQObject(const QByteArray &className,
     quint32 zhandle = Z_OBJ_HANDLE_P(pzval);
 
     do {
-        zend_update_property_long(ce, pzval, "__pq_uid", sizeof("__pq_uid")-1, objectId);
-        zend_update_property_long(ce, pzval, "__pq_zhandle", sizeof("__pq_zhandle")-1, zhandle);
+        zend_update_property_long(ce, pzval, PQ_UID, strlen(PQ_UID), objectId);
+        zend_update_property_long(ce, pzval, PQ_ZHANDLE, strlen(PQ_ZHANDLE), zhandle);
     } while (ce = ce->parent);
-
 
     addObject(pqobject, objectId);
 
@@ -286,8 +288,9 @@ void PHPQt5ObjectFactory::extractSignals(PQObjectWrapper *pqobject, zval *zobjec
     PQDBGLPUP("zend_read_property");
     zsignals = zend_read_property(Z_OBJCE_P(zobject), zobject, "signals", 7, 1, &rv);
 
-    PQDBGLPUP("zval_dtor");
-    zval_dtor(&rv);
+    //PQDBGLPUP("zval_dtor"); // FIXME: проверить на утечку
+    //PQDBGLPUP(QString("rv_type: %1").arg(Z_TYPE(rv)));
+    //zval_dtor(&rv);
 
     PQDBGLPUP("Z_TYPE_P(zsignals)");
     switch(Z_TYPE_P(zsignals)) {
@@ -633,8 +636,6 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
         }
 
         if(!pqobject->isExtra) {
-            PQDBGLPUP(QString("delete object [%1]").arg(reinterpret_cast<quint64>(pqobject->object)));
-
 #ifdef PQDEBUG
             pqdbg_send_message({
                                    { "command", "deleteObject" },
@@ -648,7 +649,11 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
             pqobject->isValid = false;
 
             if (!pqobject->selfDestroy) {
+                PQDBGLPUP(QString("delete object [%1]").arg(reinterpret_cast<quint64>(pqobject->object)));
                 delete pqobject->object;
+            }
+            else {
+                PQDBGLPUP(QString("no delete sel-destroyed object"));
             }
 
             pqobject->object = Q_NULLPTR;
@@ -674,7 +679,7 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
     }
 #endif
 
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
 }
 
 /*
@@ -720,6 +725,7 @@ void PHPQt5ObjectFactory::freeObject_slot(QObject *qobject)
 
 void PHPQt5ObjectFactory::registerZendClassEntry(QString className, zend_class_entry *ce_ptr)
 {
+    PHPQt5::pq_declare_wrapper_props(ce_ptr);
     z_classes.insert(className, ce_ptr);
 }
 

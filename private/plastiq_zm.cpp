@@ -65,6 +65,11 @@ php_stream *PHPQt5::qrc_opener(php_stream_wrapper *wrapper,
     PQDBGLPUP(path);
 #endif
 
+    Q_UNUSED(wrapper)
+    Q_UNUSED(options)
+    Q_UNUSED(opened_path)
+    Q_UNUSED(context)
+
     QString resourcePath = QString(path).mid(6); // 6 - length of "qrc://"
     QByteArray qrc_data;
 
@@ -103,6 +108,10 @@ size_t PHPQt5::php_qrc_write(php_stream *stream, const char *buf, size_t count)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    Q_UNUSED(stream)
+    Q_UNUSED(buf)
+    Q_UNUSED(count)
+
     php_error(E_ERROR, "Unable to write to resource file!");
 
     PQDBG_LVL_DONE();
@@ -115,6 +124,8 @@ int PHPQt5::php_qrc_flush(php_stream *stream)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    Q_UNUSED(stream)
+
     PQDBG_LVL_DONE();
     return 0;
 }
@@ -124,6 +135,8 @@ int PHPQt5::php_qrc_close(php_stream *stream, int close_handle)
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
+
+    Q_UNUSED(close_handle)
 
     struct qrc_stream_data *self = (struct qrc_stream_data *) stream->abstract;
     int ret = EOF;
@@ -197,6 +210,9 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    Q_UNUSED(module_number)
+    Q_UNUSED(type)
+
     zend_error_cb = PHPQt5::plastiqErrorHandler; //
 
     qRegisterMetaType<zval>("zval");
@@ -216,6 +232,7 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     pqobject_handlers.dtor_obj = pqobject_object_dtor;
     pqobject_handlers.clone_obj = NULL;
     pqobject_handlers.compare_objects = pqobject_compare_objects;
+    pqobject_handlers.compare = pqobject_compare;
 
     // QEnum
 //    memcpy(&pqenum_handlers,

@@ -36,7 +36,7 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
                             signalName = signalSignature.mid(1, signalSignature.indexOf("(")-1).toUtf8();
                         }
                         else {
-                            PQDBG_LVL_DONE();
+                            PQDBG_LVL_DONE_LPUP();
                             return false; // FIXME: error
                         }
                     }
@@ -54,6 +54,7 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
                     }
                     else {
                         php_error(E_ERROR, "Object have been destroyed");
+                        PQDBG_LVL_DONE_LPUP();
                         return false;
                     }
                 }
@@ -92,6 +93,7 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
                                                  receiver_pqobject, ZEND_INVOKE_FUNC_NAME
                                              });
 
+                        PQDBG_LVL_DONE_LPUP();
                         return true;
                     }
                 }
@@ -309,6 +311,7 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
                                         receiver_pqobject, slotName
                                     });
 
+                PQDBG_LVL_DONE_LPUP();
                 return true;
             }
 
@@ -335,26 +338,26 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
                                                                        stack);
 
                 delete [] stack;
-                PQDBG_LVL_DONE();
+                PQDBG_LVL_DONE_LPUP();
                 return true;
             }
             else {
-                PQDBG_LVL_DONE();
                 PQDBGLPUP(QString("QObject::connect: No such signal %1::%2").arg(senderClassName.constData()).arg(cSignalSignature.constData()));
                 php_error(E_WARNING, "QObject::connect: No such signal %s::%s", senderClassName.constData(), cSignalSignature.constData());
+                PQDBG_LVL_DONE_LPUP();
                 return false;
                 // FIXME: add error message
             }
         }
         else {
             PQDBGLPUP(QString("%1 is not Q_OBJECT").arg(receiverClassName.constData()));
-            PQDBG_LVL_DONE();
+            PQDBG_LVL_DONE_LPUP();
             return false;
             // FIXME: add error message
         }
     }
 
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
     return false;
 }
 
@@ -382,41 +385,18 @@ bool PlastiQ_event(QObject *eventFilter, QObject *obj, QEvent *event)
         QByteArray senderClassName = obj->metaObject()->className();
 
         quint64 senderId = reinterpret_cast<quint64>(obj);
-        PQObjectWrapper *sender = Q_NULLPTR;
-        zend_class_entry *sender_ce = Q_NULLPTR;
+        PQObjectWrapper *sender = PHPQt5::objectFactory()->getObject(senderId);
 
-        if(sender = PHPQt5::objectFactory()->getObject(senderId)) {
-            // FIXME: что за пустой блок? :) исправить
-        }
-        else if(sender_ce = PHPQt5::objectFactory()->getClassEntry(senderClassName)) {
-            zval sender_zobject;
-
-            PlastiQMetaObject metaObject = PHPQt5::objectFactory()->getMetaObject(senderClassName);
-            PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
-
-            PlastiQObject *senderObject = metaObject.createInstanceFromData(reinterpret_cast<void*>(obj));
-            PQDBGLPUP(QString("created object: %1").arg(senderObject->plastiq_metaObject()->className()));
-
-            PQDBGLPUP("object_init_ex");
-            object_init_ex(&sender_zobject, sender_ce);
-
-            PQDBGLPUP("fetch_pqobject");
-            sender = fetch_pqobject(Z_OBJ(sender_zobject));
-            sender->object = senderObject;
-            sender->isExtra = true;
-            sender->isValid = true;
-
-            quint32 sender_zhandle = Z_OBJ_HANDLE(sender_zobject);
-
-            zend_update_property_long(sender_ce, &sender_zobject, "__pq_uid", sizeof("__pq_uid")-1, senderId);
-            zend_update_property_long(sender_ce, &sender_zobject, "__pq_zhandle", sizeof("__pq_zhandle")-1, sender_zhandle);
-
-            PHPQt5::objectFactory()->addObject(sender, senderId);
-        }
-        else {
-            PQDBG_LVL_DONE();
-            // FIXME: ошибка, класс не найден! Нельзя передать sender в функцию-слот
-            return false;
+        if (sender == Q_NULLPTR) {
+            if (PHPQt5::objectFactory()->havePlastiQMetaObject(senderClassName)) {
+                zval sender_zv = PHPQt5::pq_create_extra_object(senderClassName, obj, true, true);
+                sender = fetch_pqobject(Z_OBJ(sender_zv));
+            }
+            else {
+                PQDBG_LVL_DONE();
+                // FIXME: ошибка, класс не найден! Нельзя передать sender в функцию-слот
+                return false;
+            }
         }
 
         PMOGStack stack = new PMOGStackItem[1];
@@ -525,7 +505,7 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
     static QHash<QByteArray,PlastiQThreadWorker*> workers;
 
     if(sender != Q_NULLPTR &&
-       sender->thread != receiver->thread) {
+            sender->thread != receiver->thread) {
         PQDBGLPUP("THREAD CONNECTION to receiver");
 
         PQDBGLPUP(QString("sender thread: %1").arg(reinterpret_cast<quint64>(sender->thread)));
@@ -617,6 +597,8 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
+#else
+    Q_UNUSED(signal)
 #endif
 
     PQDBGLPUP("TSRMLS_CACHE_UPDATE");
@@ -633,8 +615,8 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
         //PQDBGLPUP("tsrm_new_interpreter_context");
         //TSRMLS_CACHE = tsrm_new_interpreter_context();
 
-       // PQDBGLPUP("php_request_startup");
-       // php_request_startup();
+        // PQDBGLPUP("php_request_startup");
+        // php_request_startup();
     }
 
     /*

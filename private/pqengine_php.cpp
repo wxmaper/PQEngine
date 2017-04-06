@@ -19,6 +19,8 @@
 
 int PQEnginePrivate::php_pqengine_startup(sapi_module_struct *sapi_module)
 {
+    Q_UNUSED(sapi_module)
+
     /*
     if (php_module_startup(sapi_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
         return FAILURE;
@@ -98,5 +100,6 @@ void PQEnginePrivate::php_pqengine_log_message(char *message, int syslog_type_in
     PQDBG2("PQEnginePrivate::php_pqengine_log_message()", message);
 #endif
 
+    Q_UNUSED(syslog_type_int)
     pq_ub_write(PHPQt5::toUTF8(message));
 }

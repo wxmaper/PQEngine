@@ -20,6 +20,7 @@
 
 #include "phpqt5.h"
 #include "pqengine_private.h"
+#include "phpqt5constants.h"
 
 QStringList PHPQt5::mArguments;
 
@@ -118,6 +119,8 @@ void PHPQt5::pq_register_basic_classes()
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    using namespace PHPQt5NS;
+
     // PlastiQDestroyedObject
     QByteArray className = "PlastiQDestroyedObject";
 
@@ -125,8 +128,6 @@ void PHPQt5::pq_register_basic_classes()
     INIT_CLASS_ENTRY_EX(ce, className.constData(), className.length(), NULL);
     zend_class_entry *ce_ptr = zend_register_internal_class(&ce);
 
-    zend_declare_property_long(ce_ptr, "__pq_uid", sizeof("__pq_uid")-1, 0, ZEND_ACC_PROTECTED);
-    zend_declare_property_long(ce_ptr, "__pq_zhandle", sizeof("__pq_zhandle")-1, 0, ZEND_ACC_PROTECTED);
 
     objectFactory()->registerZendClassEntry(className, ce_ptr);
 
@@ -169,9 +170,6 @@ void PHPQt5::pq_register_plastiq_class(const PlastiQMetaObject &metaObject)
 
         ce.create_object = pqobject_create;
         ce_ptr = zend_register_internal_class(&ce);
-
-        zend_declare_property_long(ce_ptr, "__pq_uid", sizeof("__pq_uid")-1, 0, ZEND_ACC_PROTECTED);
-        zend_declare_property_long(ce_ptr, "__pq_zhandle", sizeof("__pq_zhandle")-1, 0, ZEND_ACC_PROTECTED);
     }
 
     objectFactory()->registerZendClassEntry(className, ce_ptr);
@@ -187,28 +185,40 @@ void PHPQt5::pq_register_plastiq_class(const PlastiQMetaObject &metaObject)
     }
 }
 
-PQAPI bool PHPQt5::pq_test_ce(zval *pzval PQDBG_LVL_DC)
+PQAPI bool PHPQt5::pq_test_ce(zval *pzval)
 {
 #ifdef PQDEBUG
-    PQDBG_LVL_PROCEED(__FUNCTION__);
+    PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    bool is_pqobject = false;
+    bool isPQObject = false;
 
-    if(Z_TYPE_P(pzval) == IS_OBJECT) {
-        PQDBGLPUP(Z_OBJCE_NAME_P(pzval));
-        zend_class_entry *ce = Z_OBJCE_P(pzval);
-
-        //        do {
-        //            if(objectFactory()->getRegisteredMetaObjects().contains(ce->name->val)) {
-        //                is_pqobject = true;
-        //                break;
-        //            }
-        //        } while(ce = ce->parent);
+    if (Z_TYPE_P(pzval) == IS_OBJECT) {
+        isPQObject = pq_test_ce(Z_OBJ_P(pzval));
     }
 
     PQDBG_LVL_DONE();
-    return is_pqobject;
+    return isPQObject;
+}
+
+bool PHPQt5::pq_test_ce(zend_object *zo)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    bool isPQObject = false;
+    zend_class_entry *ce = zo->ce;
+
+    do {
+        if (objectFactory()->havePlastiQMetaObject(ce->name->val)) {
+            isPQObject = true;
+            break;
+        }
+    } while(ce = ce->parent);
+
+    PQDBG_LVL_DONE();
+    return isPQObject;
 }
 
 bool PHPQt5::pq_declareSignal(QObject *qo, const QByteArray signalSignature)
@@ -381,7 +391,64 @@ void PHPQt5::pq_qdbg_message(zval *value, zval *return_value, const QString &fty
                            { "thread", QString::number(reinterpret_cast<quint64>(QThread::currentThread())) },
                            { "message", msg }
                        });
+#else
+    Q_UNUSED(ftype)
 #endif
 
     php_output_discard();
+}
+
+void PHPQt5::pq_declare_wrapper_props(zend_class_entry *ce_ptr)
+{
+    using namespace PHPQt5NS;
+    static const int PQ_UID_LEN = strlen(PQ_UID);
+    static const int PQ_ZHANDLE_LEN = strlen(PQ_ZHANDLE);
+    zend_declare_property_long(ce_ptr, PQ_UID, PQ_UID_LEN, 0, ZEND_ACC_PROTECTED);
+    zend_declare_property_long(ce_ptr, PQ_ZHANDLE, PQ_ZHANDLE_LEN, 0, ZEND_ACC_PROTECTED);
+}
+
+void PHPQt5::pq_update_wrapper_props(zval *zv, qint64 uid)
+{
+    using namespace PHPQt5NS;
+    static const int PQ_UID_LEN = strlen(PQ_UID);
+    static const int PQ_ZHANDLE_LEN = strlen(PQ_ZHANDLE);
+    zend_update_property_long(Z_OBJCE_P(zv), zv, PQ_UID, PQ_UID_LEN, uid);
+    zend_update_property_long(Z_OBJCE_P(zv), zv, PQ_ZHANDLE, PQ_ZHANDLE_LEN, Z_OBJ_HANDLE_P(zv));
+}
+
+zval PHPQt5::pq_create_extra_object(const QByteArray &className,
+                                    void *obj,
+                                    bool addToFactoryHash,
+                                    bool isExtra)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    zend_class_entry *ce = objectFactory()->getClassEntry(className);
+    PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
+    PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
+
+    PlastiQObject *senderObject = metaObject.createInstanceFromData(reinterpret_cast<void*>(obj));
+    PQDBGLPUP(QString("created object: %1").arg(senderObject->plastiq_metaObject()->className()));
+
+    PQDBGLPUP("object_init_ex");
+    zval zobject;
+    object_init_ex(&zobject, ce);
+
+    PQDBGLPUP("fetch_pqobject");
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ(zobject));
+    pqobject->object = senderObject;
+    pqobject->isExtra = isExtra;
+    pqobject->isValid = true;
+
+    quint64 objectId = reinterpret_cast<quint64>(obj);
+    pq_update_wrapper_props(&zobject, objectId);
+
+    if (addToFactoryHash) {
+        objectFactory()->addObject(pqobject, objectId);
+    }
+
+    PQDBG_LVL_DONE();
+    return zobject;
 }

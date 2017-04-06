@@ -15,8 +15,8 @@ DEFINES += PQENGINE_LIBRARY
 DEFINES += PQSTATIC
 
 # Use this define for debug messages
-#DEFINES += PQDEBUG
-#DEFINES += PQDETAILEDDEBUG
+DEFINES += PQDEBUG
+DEFINES += PQDETAILEDDEBUG
 
 ##########################################
 ###### Don't change contents below! ######
@@ -115,4 +115,5 @@ HEADERS += \
     plastiq.h \
     plastiqclasses/plastiqclasses.h \
     plastiqproperty.h \
-    private/plastiqthreadcreator.h
+    private/plastiqthreadcreator.h \
+    private/phpqt5constants.h

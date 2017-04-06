@@ -124,10 +124,7 @@ public:
     void                                removeObject(PQObjectWrapper *pqobject, quint64 objectId = 0);
     PQObjectWrapper *                   getObject(quint64 objectId);
     void                                extractSignals(PQObjectWrapper *pqobject, zval *zobject);
-    // void                                extractVirtualMethods_old(PQObjectWrapper *pqobject, zval *zobject);
     void                                extractVirtualMethods(PQObjectWrapper *pqobject, zval *zobject);
-    PQObjectWrapper *                   createObjectFromData(const QByteArray &className, void *d, zval *pzval);
-
 
 //public slots:
 //    void                                freeObject_slot(QObject *qobject);

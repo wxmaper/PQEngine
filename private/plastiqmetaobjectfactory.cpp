@@ -399,71 +399,6 @@ QByteArray extractMethodSignature(const QString &methodSignature, const QString 
     return clearMethodSignature;
 }
 
-/*
-void PHPQt5ObjectFactory::extractVirtualMethods_old(PQObjectWrapper *pqobject, zval *zobject)
-{
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-#endif
-
-    ulong num_key;
-    zend_string *key;
-    zval *zv;
-    zend_op_array *op_array;
-
-    ZEND_HASH_FOREACH_KEY_VAL(&Z_OBJ_P(zobject)->ce->function_table,
-                              num_key, key, zv) {
-        if (key) { //HASH_KEY_IS_STRING
-            const QString functionName(key->val);
-
-            void *ptr = Z_PTR_P(zv);
-            op_array = reinterpret_cast<zend_op_array*>(ptr);
-
-            PQDBGLPUP(QStringLiteral("check method %1 (%2)")
-                      .arg(functionName)
-                      .arg(op_array->type));
-
-            if (op_array->type == 2
-                    && op_array->doc_comment
-                    && op_array->doc_comment->len
-                    && op_array->doc_comment->val) {
-                // int args = op_array->required_num_args;
-                const QString docComment(op_array->doc_comment->val);
-                const QRegExp rx(QStringLiteral(
-                                     "@override ([a-zA-Z][0-9a-zA-Z_\\*]*) "
-                                     "([a-zA-Z][a-zA-Z_\\*]*)\\(([a-zA-Z][a-zA-Z_\\*, ]*)\\)"));
-
-                if (rx.indexIn(docComment) > 0) {
-                    const QString methodType = rx.cap(1);
-                    const QString methodName = rx.cap(2);
-                    const QString methodArgs = rx.cap(3);
-
-                    int argc = 0;
-                    const QByteArray clearMethodSignature =
-                            extractMethodSignature(QStringLiteral("%1(%2)")
-                                                   .arg(methodName)
-                                                   .arg(methodArgs),
-                                                   methodType, &argc);
-
-                    PQDBGLPUP(QStringLiteral("override %1 by %2")
-                              .arg(clearMethodSignature.constData())
-                              .arg(functionName));
-
-                    pqobject->virtualMethods->insert(
-                                clearMethodSignature,
-                                VirtualMethod(clearMethodSignature,
-                                              functionName.toLatin1(),
-                                              methodType.toLatin1(),
-                                              argc));
-                }
-            }
-        } // if (key)
-    } ZEND_HASH_FOREACH_END();
-
-    PQDBG_LVL_DONE_LPUP();
-}
-*/
-
 void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval *zobject)
 {
 #ifdef PQDEBUG
@@ -519,42 +454,6 @@ void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval 
     } ZEND_HASH_FOREACH_END();
 
     PQDBG_LVL_DONE_LPUP();
-}
-
-PQObjectWrapper *PHPQt5ObjectFactory::createObjectFromData(const QByteArray &className, void *d, zval *pzval)
-{
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-#endif
-
-    PQObjectWrapper *pqobject = Q_NULLPTR;
-
-    if (havePlastiQMetaObject(className)) {
-        PlastiQMetaObject metaObject = getMetaObject(className);
-        PlastiQObject *object = metaObject.createInstanceFromData(d);
-
-        zval zobject;
-        zend_class_entry *ce = getClassEntry(className);
-        object_init_ex(&zobject, ce);
-
-        quint64 objectId = reinterpret_cast<quint64>(object->plastiq_data());
-        PQDBGLPUP(QString("className: %1").arg(ce->name->val));
-        PQDBGLPUP(QString("objectId: %1").arg(objectId));
-
-        zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, objectId);
-        zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_zhandle", sizeof("__pq_zhandle")-1, Z_OBJ_HANDLE(zobject));
-
-        pqobject = fetch_pqobject(Z_OBJ(zobject));
-        pqobject->object = object;
-        pqobject->isExtra = true;
-        pqobject->isValid = true;
-
-        if(pzval)
-            *pzval = zobject;
-    }
-
-    PQDBG_LVL_DONE_LPUP();
-    return pqobject;
 }
 
 PHPQt5ObjectFactory::PHPQt5ObjectFactory(QObject *parent) :

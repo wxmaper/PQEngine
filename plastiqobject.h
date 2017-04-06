@@ -68,7 +68,6 @@ public:
     PlastiQObject();
     PlastiQObject(const QByteArray &typeName, int typeId, void *plastiq_data);
     PlastiQObject(const QByteArray &typeName, void *plastiq_data = Q_NULLPTR);
-    PlastiQObject(const QByteArray &typeName, const QByteArray &constructorSignature, const PMOGStack &stack);
     virtual ~PlastiQObject();
 
     void plastiq_setData(void *plastiq_data, PlastiQObject *ddata);

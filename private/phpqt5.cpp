@@ -15,6 +15,8 @@
 ****************************************************************************/
 
 #include "phpqt5.h"
+#include "phpqt5constants.h"
+
 QByteArray PHPQt5::W_CP = "UTF-8";
 
 QByteArray PHPQt5::toW(const QByteArray &ba)
@@ -64,7 +66,7 @@ void PHPQt5::pqobject_object_free(zend_object *zobject) {
     objectFactory()->freeObject(zobject);
     zend_object_std_dtor(zobject);
 
-    PQDBG_LVL_DONE();
+    PQDBG_LVL_DONE_LPUP();
 }
 
 void PHPQt5::pqobject_object_dtor(zend_object *zobject) {
@@ -83,8 +85,7 @@ int PHPQt5::pqobject_compare_objects(zval *obj1, zval *obj2)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    static const char* STRING_CLASS = "QString";
-    static const char* BYTEARRAY_CLASS = "QByteArray";
+    using namespace PHPQt5NS;
 
     PQObjectWrapper *pqobject1 = fetch_pqobject(Z_OBJ_P(obj1));
     const PlastiQMetaObject *mo1 = pqobject1->object->plastiq_metaObject();
@@ -93,29 +94,148 @@ int PHPQt5::pqobject_compare_objects(zval *obj1, zval *obj2)
     const PlastiQMetaObject *mo2 = pqobject2->object->plastiq_metaObject();
 
     if (pqobject1->isValid && pqobject2->isValid) {
-        if (strcmp(mo1->className(), STRING_CLASS) == 0
-                && strcmp(mo2->className(), STRING_CLASS) == 0) {
+        if (strcmp(mo1->className(), QSTRING_CLASS) == 0
+                && strcmp(mo2->className(), QSTRING_CLASS) == 0) {
             QString str1 = *(reinterpret_cast<QString*>(pqobject1->object->plastiq_data()));
             QString str2 = *(reinterpret_cast<QString*>(pqobject2->object->plastiq_data()));
 
-            return (str1 == str2) ? 0 : 1;
+            PQDBG_LVL_DONE();
+            return (str1 == str2) ? EQUAL : NOT_EQUAL;
         }
 
-        if (strcmp(mo1->className(), BYTEARRAY_CLASS) == 0
-                && strcmp(mo2->className(), BYTEARRAY_CLASS) == 0) {
-            QByteArray str1 = *(reinterpret_cast<QByteArray*>(pqobject1->object->plastiq_data()));
-            QByteArray str2 = *(reinterpret_cast<QByteArray*>(pqobject2->object->plastiq_data()));
+        if (strcmp(mo1->className(), QBYTEARRAY_CLASS) == 0
+                || strcmp(mo2->className(), QBYTEARRAY_CLASS) == 0) {
+            QByteArray ba1;
+            QByteArray ba2;
 
-            return (str1 == str2) ? 0 : 1;
+            if (strcmp(mo1->className(), QSTRING_CLASS) == 0) {
+                QString str1 = *(reinterpret_cast<QString*>(pqobject1->object->plastiq_data()));
+                ba1 = str1.toUtf8();
+                ba2 = *(reinterpret_cast<QByteArray*>(pqobject2->object->plastiq_data()));
+            }
+            else if (strcmp(mo2->className(), QSTRING_CLASS) == 0) {
+                QString str1 = *(reinterpret_cast<QString*>(pqobject2->object->plastiq_data()));
+                ba1 = str1.toUtf8();
+                ba2 = *(reinterpret_cast<QByteArray*>(pqobject1->object->plastiq_data()));
+            }
+            else {
+                ba1 = *(reinterpret_cast<QByteArray*>(pqobject1->object->plastiq_data()));
+                ba2 = *(reinterpret_cast<QByteArray*>(pqobject2->object->plastiq_data()));
+            }
+
+            if (!ba1.isNull() && !ba1.isNull()) {
+                PQDBG_LVL_DONE();
+                return (ba1 == ba2) ? EQUAL : NOT_EQUAL;
+            }
         }
 
         if (strcmp(Z_OBJCE_NAME_P(obj1), Z_OBJCE_NAME_P(obj2)) == 0) {
-            return (Z_OBJ_HANDLE_P(obj1) == Z_OBJ_HANDLE_P(obj2)) ? 0 : 1;
+            PQDBG_LVL_DONE();
+            return (Z_OBJ_HANDLE_P(obj1) == Z_OBJ_HANDLE_P(obj2)) ? EQUAL : NOT_EQUAL;
         }
     }
 
     PQDBG_LVL_DONE();
-    return 1;
+    return NOT_EQUAL;
+}
+
+int PHPQt5::pqobject_compare(zval *result, zval *op1, zval *op2)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    using namespace PHPQt5NS;
+
+    zval *zv1 = 0;
+    zval *zv2 = 0;
+
+    if (Z_TYPE_P(op1) == IS_OBJECT) {
+        if (fetch_pqobject(Z_OBJ_P(op1))) {
+            zv1 = op1;
+        }
+    }
+
+    if (Z_TYPE_P(op2) == IS_OBJECT) {
+        if (fetch_pqobject(Z_OBJ_P(op2))) {
+            zv2 = op2;
+        }
+    }
+
+    if (zv1 && zv2) {
+        ZVAL_LONG(result, pqobject_compare_objects(zv1, zv2));
+        PQDBG_LVL_DONE();
+        return SUCCESS;
+    }
+
+    if (zv2) {
+        zv1 = op2;
+        zv2 = op1;
+    }
+    else zv2 = op2;
+
+    if (zv1 && zv2
+            && (Z_TYPE_P(zv2) == IS_LONG
+                || Z_TYPE_P(zv2) == IS_STRING
+                || Z_TYPE_P(zv2) == IS_TRUE
+                || Z_TYPE_P(zv2) == IS_FALSE
+                || Z_TYPE_P(zv2) == IS_NULL
+                || Z_TYPE_P(zv2) == IS_DOUBLE)) {
+        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zv1));
+        const PlastiQMetaObject *mo = pqobject->object->plastiq_metaObject();
+
+        QByteArray ba1;
+        if (strcmp(mo->className(), QSTRING_CLASS) == 0) {
+            QString qstr = *(reinterpret_cast<QString*>(pqobject->object->plastiq_data()));
+            ba1 = qstr.toUtf8();
+        }
+
+        if (strcmp(mo->className(), QBYTEARRAY_CLASS) == 0) {
+            ba1 = *(reinterpret_cast<QByteArray*>(pqobject->object->plastiq_data()));
+        }
+
+        QByteArray ba2;
+        switch (Z_TYPE_P(zv2)) {
+        case IS_LONG:
+        case IS_TRUE:
+        case IS_FALSE:
+            ba2 = QByteArray::number(Z_LVAL_P(zv2));
+            break;
+
+        case IS_NULL:
+            ba2 = QByteArray::number(0);
+            break;
+
+        case IS_DOUBLE: {
+            bool canCast;
+            double d1 = ba1.toDouble(&canCast);
+            if (canCast) {
+                ZVAL_LONG(result, (qFuzzyCompare(d1, Z_DVAL_P(zv2))  ? EQUAL : NOT_EQUAL));
+                PQDBG_LVL_DONE();
+                return SUCCESS;
+            }
+            else {
+                PQDBG_LVL_DONE();
+                return SUCCESS;
+            }
+        } break;
+
+        case IS_STRING:
+            ba2 = QByteArray(Z_STRVAL_P(zv2));
+            break;
+
+        default: //nothing
+            break;
+        }
+
+        ZVAL_LONG(result, ((ba1 == ba2) ? EQUAL : NOT_EQUAL));
+        PQDBG_LVL_DONE();
+        return SUCCESS;
+    }
+
+    ZVAL_LONG(result, NOT_EQUAL);
+    PQDBG_LVL_DONE();
+    return SUCCESS;
 }
 
 zend_object *PHPQt5::pqenum_create(zend_class_entry *ce)

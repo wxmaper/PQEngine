@@ -9,6 +9,8 @@ void PHPQt5::zim_qenum___construct(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    Q_UNUSED(return_value)
+
     zval *enum_zval;
 
     if(zend_parse_parameters_throw(ZEND_NUM_ARGS(), "z", &enum_zval) == FAILURE) {
@@ -58,6 +60,8 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                            { "zhandle", QString::number(Z_OBJ_HANDLE_P(getThis())) },
                        });
 #endif
+
+    Q_UNUSED(return_value)
 
     const int argc = ZEND_NUM_ARGS();
     zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
@@ -488,17 +492,27 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                             PQDBGLPUP(QString("arg object: %1").arg(epqobject->object->plastiq_metaObject()->className()));
 
                             if (className == "QString") {
-                                stack[sidx].s_string = *(reinterpret_cast<QString*>(object->plastiq_data()));
+                                if (methodType == "QVariant") {
+                                    stack[sidx].s_variant = *(reinterpret_cast<QString*>(object->plastiq_data()));
+                                }
+                                else {
+                                    stack[sidx].s_string = *(reinterpret_cast<QString*>(object->plastiq_data()));
+                                }
                                 right = true;
                             }
                             else if (className == "QByteArray") {
-                                stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(object->plastiq_data()));
+                                if (methodType == "QVariant") {
+                                    stack[sidx].s_variant = *(reinterpret_cast<QByteArray*>(object->plastiq_data()));
+                                }
+                                else {
+                                    stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(object->plastiq_data()));
+                                }
                                 right = true;
                             }
-                            //else if (className == "QVariant") {
-                            //    stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(object->plastiq_data()));
-                            //    right = true;
-                            //}
+                            else if (className == "QVariant" && methodType == "QVariant") {
+                                stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(object->plastiq_data()));
+                                right = true;
+                            }
                             else {
                                 const PlastiQMetaObject *metaObject = epqobject->object->plastiq_metaObject();
                                 bool cancast = false;
@@ -823,6 +837,8 @@ void PHPQt5::zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS)
               .arg(Z_OBJ_HANDLE_P(getThis())));
 #endif
 
+    RETVAL_NULL();
+
     char* propertyName;
     int len;
     zval *pzval;
@@ -840,9 +856,13 @@ void PHPQt5::zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS)
             && Z_TYPE_P(pzval) == IS_OBJECT) {
         PQDBGLPUP("create closure connection...");
         if(plastiqConnect(getThis(), signalName.toUtf8(), pzval, ZEND_INVOKE_FUNC_NAME, true)) {
+            PQDBG_LVL_DONE();
             return;
         }
-        else return;
+        else {
+            PQDBG_LVL_DONE();
+            return;
+        }
     }
 
     PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
@@ -878,8 +898,6 @@ void PHPQt5::zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS)
             php_error(E_NOTICE, QString("Cannot set value to read only property: %1::%2")
                       .arg(Z_OBJCE_NAME_P(getThis()))
                       .arg(propertyName).toUtf8().constData());
-
-            PQDBG_LVL_DONE();
         }
     }
     else {
@@ -915,10 +933,12 @@ void PHPQt5::zim_plastiq___toString(INTERNAL_FUNCTION_PARAMETERS)
 
     if (objectType == PlastiQ::String || metaObject->className() == "QString") {
         QString str = *(reinterpret_cast<QString*>(pqobject->object->plastiq_data()));
+        PQDBG_LVL_DONE();
         RETURN_STRING(str.toUtf8().constData());
     }
     else if (objectType == PlastiQ::ByteArray || metaObject->className() == "QByteArray") {
         QByteArray ba = *(reinterpret_cast<QByteArray*>(pqobject->object->plastiq_data()));
+        PQDBG_LVL_DONE();
         RETURN_STRING(ba.constData());
     }
 
@@ -970,6 +990,7 @@ void PHPQt5::zim_plastiq_free(INTERNAL_FUNCTION_PARAMETERS)
     Z_OBJ_P(getThis())->ce = ce;
 
     PQDBG_LVL_DONE();
+    RETURN_NULL();
 }
 
 void PHPQt5::zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS)
@@ -996,6 +1017,7 @@ void PHPQt5::zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS)
         sender = getThis();
 
         bool ok = plastiqConnect(sender, QString(signal), receiver, QString(ZEND_INVOKE_FUNC_NAME), false);
+        PQDBG_LVL_DONE();
         RETURN_BOOL(ok);
     } break;
 
@@ -1007,6 +1029,7 @@ void PHPQt5::zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS)
         sender = getThis();
 
         bool ok = plastiqConnect(sender, QString(signal), receiver, QString(slot), false);
+        PQDBG_LVL_DONE();
         RETURN_BOOL(ok);
     } break;
 
@@ -1021,6 +1044,8 @@ void PHPQt5::zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS)
         zend_wrong_parameters_count_error(argc, 2, 4);
 #endif
     }
+
+    PQDBG_LVL_DONE();
 }
 
 void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
@@ -1028,6 +1053,8 @@ void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
+
+    RETVAL_NULL();
 
     char *signal_signature;
     int signal_signature_len;

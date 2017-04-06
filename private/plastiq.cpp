@@ -169,9 +169,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     else if (className == "QByteArray") {
                         stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(eobject->plastiq_data()));
                     }
-                    //else if (className == "QVariant") {
-                    //    stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(eobject->plastiq_data()));
-                    //}
+                    else if (className == "QVariant") {
+                        stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(eobject->plastiq_data()));
+                    }
                     else {
                         stack[sidx].s_voidp = eobject->plastiq_data();
 
@@ -629,17 +629,28 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             PQDBGLPUP(QString("arg object: %1").arg(epqobject->object->plastiq_metaObject()->className()));
 
                             if (className == "QString") {
-                                stack[sidx].s_string = *(reinterpret_cast<QString*>(eobject->plastiq_data()));
+                                if (methodType == "QVariant") {
+                                    stack[sidx].s_variant = *(reinterpret_cast<QString*>(eobject->plastiq_data()));
+                                }
+                                else {
+                                    stack[sidx].s_string = *(reinterpret_cast<QString*>(eobject->plastiq_data()));
+                                }
                                 right = true;
                             }
                             else if (className == "QByteArray") {
-                                stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(eobject->plastiq_data()));
+                                if (methodType == "QVariant") {
+                                    stack[sidx].s_variant = *(reinterpret_cast<QByteArray*>(eobject->plastiq_data()));
+                                }
+                                else {
+                                    stack[sidx].s_bytearray = *(reinterpret_cast<QByteArray*>(eobject->plastiq_data()));
+                                }
                                 right = true;
                             }
-                            //else if (className == "QVariant") {
-                            //    stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(eobject->plastiq_data()));
-                            //    right = true;
-                            //}
+                            else if (className == "QVariant" && methodType == "QVariant") {
+                                qDebug() << "QVARIANT!";
+                                stack[sidx].s_variant = *(reinterpret_cast<QVariant*>(eobject->plastiq_data()));
+                                right = true;
+                            }
                             else {
                                 const PlastiQMetaObject *metaObject = epqobject->object->plastiq_metaObject();
                                 bool cancast = false;
@@ -891,8 +902,8 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
     case PlastiQ::QtObjectStar: {
         PQDBGLPUP("ItemType: ObjectStar || QObjectStar || QtObjectStar");
 
-        if(PHPQt5::objectFactory()->havePlastiQMetaObject(stackItem.name)) {
-            if(pqobject = PHPQt5::objectFactory()->getObject(objectId)) {
+        if (PHPQt5::objectFactory()->havePlastiQMetaObject(stackItem.name)) {
+            if (pqobject = PHPQt5::objectFactory()->getObject(objectId)) {
             }
             else {
                 className = stackItem.name;
@@ -903,8 +914,8 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
     case PlastiQ::QEventStar: {
         PQDBGLPUP("ItemType: QEventStar");
 
-        if(stackItem.name == "QEvent") {
-            if(pqobject = PHPQt5::objectFactory()->getObject(objectId)) {
+        //if (stackItem.name == "QEvent") {
+            if (pqobject = PHPQt5::objectFactory()->getObject(objectId)) {
                 PHPQt5::qevent_cast(pqobject);
             }
             else {
@@ -914,7 +925,7 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
                     className = "QEvent";
                 }
             }
-        }
+        //}
     } break;
 
     default: ;
@@ -922,26 +933,11 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
 
     PQDBGLPUP(QString("className: %1").arg(className.length()));
 
-    if(className.length()) {
-        if(PHPQt5::objectFactory()->havePlastiQMetaObject(className)) {
-            PlastiQMetaObject metaObject = PHPQt5::objectFactory()->getMetaObject(className);
-            PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
-
-            PlastiQObject *object = metaObject.createInstanceFromData(d);
-            PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
-
-            zval zobject;
-            zend_class_entry *ce = PHPQt5::objectFactory()->getClassEntry(className);
-            object_init_ex(&zobject, ce);
-
+    if (className.length()) {
+        if (PHPQt5::objectFactory()->havePlastiQMetaObject(className)) {
+            zval zobject = PHPQt5::pq_create_extra_object(className, d, true, true);
+            Z_DELREF(zobject); // FIXME: проверить, надо ли? :/
             pqobject = fetch_pqobject(Z_OBJ(zobject));
-            pqobject->object = object;
-            pqobject->isExtra = true;
-            pqobject->isValid = true;
-
-            PHPQt5::objectFactory()->addObject(pqobject, objectId);
-
-            Z_DELREF(zobject);
         }
     }
 
@@ -1088,26 +1084,8 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
                 ZVAL_OBJ(&retval, &pqobject->zo);
             }
             else {
-                PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
-                PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
-
-                PlastiQObject *object = metaObject.createInstanceFromData(stackItem.s_voidp);
-                PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
-
-                zend_class_entry *ce = objectFactory()->getClassEntry(className);
-                object_init_ex(&retval, ce);
-
-                zend_update_property_long(ce, &retval, "__pq_uid", sizeof("__pq_uid")-1, objectId);
-                zend_update_property_long(ce, &retval, "__pq_zhandle", sizeof("__pq_zhandle")-1, Z_OBJ_HANDLE(retval));
-
-                pqobject = fetch_pqobject(Z_OBJ(retval));
-                pqobject->object = object;
-                pqobject->isExtra = true;
-                pqobject->isValid = true;
-
-                objectFactory()->addObject(pqobject, objectId);
-
-                Z_DELREF(retval);
+                retval = pq_create_extra_object(className, stackItem.s_voidp, true, true);
+                Z_DELREF(retval); // проверить!
             }
         }
         else {
@@ -1191,28 +1169,7 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
                     add_next_index_zval(&retval, &zobject);
                 }
                 else if(ce = objectFactory()->getClassEntry(className)) {
-                    PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
-                    PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
-
-                    PlastiQObject *object = metaObject.createInstanceFromData(reinterpret_cast<void*>(qobject));
-                    PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
-
-                    PQDBGLPUP("object_init_ex");
-                    object_init_ex(&zobject, ce);
-
-                    PQDBGLPUP("fetch_pqobject");
-                    pqobject = fetch_pqobject(Z_OBJ(zobject));
-                    pqobject->object = object;
-                    pqobject->isExtra = true;
-                    pqobject->isValid = true;
-
-                    quint32 zhandle = Z_OBJ_HANDLE(zobject);
-
-                    zend_update_property_long(ce, &zobject, "__pq_uid", sizeof("__pq_uid")-1, objectId);
-                    zend_update_property_long(ce, &zobject, "__pq_zhandle", sizeof("__pq_zhandle")-1, zhandle);
-
-                    objectFactory()->addObject(pqobject, objectId);
-
+                    retval = pq_create_extra_object(className, qobject, true, true);
                     add_next_index_zval(&retval, &zobject);
                 }
                 else {
@@ -1223,54 +1180,27 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
             delete objectList;
         }
         else if(objectFactory()->havePlastiQMetaObject(stackItem.name)) {
-            //void *d = stackItem.s_voidp;
-
-            //if(PHPQt5::objectFactory()->havePlastiQObject(objectId)) {
-
-            //}
-            //else {
-            PlastiQMetaObject metaObject = objectFactory()->getMetaObject(stackItem.name);
-            PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
-
-            PlastiQObject *object = metaObject.createInstanceFromData(stackItem.s_voidp);
-            PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
-
-            zend_class_entry *ce = objectFactory()->getClassEntry(stackItem.name);
-            object_init_ex(&retval, ce);
-
-            PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ(retval));
-            pqobject->object = object;
-            pqobject->isExtra = stackItem.isRef; // <--- false becouse this object is a copy
-            pqobject->isValid = true;
-
-            quint64 objectId = reinterpret_cast<quint64>(stackItem.s_voidp);
-            objectFactory()->addObject(pqobject, objectId);
-            // objectFactory()->addObjectInStorage(pqobject, reinterpret_cast<quint64>(stackItem.s_voidp));
-
-            Z_DELREF(retval);
-            // }
+            retval = pq_create_extra_object(stackItem.name, stackItem.s_voidp, true, stackItem.isRef);
+            Z_DELREF(retval);// FIXME: проверить!
         }
         else {
-            // php_error(E_ERROR, QString("Uncaught error: class '%1' not found")
-            //           .arg(stackItem.name.constData()).toUtf8().constData());
-
             zend_throw_error(0, QString("class '%1' not found")
                              .arg(stackItem.name.constData()).toUtf8().constData());
-
             ZVAL_NULL(&retval);
         }
     } break;
 
     case PlastiQ::QEventStar: {
-        if(stackItem.name == "QEvent") {
+        //if(stackItem.name == "QEvent") {
             PQObjectWrapper *pqobject = Q_NULLPTR;
-            if(pqobject = PlastiQ_getWrapper(stackItem)) {
+
+            if (pqobject = PlastiQ_getWrapper(stackItem)) {
                 ZVAL_OBJ(&retval, &pqobject->zo);
             }
             else {
                 ZVAL_NULL(&retval);
             }
-        }
+        //}
     } break;
 
     case PlastiQ::Void: {
@@ -1301,7 +1231,7 @@ zval PHPQt5::plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeN
     ZVAL_NULL(&retval);
     QByteArray _typeName(typeName);
 
-    if(value.isValid()) {
+    if (value.isValid()) {
         QVariant v = value; // make copy
 
         if(value.type() == QMetaType::QVariant) {
@@ -1535,11 +1465,6 @@ PMOGStackItem PHPQt5::plastiq_cast_to_stackItem(zval *zv)
     return stackItem;
 }
 
-void *PHPQt5::plastiq_cast_to_s_voidp(const PMOGStackItem &stackItem)
-{
-    return 0;
-}
-
 void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
 #ifdef PQDEBUG
@@ -1637,7 +1562,7 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
 
                     int _argc = 0;
                     char ** _argv = new char *[1];
-                    //_argv[0] = (char*) "";
+                    // _argv[0] = (char*) "";
 
                     PMOGStack stack = new PMOGStackItem[3];
                     stack[1].s_voidp = reinterpret_cast<void*>(&_argc);

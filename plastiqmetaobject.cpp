@@ -114,33 +114,43 @@ bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
 
     signature.clear();
 
-    QHashIterator<QByteArray, PlastiQMethod> i(*d.pq_methods);
-    while (i.hasNext()) {
-        i.next();
-        const PlastiQMethod &m = i.value();
+    const PlastiQMetaObject *pqmo = this;
+    while (pqmo) {
+        PQDBGLPUP(QString("test in: %1").arg(pqmo->className()));
+        QHashIterator<QByteArray, PlastiQMethod> i(*pqmo->d.pq_methods);
 
-        if (m.name == methodName) {
-            int _argc = m.argTypes.isEmpty()
-                    ? 0
-                    : m.argTypes.split(_comma).size();
+        while (i.hasNext()) {
+            i.next();
+            const PlastiQMethod &m = i.value();
 
-            if (_argc != argc)
-                return false;
+            if (m.name == methodName) {
+                int _argc = m.argTypes.isEmpty()
+                        ? 0
+                        : m.argTypes.split(_comma).size();
 
-            switch (m.access) {
-            case PlastiQMethod::Virtual:
-            case PlastiQMethod::VirtualProtected:
-            case PlastiQMethod::VirtualPublic:
-                signature = m.returnType;
-                signature.append(_space);
-                signature.append(i.key());
+                if (_argc != argc) {
+                    PQDBG_LVL_DONE();
+                    return false;
+                }
 
-                return true;
+                switch (m.access) {
+                case PlastiQMethod::Virtual:
+                case PlastiQMethod::VirtualProtected:
+                case PlastiQMethod::VirtualPublic:
+                    signature = m.returnType;
+                    signature.append(_space);
+                    signature.append(i.key());
 
-            default:
-                return false;
+                    PQDBG_LVL_DONE();
+                    return true;
+
+                default:
+                    continue;
+                }
             }
         }
+
+        pqmo = pqmo->d.superdata;
     }
 
     PQDBG_LVL_DONE();

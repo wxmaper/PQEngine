@@ -228,7 +228,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
     zend_class_entry *ce = Z_OBJCE_P(getThis());
     QByteArray className;
     do {
-        if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
+        if (objectFactory()->havePlastiQMetaObject(ce->name->val)) {
             className = QByteArray(ce->name->val);
             break;
         } else isWrapper = true; // php-class was extends a qt-class

@@ -34,7 +34,6 @@ void PQEnginePrivate::pq_register_extension(IPQExtension *extension)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
-    PQDBGLPUP(extension->entry().fullName);
 #endif
 
     extension->start();

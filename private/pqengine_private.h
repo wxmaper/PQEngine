@@ -54,24 +54,17 @@ extern "C" {
 #include <SAPI.h>
 }
 
+struct PQEngineInitConf;
+
 class PQDLAPI PQEnginePrivate : public QObject
 {
     Q_OBJECT
 public:
     PQEnginePrivate(PQExtensionList extensions = PQExtensionList(), QObject *parent = Q_NULLPTR);
 
-    bool                    init(int argc,
-                                 char **argv,
-                                 QString pmd5,
-                                 const QString &coreName,
-                                 bool checkName,
-                                 const QString &hashKey,
-                                 const QString &appName,
-                                 const QString &appVersion,
-                                 const QString &orgName,
-                                 const QString &orgDomain);
+    bool                    init(int argc, char **argv, const QString &coreName, const PQEngineInitConf &ic);
 
-    bool                    sapi_init(PQDBG_LVL_D);
+    bool                    sapi_init();
     void                    shutdown(PQDBG_LVL_D);
 
     int                     exec(const char *script PQDBG_LVL_DC);

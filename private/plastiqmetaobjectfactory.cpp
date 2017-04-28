@@ -209,6 +209,7 @@ void PHPQt5ObjectFactory::addObject(PQObjectWrapper *pqobject, quint64 objectId)
                            { "zobject", QString::number(reinterpret_cast<quint64>(&pqobject->zo)) },
                            { "object", QString::number(reinterpret_cast<quint64>(pqobject->object)) },
                            { "data", QString::number(reinterpret_cast<quint64>(pqobject->object->plastiq_data())) },
+                           { "count", QString::number(m_plastiqObjects.count() + 1)}
                        });
 
 #endif
@@ -229,6 +230,7 @@ void PHPQt5ObjectFactory::addObject(PQObjectWrapper *pqobject, quint64 objectId)
     }
     */
 
+    PQDBGLPUP(QString("objects in storage: %1").arg(m_plastiqObjects.count()));
     PQDBG_LVL_DONE_LPUP();
 }
 
@@ -436,17 +438,23 @@ void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval 
 
                     const PlastiQMetaObject *metaObject = pqobject->object->plastiq_metaObject();
                     QByteArray signature;
+                    if (methodName != ZSTR_VAL(op_array->function_name)) {
+                        php_error(E_ERROR, QStringLiteral("Mismatched names of the overridden "
+                                                          "function: `%1` and `%2`")
+                                  .arg(methodName.constData()).arg(ZSTR_VAL(op_array->function_name))
+                                  .toUtf8().constData());
+                    }
+
                     if (metaObject->haveVirtualMethod(methodName, argc, signature)) {
                         pqobject->virtualMethods->insert(signature,
                                     VirtualMethod(methodName, argc));
 
-                        PQDBGLPUP(QStringLiteral("Overload virtual method: %1")
+                        PQDBGLPUP(QStringLiteral("Override virtual method: `%1`")
                                   .arg(signature.constData()));
                     }
                     else {
-                        zend_throw_error(pqobject->zo.ce,
-                                         QStringLiteral("Can't overload %1 with %2 arguments")
-                                         .arg(functionName).arg(argc).toUtf8().constData());
+                        php_error(E_ERROR, QStringLiteral("Can't override `%1` with %2 arguments")
+                                  .arg(functionName).arg(argc).toUtf8().constData());
                     }
                 }
             }

@@ -15,6 +15,7 @@
 ****************************************************************************/
 
 #include "phpqt5.h"
+#include "pqengine.h"
 #include "pqengine_private.h"
 #include "zend_exceptions.h"
 #include <QCryptographicHash>
@@ -158,14 +159,14 @@ PQEnginePrivate::PQEnginePrivate(PQExtensionList extensions, QObject *parent)
     php_pqengine_module.phpinfo_as_text = 1;
 }
 
-bool test_pmd5(QString pmd5) {
+
+bool test_pmd5(const QString &pmd5) {
     bool php7ts_file_ok = false;
     bool ini_file_ok = false;
 
     QStringList pmd5_list = pmd5.split(";");
-    pmd5.fill(0);
 
-    if(pmd5_list.size() != 2) { // неизвестное состояние
+    if (pmd5_list.size() != 2) { // неизвестное состояние
         pmd5_list.clear();
         pq_ub_write("<b>Fatal error</b>: cannot test files <b>php7ts.dll</b> and <b>pqengine.ini</b>.");
         return false;
@@ -173,16 +174,16 @@ bool test_pmd5(QString pmd5) {
 
     /* проверка хеша php7ts.dll */
     QByteArray php7ts_file_md5 = pmd5_list.at(0).toLatin1();
-    if(php7ts_file_md5.size() == 32) {
+    if (php7ts_file_md5.size() == 32) {
 #ifdef WIN32
         QFile php7ts_file(normalizePathName(qApp->applicationDirPath()).append("/php7ts.dll"));
 #else
         QFile php7ts_file(qApp->applicationDirPath().append("/libphp7.so"));
 #endif
 
-        if(php7ts_file.exists() && php7ts_file.open(QIODevice::ReadOnly)) {
+        if (php7ts_file.exists() && php7ts_file.open(QIODevice::ReadOnly)) {
             QCryptographicHash hash(QCryptographicHash::Md5);
-            if(hash.addData(&php7ts_file)) {
+            if (hash.addData(&php7ts_file)) {
                 if(php7ts_file_md5 == hash.result().toHex()) {
                     php7ts_file_ok = true;
                 }
@@ -202,7 +203,7 @@ bool test_pmd5(QString pmd5) {
 
         php7ts_file_md5.fill(0);
     }
-    else if(php7ts_file_md5 == "0x0") { // проверка отключена
+    else if (php7ts_file_md5 == "0x0") { // проверка отключена
         php7ts_file_ok = true;
     }
     else { // неизвестное состояние
@@ -215,11 +216,11 @@ bool test_pmd5(QString pmd5) {
     QByteArray ini_file_md5 = pmd5_list.at(1).toLatin1();
     QFile ini_file(normalizePathName(qApp->applicationDirPath()).append("/pqengine.ini"));
 
-    if(ini_file_md5.size() == 32) { // проверка включена
-        if(ini_file.exists() && ini_file.open(QIODevice::ReadOnly)) {
+    if (ini_file_md5.size() == 32) { // проверка включена
+        if (ini_file.exists() && ini_file.open(QIODevice::ReadOnly)) {
             QCryptographicHash hash(QCryptographicHash::Md5);
-            if(hash.addData(&ini_file)) {
-                if(ini_file_md5 == hash.result().toHex()) {
+            if (hash.addData(&ini_file)) {
+                if (ini_file_md5 == hash.result().toHex()) {
                     ini_file_ok = true;
                 }
                 else {
@@ -237,14 +238,14 @@ bool test_pmd5(QString pmd5) {
         }
     }
     else if(ini_file_md5 == "0x1") { // проверка включена, ini файл запрещён
-        if(ini_file.exists()) {
+        if (ini_file.exists()) {
             ini_file_md5.fill(0);
             pq_ub_write(QString("<b>Fatal error</b>: cannot use forbidden file <b>pqengine.ini</b>."));
             return false;
         }
         else ini_file_ok = true;
     }
-    else if(ini_file_md5 == "0x0") { // проверка отключена
+    else if (ini_file_md5 == "0x0") { // проверка отключена
         ini_file_ok = true;
     }
     else { // неизвестное состояние
@@ -259,54 +260,30 @@ bool test_pmd5(QString pmd5) {
     return php7ts_file_ok && ini_file_ok;
 }
 
-bool PQEnginePrivate::init(int argc,
-                           char **argv,
-                           QString pmd5,
-                           const QString &coreName,
-                           bool checkName,
-                           const QString &hashKey,
-                           const QString &appName,
-                           const QString &appVersion,
-                           const QString &orgName,
-                           const QString &orgDomain)
+bool PQEnginePrivate::init(int argc, char **argv, const QString &coreName, const PQEngineInitConf &ic)
 {
     new QCoreApplication(argc, argv);
 
 #ifdef PQDEBUG
     QLocalSocket *debugSocket = PHPQt5::debugSocket();
     connect(debugSocket, SIGNAL(connected()), this, SLOT(debugConnected()));
-    debugSocket->connectToServer("PQEngine Debug Server");
+    debugSocket->connectToServer(ic.debugSocketName.trimmed().isEmpty()
+                                 ? "PQEngine Debug Server"
+                                 : ic.debugSocketName);
 
     PQDBG_LVL_D = 0;
     PQDBGL(QString("Logging started: QLocalSocket(%1)").arg(reinterpret_cast<quint64>(debugSocket)));
     PQDBGLPUP(__FUNCTION__);
 #endif
 
-    if(!test_pmd5(pmd5)) {
+    if (!test_pmd5(ic.pmd5)) {
         return false;
     }
 
-    pmd5.fill(0);
-
-#ifdef PQDEBUG
-    /*
-    QString filename = normalizePathName(qApp->applicationDirPath()) + "/pqdebug.log";
-
-    QFile file(filename);
-    if ( file.open(QIODevice::ReadWrite | QIODevice::Truncate | QIODevice::Text) )
-    {
-        QTextStream stream( &file );
-        stream << "Logging started..." << endl;
-        stream.flush();
-        file.close();
-    }
-    */
-#endif
-
-    QByteArray hashKey_ba(hashKey.toUtf8());
+    QByteArray hashKey_ba(ic.hashKey.toUtf8());
     hashKey_ba.append(PQ_APPEND_KEY);
     pqHashKey = strtoll(hashKey_ba.constData(), 0, 16);
-    pqCoreName = QString(coreName);
+    pqCoreName = coreName;
 
     php_pqengine_module.executable_location = QByteArray(normalizePathName(qApp->applicationDirPath()).toUtf8()).data();
 
@@ -317,10 +294,10 @@ bool PQEnginePrivate::init(int argc,
     php_pqengine_module.php_ini_path_override = iniPath.data();
 #endif
 
-    if(sapi_init(PQDBG_LVL_C)) {
-        PHPQt5::pq_prepare_args(argc, argv PQDBG_LVL_CC);
+    if (sapi_init()) {
+        PHPQt5::pq_prepare_args(argc, argv);
 
-        if(checkName) {
+        if (ic.checkName) {
             QString appFileName_t = QFileInfo(normalizePathName(QCoreApplication::applicationFilePath())).fileName();
             QString appFileName = appFileName_t.toLower();
 
@@ -334,10 +311,10 @@ bool PQEnginePrivate::init(int argc,
 #ifdef PQDEBUG
             PQDBGLPUP(QString("%1 : %2").arg(appFileName).arg(extname));
 #endif
-            if(appFileName != QString(coreName).append(".exe")) {
+            if (appFileName != QString(coreName).append(".exe")) {
 #else
             PQDBGLPUP(QString("%1 : %2").arg(appFileName).arg(coreName));
-            if(appFileName != coreName) {
+            if (appFileName != coreName) {
 #endif
                 pq_ub_write("Please don't change the filename of this application.");
                 delete qApp; // Will cause a segmentation fault
@@ -348,24 +325,6 @@ bool PQEnginePrivate::init(int argc,
             }
         }
 
-        /*
-        zend_class_entry *qApp_ce = PHPQt5::objectFactory()->getClassEntry(QString(qApp->metaObject()->className()) PQDBG_LVL_CC);
-        zval pzval;
-
-#ifdef PQDEBUG
-        PQDBGLPUP(QString("Init %1").arg(qApp_ce->name->val));
-#endif
-
-        object_init_ex(&pzval, qApp_ce);
-
-#ifdef PQDEBUG
-        PQDBGLPUP(QString("%1 initialized").arg(qApp_ce->name->val));
-#endif
-
-        Z_ADDREF(pzval);
-        PHPQt5::objectFactory()->registerObject(&pzval, qApp PQDBG_LVL_CC);
-        */
-
         PQDBG_LVL_DONE();
         return true;
     }
@@ -374,11 +333,10 @@ bool PQEnginePrivate::init(int argc,
     return false;
 }
 
-bool PQEnginePrivate::sapi_init(PQDBG_LVL_D)
+bool PQEnginePrivate::sapi_init()
 {
 #ifdef PQDEBUG
-    PQDBG_LVL_UP();
-    PQDBGL(__FUNCTION__);
+    PQDBG_LVL_START(__FUNCTION__)
 #endif
 
     tsrm_startup(128, 1, 0, NULL);
@@ -389,17 +347,21 @@ bool PQEnginePrivate::sapi_init(PQDBG_LVL_D)
     PHPQt5::threadCreator();
 
     if(php_pqengine_module.startup(&php_pqengine_module) == FAILURE) {
+        PQDBG_LVL_DONE_LPUP();
         return false;
     }
 
     if(php_module_startup(&php_pqengine_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
+        PQDBG_LVL_DONE_LPUP();
         return false;
     }
 
     if(php_request_startup() == FAILURE) {
+        PQDBG_LVL_DONE_LPUP();
         return false;
     }
 
+    PQDBG_LVL_DONE_LPUP();
     return true;
 }
 

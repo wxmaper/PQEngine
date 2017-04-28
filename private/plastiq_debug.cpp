@@ -74,6 +74,10 @@ void pqdbg_send_message(const QMap<QString,QString> &msgmap)
         msg += msg.length() ? QString(",%1").arg(keyval) : keyval;
     }
 
+    msg.append(QString(",\"lineno\":\"%1\",\"filename\":\"%2\"")
+               .arg(zend_get_executed_lineno())
+               .arg(zend_get_executed_filename()));
+
     msg.prepend("jsondata{").append("}");
 
     pqdbg_send_message(0, msg, "");

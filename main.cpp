@@ -4,22 +4,18 @@
 int main(int argc, char *argv[])
 {
     // NOTE: change the pmd5-key if need
-    QString pmd5 = "be71c3787982c632f238b1192b5b6259;0x0";
-    PQExtensionList pqExtensions;
-
+    //QString pmd5 = "be71c3787982c632f238b1192b5b6259;0x0";
     PQEngineCore *pqenginecore = new PQEngineCore;
-
+    PQExtensionList pqExtensions;
     pqExtensions << pqenginecore;
 
-    pqenginecore->use_instance();
-    pqenginecore->use_pre();
-    pqenginecore->use_ub_write();
-
     PQEngine engine(pqExtensions);
+    PQEngineInitConf cfg;
+
 #ifdef PQDEBUG
-    engine.init(argc, argv, pmd5, "pqengine-debug", false, "0x0", "", "1.0", "", "");
+    engine.init(argc, argv, "pqengine-debug", cfg);
 #else
-    engine.init(argc, argv, pmd5, "pqengine", false, "0x0", "", "1.0", "", "");
+    engine.init(argc, argv, "pqengine", cfg);
 #endif
 
     // NOTE: change path

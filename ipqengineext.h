@@ -31,52 +31,18 @@
 #define PQENGINEEXT_VERSION_ID 50
 
 class IPQExtension;
+class PlastiQ::IPlastiQUi;
 class QMetaObjectList : public QList<QMetaObject> {};
 class PlastiQMetaObjectList : public QList<PlastiQMetaObject> {};
-
-typedef struct pqext_entry {
-    const char *fullName;
-
-    bool                    have_ub_write;
-    bool                    use_ub_write;
-    void                    (*ub_write)(const QString &msg);
-
-    bool                    have_pre;
-    bool                    use_pre;
-    void                    (*pre)(const QString &msg, const QString &title);
-} PQExtensionEntry;
-
-#define PQEXT_ENTRY_START(extname)\
-    PQExtensionEntry entry() { return pqExtEntry; }\
-    PQExtensionEntry pqExtEntry = {\
-        #extname,
-
-#define PQEXT_NO_UB_WRITE false, false, 0,
-#define PQEXT_UB_WRITE(extname) true, false, extname::ub_write,
-
-#define PQEXT_NO_PRE false, false, 0
-#define PQEXT_PRE(extname) true, false, extname::pre
-
-#define PQEXT_ENTRY_END\
-    };
-
-#define PQEXT_USE(usefn) void use_##usefn() { \
-    if(pqExtEntry.have_##usefn) {\
-        pqExtEntry.use_##usefn = true; \
-    }\
-}
+typedef QHash<QByteArray,PlastiQ::IPlastiQUi*> PlastiQUiHash;
 
 class IPQExtension {
 public:
     virtual PlastiQMetaObjectList plastiqClasses() { return PlastiQMetaObjectList(); }
+    virtual PlastiQUiHash plastiqForms() = 0;
     virtual QMetaObjectList classes() = 0;
     virtual bool start() = 0;
     virtual bool finalize() = 0;
-
-    virtual void use_ub_write() = 0;
-    virtual void use_pre() = 0;
-
-    virtual PQExtensionEntry entry() = 0;
 };
 
 class PQExtensionList : public QList<IPQExtension*> {};

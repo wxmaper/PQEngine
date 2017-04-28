@@ -19,12 +19,13 @@
 
 #define PQENGINE_MAJOR_VERSION 0
 #define PQENGINE_MINOR_VERSION 6
-#define PQENGINE_RELEASE_VERSION 4
+#define PQENGINE_RELEASE_VERSION 5
 #define PQENGINE_CODENAME "ANDROMEDA"
-#define PQENGINE_VERSION "0.6.4"
-#define PQENGINE_VERSION_ID 64
+#define PQENGINE_VERSION "0.6.5"
+#define PQENGINE_VERSION_ID 65
 
 extern void default_ub_write(const QString &msg, const QString &title);
+extern void error_ub_write(const QString &msg, const QString &title);
 extern QString getCorename();
 
 #ifdef PQDEBUG

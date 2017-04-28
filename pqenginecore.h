@@ -22,20 +22,10 @@
 class PQEngineCore : public IPQExtension {
 public:
     PlastiQMetaObjectList plastiqClasses() Q_DECL_OVERRIDE;
+    PlastiQUiHash plastiqForms() Q_DECL_OVERRIDE;
     QMetaObjectList classes();
     bool start();
     bool finalize();
-
-    static void ub_write(const QString &msg);
-    static void pre(const QString &msg, const QString &title);
-
-    PQEXT_USE(ub_write)
-    PQEXT_USE(pre)
-
-    PQEXT_ENTRY_START(PQEngineCore)
-        PQEXT_UB_WRITE(PQEngineCore)
-        PQEXT_PRE(PQEngineCore)
-    PQEXT_ENTRY_END
 };
 
 #endif // PQENGINECORE_H

@@ -34,22 +34,12 @@ PQEngine::PQEngine(PQExtensionList extensions)
     pqeExtensions = extensions;
 }
 
-bool PQEngine::init(int argc,
-                    char **argv,
-                    QString pmd5,
-                    const QString &coreName,
-                    bool checkName,
-                    const QString &hashKey,
-                    const QString &appName,
-                    const QString &appVersion,
-                    const QString &orgName,
-                    const QString &orgDomain)
+bool PQEngine::init(int argc, char **argv, const QString &coreName, const PQEngineInitConf &ic)
 {
     pqeCoreName = coreName;
     pqeEngine = new PQEnginePrivate(pqeExtensions);
 
-    pqeInitialized = pqeEngine->init(argc, argv, pmd5, coreName, checkName, hashKey, appName, appVersion, orgName, orgDomain);
-    pmd5.fill(0);
+    pqeInitialized = pqeEngine->init(argc, argv, coreName, ic);
 
     return pqeInitialized;
 }
@@ -91,21 +81,6 @@ void default_ub_write(const QString &msg, const QString &title)
 {
     QString m = cleanTag(msg);
 
-/*
-#ifdef PQDEBUG
-    QString filename = qApp->applicationDirPath() + "/pqdebug.log";
-
-    QFile file(filename);
-    if ( file.open(QIODevice::ReadWrite | QIODevice::Append | QIODevice::Text) )
-    {
-        QTextStream stream(&file);
-        stream << m.toUtf8().constData() << endl;
-        stream.flush();
-        file.close();
-    }
-#endif
-*/
-
     if(title.length()) {
         QTextStream( stdout ) << QString(title).prepend("[").append("] ") << m.toUtf8().constData() << endl;
     }
@@ -114,6 +89,17 @@ void default_ub_write(const QString &msg, const QString &title)
     }
 }
 
+void error_ub_write(const QString &msg, const QString &title)
+{
+    QString m = cleanTag(msg);
+
+    if(title.length()) {
+        QTextStream( stderr ) << QString(title).prepend("[").append("] ") << m.toUtf8().constData() << endl;
+    }
+    else {
+        QTextStream( stderr ) << m.toUtf8().constData() << endl;
+    }
+}
 
 
 #ifdef PQDEBUG

@@ -20,12 +20,16 @@
 #include "ipqengineext.h"
 #include "pqengine_global.h"
 
-typedef struct _PQEngineModule {
-    void (*ub_write)(const QString &msg,
-                     const QString &title);
-    void (*pre)(const QString &msg,
-                     const QString &title);
-} PQEngineModule;
+struct PQEngineInitConf {
+    QString appName = "PQEngine application";
+    QString appVersion = "1.0";
+    QString orgName = "PHPQt5";
+    QString orgDomain = "phpqt.ru";
+    QString hashKey = "0x0";
+    QString pmd5;
+    QString debugSocketName = "PQEngine Debug Server";
+    bool checkName = false;
+};
 
 class PQEnginePrivate;
 class PQEngine
@@ -35,14 +39,8 @@ public:
 
     bool                    init(int argc,
                                  char **argv,
-                                 QString pmd5,
-                                 const QString &coreName = "",
-                                 bool checkName = false,
-                                 const QString &hashKey = "0x0",
-                                 const QString &appName = "PQEngine application",
-                                 const QString &appVersion = "0.1",
-                                 const QString &orgName = "PHPQt5",
-                                 const QString &orgDomain = "phpqt.ru");
+                                 const QString &coreName,
+                                 const PQEngineInitConf &ic);
 
     int                     exec(const char *script = "-");
 

@@ -34,13 +34,3 @@ bool PQEngineCore::start() {
 bool PQEngineCore::finalize() {
     return true;
 }
-
-void PQEngineCore::ub_write(const QString &msg)
-{
-    default_ub_write(msg, "");
-}
-
-void PQEngineCore::pre(const QString &msg, const QString &title)
-{
-    default_ub_write(msg, title);
-}

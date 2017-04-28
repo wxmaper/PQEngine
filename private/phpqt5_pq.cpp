@@ -46,46 +46,21 @@ size_t pq_stream_fsizer(void *dataStreamPtr)
 }
 
 
-void (*ub_write_fn_ptr)(const QString &msg) = 0;
 void pq_ub_write(const QString &msg)
 {
-    if(!ub_write_fn_ptr) {
-        foreach (IPQExtension *pqext, PQEnginePrivate::pqExtensions) {
-            if(pqext->entry().use_ub_write) {
-                ub_write_fn_ptr = pqext->entry().ub_write;
-                break;
-            }
-        }
-    }
-
-    if(ub_write_fn_ptr) {
-        ub_write_fn_ptr( msg );
-    }
+    default_ub_write(msg, "");
 }
 
-void (*pre_fn_ptr)(const QString &msg, const QString &title) = 0;
 void pq_pre(const QString &msg, const QString &title)
 {
-    if(!pre_fn_ptr) {
-        foreach(IPQExtension *pqext, PQEnginePrivate::pqExtensions) {
-            if(pqext->entry().use_pre) {
-                pre_fn_ptr = pqext->entry().pre;
-                break;
-            }
-        }
-    }
-
-    if(pre_fn_ptr) {
-        pre_fn_ptr(msg, title);
-    }
+    default_ub_write(msg, title);
 }
 
 void PHPQt5::pq_prepare_args(int argc,
-                             char** argv
-                             PQDBG_LVL_DC)
+                             char** argv)
 {
 #ifdef PQDEBUG
-    PQDBG_LVL_PROCEED(__FUNCTION__);
+    PQDBG_LVL_START(__FUNCTION__);
     PQDBGLPUP(QString("argc: %1").arg(argc));
 #endif
 
@@ -384,7 +359,7 @@ void PHPQt5::pq_qdbg_message(zval *value, zval *return_value, const QString &fty
 
 #ifdef PQDEBUG
     QString msg(Z_STRVAL_P(return_value));
-    default_ub_write(msg, ftype);
+    default_ub_write(msg, QStringLiteral("qCritical"));
 
     pqdbg_send_message({
                            { "command", ftype },
@@ -392,7 +367,7 @@ void PHPQt5::pq_qdbg_message(zval *value, zval *return_value, const QString &fty
                            { "message", msg }
                        });
 #else
-    Q_UNUSED(ftype)
+    Q_UNUSED(ftype);
 #endif
 
     php_output_discard();

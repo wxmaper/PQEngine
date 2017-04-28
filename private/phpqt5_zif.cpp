@@ -660,13 +660,20 @@ void PHPQt5::zif_qDebug(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zval *value;
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &value) == FAILURE) {
-        php_error(E_PARSE, "wrong parameters for qDebug");
-        PQDBG_LVL_RETURN();
+    const int argc = ZEND_NUM_ARGS();
+    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+    if (ZEND_NUM_ARGS() < 1
+            || zend_get_parameters_array_ex(argc, args) == FAILURE) {
+        efree(args);
+        WRONG_PARAM_COUNT;
+        PQDBG_LVL_DONE();
     }
 
-    pq_qdbg_message(value, return_value, "qDebug");
+    for (int argn = 0; argn < argc; argn++) {
+        pq_qdbg_message(&args[argn], return_value, QStringLiteral("qDebug"));
+    }
+
+    efree(args);
 
     PQDBG_LVL_DONE();
 }
@@ -677,13 +684,20 @@ void PHPQt5::zif_qWarning(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zval *value;
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &value) == FAILURE) {
-        php_error(E_PARSE, "wrong parameters for qWarning");
-        PQDBG_LVL_RETURN();
+    const int argc = ZEND_NUM_ARGS();
+    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+    if (ZEND_NUM_ARGS() < 1
+            || zend_get_parameters_array_ex(argc, args) == FAILURE) {
+        efree(args);
+        WRONG_PARAM_COUNT;
+        PQDBG_LVL_DONE();
     }
 
-    pq_qdbg_message(value, return_value, "qWarning");
+    for (int argn = 0; argn < argc; argn++) {
+        pq_qdbg_message(&args[argn], return_value, QStringLiteral("qWarning"));
+    }
+
+    efree(args);
 
     PQDBG_LVL_DONE();
 }
@@ -694,13 +708,20 @@ void PHPQt5::zif_qCritical(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zval *value;
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &value) == FAILURE) {
-        php_error(E_PARSE, "wrong parameters for qCritical");
-        PQDBG_LVL_RETURN();
+    const int argc = ZEND_NUM_ARGS();
+    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+    if (ZEND_NUM_ARGS() < 1
+            || zend_get_parameters_array_ex(argc, args) == FAILURE) {
+        efree(args);
+        WRONG_PARAM_COUNT;
+        PQDBG_LVL_DONE();
     }
 
-    pq_qdbg_message(value, return_value, "qCritical");
+    for (int argn = 0; argn < argc; argn++) {
+        pq_qdbg_message(&args[argn], return_value, QStringLiteral("qCritical"));
+    }
+
+    efree(args);
 
     PQDBG_LVL_DONE();
 }
@@ -711,13 +732,20 @@ void PHPQt5::zif_qInfo(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zval *value;
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &value) == FAILURE) {
-        php_error(E_PARSE, "wrong parameters for qInfo");
-        PQDBG_LVL_RETURN();
+    const int argc = ZEND_NUM_ARGS();
+    zval *args = (zval *) safe_emalloc(argc, sizeof(zval), 0);
+    if (ZEND_NUM_ARGS() < 1
+            || zend_get_parameters_array_ex(argc, args) == FAILURE) {
+        efree(args);
+        WRONG_PARAM_COUNT;
+        PQDBG_LVL_DONE();
     }
 
-    pq_qdbg_message(value, return_value, "qInfo");
+    for (int argn = 0; argn < argc; argn++) {
+        pq_qdbg_message(&args[argn], return_value, QStringLiteral("qInfo"));
+    }
+
+    efree(args);
 
     PQDBG_LVL_DONE();
 }
@@ -735,6 +763,7 @@ void PHPQt5::zif_qFatal(INTERNAL_FUNCTION_PARAMETERS)
     }
 
     pq_qdbg_message(value, return_value, "qFatal");
+    php_error(E_ERROR, Z_STRVAL_P(return_value));
 
     PQDBG_LVL_DONE();
 }

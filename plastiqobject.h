@@ -42,6 +42,7 @@ extern PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem);
 extern bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature);
 extern void PlastiQ_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature, PMOGStack stack);
 extern void PlastiQ_self_destroy(PQObjectWrapper *pqobject);
+extern void PlastiQ_connectSlotsByName(PQObjectWrapper *pqobject);
 
 class VirtualMethod {
     QByteArray _functionName;

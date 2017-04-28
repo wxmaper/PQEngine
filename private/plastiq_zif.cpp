@@ -3,6 +3,9 @@
 #include "plastiqobject.h"
 #include "plastiqmethod.h"
 #include "phpqt5constants.h"
+#include "pqengine_private.h"
+
+#include <pqenginecore.h>
 
 QHash<QString,zval> PHPQt5::loadChilds(QObject *object) {
 #ifdef PQDEBUG
@@ -45,153 +48,52 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    using namespace PHPQt5NS;
-
+    RETVAL_NULL();
     zval *zobject;
-    char *uiPath;
-    int uiPathLen;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "so", &uiPath, &uiPathLen, &zobject) == FAILURE) {
+    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
         return;
     }
 
-    QFile *file = new QFile(uiPath);
-    if (file->exists()) {
-        if (objectFactory()->havePlastiQMetaObject(QUILOADER_CLASS)) {
-            if (objectFactory()->havePlastiQMetaObject(QFILE_CLASS)) {
-                zval zFile = pq_create_extra_object(QFILE_CLASS, file, false, true);
-                Z_DELREF(zFile);
+    const char* fileName = zend_get_executed_filename();
+    QFileInfo fi(fileName);
 
-                zval zUiLoader;
-                zend_class_entry *ce = objectFactory()->getClassEntry(QUILOADER_CLASS);
-                object_init_ex(&zUiLoader, ce);
+    IPQExtension *coreExt = PQEnginePrivate::pqExtensions.at(0);
+    PlastiQ::IPlastiQUi *ui = coreExt->plastiqForms().value(fi.fileName().toUtf8(), Q_NULLPTR);
 
-                PMOGStack stack = new PMOGStackItem[1];
-
-                objectFactory()->createPlastiQObject(QUILOADER_CLASS,
-                                                     QByteArrayLiteral("QUiLoader()"),
-                                                     &zUiLoader,
-                                                     false,
-                                                     stack);
-
-                PQObjectWrapper *pqobjectUiLoader = fetch_pqobject(Z_OBJ(zUiLoader));
-
-                file->open(QIODevice::ReadOnly);
-
-                int argc = 1;
-                zval argv;
-                array_init(&argv);
-                add_next_index_zval(&argv, &zFile);
-
-                zend_class_entry *zobjectce = Z_OBJCE_P(zobject);
-                do {
-                    if (objectFactory()->havePlastiQMetaObject(zobjectce->name->val)) {
-                        add_next_index_zval(&argv, zobject);
-                        argc++;
-                        break;
-                    }
-                } while (zobjectce = zobjectce->parent);
-
-                zval zWidget = plastiqCall(pqobjectUiLoader,
-                                           QByteArrayLiteral("load"),
-                                           argc, &argv);
-
-                file->close();
-                delete file;
-                delete [] stack;
-
-                // create $this->ui property
-                zval ui;
-                object_init(&ui);
-
-                PQObjectWrapper *pqobjectWidget = fetch_pqobject(Z_OBJ(zWidget));
-                QObject *widget = pqobjectWidget->object->plastiq_toQObject();
-
-                QHash<QString,zval> objectList; // objectName -> zval
-                objectList = loadChilds(widget);
-
-                QMutableHashIterator<QString,zval> objectListIt(objectList);
-                while (objectListIt.hasNext()) {
-                    objectListIt.next();
-                    zend_update_property(Z_OBJCE(ui), &ui,
-                                         objectListIt.key().toUtf8().constData(), objectListIt.key().length(),
-                                         &objectListIt.value());
-                }
-
-                zend_update_property(Z_OBJCE_P(zobject), zobject, "ui", 2, &ui);
-
-                // connect slots by name
-                ulong num_key;
-                zend_string *key;
-                zval *zv;
-                zend_op_array *op_array;
-
-                ZEND_HASH_FOREACH_KEY_VAL(&Z_OBJ_P(zobject)->ce->function_table,
-                                          num_key, key,
-                                          zv) {
-                    if (key) { //HASH_KEY_IS_STRING
-
-                        const QString functionName(key->val);
-
-                        int endObjectName = functionName.indexOf("_", 4);
-
-                        if (functionName.startsWith("on_") && endObjectName > 0) {
-                            op_array = (zend_op_array*) Z_PTR_P(zv);
-                            if (op_array->doc_comment && op_array->doc_comment->val) {
-                                const QString docComment(op_array->doc_comment->val);
-                                const QRegExp rx(QStringLiteral("@slot on_(.*)_(.*)(\\(.*\\))"));
-
-                                if (rx.indexIn(docComment) > 0) {
-                                    const QString objectName = rx.cap(1);
-                                    const QString signalName = rx.cap(2);
-                                    QString args = rx.cap(3);
-
-                                    QRegExp rx2(QStringLiteral("\\((.*,)"));
-                                    rx2.setMinimal(true);
-                                    if (args.indexOf(",") > 0) args.replace(rx2, "(");
-                                    else args = "()";
-
-                                    if (objectList.contains(objectName)) {
-                                        zval lzv = objectList.take(objectName);
-                                        plastiqConnect(&lzv,
-                                                       signalName + args,
-                                                       zobject,
-                                                       functionName + args,
-                                                       false);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } ZEND_HASH_FOREACH_END();
-
-                Z_DELREF(argv);
-                PQDBG_LVL_DONE();
-                RETURN_ZVAL(&zWidget, 1, 0);
-            }
-            else {
-                delete file;
-                zend_error(E_ERROR,
-                           QString("Error loading UI file: Class '%1' not found")
-                           .arg(QFILE_CLASS).toUtf8().constData());
-            }
-        }
-        else {
-            delete file;
-            zend_error(E_ERROR,
-                       QString("Error loading UI file: Class '%1' not found")
-                       .arg(QUILOADER_CLASS).toUtf8().constData());
-        }
-    }
-    else {
-        delete file;
-        zend_error(E_ERROR,
-                   QString("Error opening UI file: file '%1' does not exists")
-                   .arg(uiPath).toUtf8().constData());
+    if (!ui) {
+        php_error(E_ERROR, QString("setupUi: not found a UI interface for `%1'.")
+                  .arg(fi.fileName()).toUtf8().constData());
     }
 
-    if (file)
-        delete file;
+    if (!pq_test_ce(zobject)) {
+        php_error(E_ERROR, "setupUi: parent class is not QWidget.");
+    }
+
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    switch (pqobject->object->plastiq_objectType()) {
+    case PlastiQ::IsQWidget:
+    case PlastiQ::IsQWindow: {
+        QObject *obj = pqobject->object->plastiq_toQObject();
+        ui->setupUi(pqobject, obj);
+
+        zval retUi;
+        object_init(&retUi);
+        QHash<QString,zval> objectList = loadChilds(obj);
+
+        QMutableHashIterator<QString,zval> it(objectList);
+        while (it.hasNext()) {
+            it.next();
+            zend_update_property(Z_OBJCE(retUi), &retUi,
+                                 it.key().toUtf8().constData(), it.key().length(), &it.value());
+        }
+
+        RETVAL_ZVAL(&retUi, 1, 0);
+    } break;
+
+    default:
+        php_error(E_ERROR, "setupUi: parent class is not QWidget.");
+    }
 
     PQDBG_LVL_DONE();
 }

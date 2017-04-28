@@ -117,7 +117,7 @@ public:
     static QByteArray       toW(const QByteArray &ba);
     static QByteArray       toUTF8(const QByteArray &ba);
 
-    static void             pq_prepare_args(int argc, char** argv PQDBG_LVL_DC);
+    static void             pq_prepare_args(int argc, char** argv);
     static QStringList      pq_get_arguments();
 
     /* PHPQt5 Conversions */
@@ -359,6 +359,10 @@ public:
     static bool             doActivateConnection(PQObjectWrapper *sender, const char *signal,
                                                  PQObjectWrapper *receiver, const char *slot,
                                                  int argc, zval *params, bool dtor_params = false);
+    static bool             plastiqConnect(zval *z_sender, const QString &signalSignature,
+                                           zval *z_receiver, const QString &slotSignature,
+                                           bool isOnSignal);
+
 
 #ifdef PQDEBUG
     static QLocalSocket*      debugSocket() {
@@ -387,7 +391,6 @@ private:
     static void             zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS);
     static void             zim_plastiq_testFn(INTERNAL_FUNCTION_PARAMETERS);
     static zval             plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName, int argc, zval *argv, const PlastiQMetaObject *metaObject = Q_NULLPTR);
-    static bool             plastiqConnect(zval *z_sender, const QString &signalSignature, zval *z_receiver, const QString &slotSignature, bool isOnSignal);
     static void             plastiqErrorHandler(int error_num, const char *error_filename, const uint error_lineno, const char *format, va_list args);
     // static void             plastiqEventCast(QEvent *event);
 

@@ -609,7 +609,7 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
     PQDBGLPUP(QString("QThread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
 
-    if(TSRMLS_CACHE == Q_NULLPTR || TSRMLS_CACHE == 0) {
+    if (TSRMLS_CACHE == Q_NULLPTR || TSRMLS_CACHE == 0) {
         TSRMLS_CACHE = PlastiQThreadCreator::get_tsrmls_cache(QThread::currentThread());
         PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
         //PQDBGLPUP("tsrm_new_interpreter_context");
@@ -635,7 +635,7 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
 
     zval z_receiver;
     quint64 receiverId = 0;
-    if(receiver->isClosure) {
+    if (receiver->isClosure) {
         PQDBGLPUP("CLOSURE CONNECTION");
         ZVAL_OBJ(&z_receiver, receiver->zoptr);
         receiverId = reinterpret_cast<quint64>(receiver->zoptr);
@@ -647,7 +647,7 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     }
 
 #ifdef PQDEBUG
-    if(sender != Q_NULLPTR) {
+    if (sender != Q_NULLPTR) {
         zval z_sender;
         ZVAL_OBJ(&z_sender, &sender->zo);
 
@@ -693,19 +693,8 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     PQDBGLPUP(QString("function_name: %1").arg(slot));
     ZVAL_STRINGL(&fci.function_name, slot, strlen(slot));
 
-    /* "PHP-7 doesn't support symbol_table substitution for functions" -> WHY!? >=[
-    zval symbol_table;
-    array_init(&symbol_table);
-
-    zend_string *var_name = zend_string_init("sender", sizeof("sender")-1, 1);
-    zend_hash_add(Z_ARRVAL(symbol_table), var_name, &z_sender);
-    Z_ADDREF(z_sender);
-
-    fci.symbol_table = Z_ARRVAL(symbol_table);
-    */
-    PQDBGLPUP("symbol_table");
-
 #if (PHP_VERSION_ID < 70101)
+    PQDBGLPUP("symbol_table");
     fci.symbol_table = NULL; // removed in php 7.1.1
 #endif
 
@@ -719,11 +708,8 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     //    zend_class_entry *old_scope = EG(scope);
     //    EG(scope) = Z_OBJCE(z_receiver);
 
-    //zval function_name;
-    //ZVAL_STRING(&function_name, slot.constData());
-    //if(call_user_function(NULL, &z_receiver, &function_name, &retval, argc, params) == SUCCESS) {
     PQDBGLPUP("zend_call_function");
-    if(zend_call_function(&fci, &fcc) == SUCCESS) {
+    if (zend_call_function(&fci, &fcc) == SUCCESS) {
         if(!fcached) {
             PQDBGLPUP("update call cache");
             call_cache.insert(functionSig, fcc);
@@ -733,12 +719,11 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
         PQDBGLPUP("ERROR");
     }
 
-
     //    PQDBGLPUP("restore scope");
     //    EG(scope) = old_scope;
 
     bool ret = false;
-    if(Z_TYPE(retval) == IS_TRUE
+    if (Z_TYPE(retval) == IS_TRUE
             || (Z_TYPE(retval) == IS_LONG && Z_LVAL(retval) != 0)
             || (Z_TYPE(retval) == IS_STRING && strlen(Z_STRVAL(retval)))) {
         ret = true;
@@ -747,20 +732,19 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     zval_dtor(&retval);
     zval_dtor(&fci.function_name);
 
-    if(dtor_params) {
+    if (dtor_params) {
         zval_dtor(params);
     }
 
-    if(sender == Q_NULLPTR && receiver->isClosure) {
+    if (sender == Q_NULLPTR && receiver->isClosure) {
         Z_DELREF(z_receiver);
         delete receiver;
         receiver = 0;
     }
 
     // zval_dtor(&symbol_table); // не нужно (!)
-    // zend_string_free(var_name);
 
-    if(old_tsrmls_cache != Q_NULLPTR) {
+    if (old_tsrmls_cache != Q_NULLPTR) {
         TSRMLS_CACHE = tsrm_set_interpreter_context(old_tsrmls_cache);
 
         PQDBGLPUP(QString("tsrm_set_interpreter_context from `%1` to `%2`")
@@ -769,7 +753,7 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     }
 
 #ifdef PQDEBUG
-    if(sender != Q_NULLPTR) {
+    if (sender != Q_NULLPTR) {
         zval z_sender;
         ZVAL_OBJ(&z_sender, &sender->zo);
 
@@ -805,6 +789,10 @@ void VirtualMethod::call(PQObjectWrapper *pqobject, PMOGStack stack) const
         ZVAL_ZVAL(&params[i], &tmpz, 1, 0);
     }
 
+    PHPQt5::doActivateConnection(Q_NULLPTR, "VirtualMethod::call", pqobject,
+                                 _functionName.constData(), _argc, params, true);
+
+    /*
     PQDBGLPUP("generate call info");
     zval retval;
     zend_fcall_info fci;
@@ -831,7 +819,65 @@ void VirtualMethod::call(PQObjectWrapper *pqobject, PMOGStack stack) const
     else {
         PQDBGLPUP("ERROR");
     }
+    */
 
     PQDBG_LVL_DONE_LPUP();
 }
 
+void PlastiQ_connectSlotsByName(PQObjectWrapper *pqobject)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    // connect slots by name
+    ulong num_key;
+    zend_string *key;
+    zval *zv;
+    zend_op_array *op_array;
+
+    HashTable *ht = (&pqobject->zo.ce->function_table);
+
+    //PQObjectWrapper *pqobjectWidget = fetch_pqobject(Z_OBJ(zWidget));
+    //QObject *widget = pqobjectWidget->object->plastiq_toQObject();
+    QHash<QString,zval> objectList; // objectName -> zval
+    objectList = PHPQt5::loadChilds(pqobject->object->plastiq_toQObject());
+
+    zval zobject;
+    ZVAL_OBJ(&zobject, &pqobject->zo);
+
+    ZEND_HASH_FOREACH_KEY_VAL(ht, num_key, key, zv) {
+        if (key) { //HASH_KEY_IS_STRING
+            const QString functionName(key->val);
+
+            int endObjectName = functionName.indexOf("_", 4);
+
+            if (functionName.startsWith("on_") && endObjectName > 0) {
+                op_array = (zend_op_array*) Z_PTR_P(zv);
+                if (op_array->doc_comment && op_array->doc_comment->val) {
+                    const QString docComment(op_array->doc_comment->val);
+                    const QRegExp rx(QStringLiteral("@slot on_(.*)_(.*)(\\(.*\\))"));
+
+                    if (rx.indexIn(docComment) > 0) {
+                        const QString objectName = rx.cap(1);
+                        const QString signalName = rx.cap(2);
+                        QString args = rx.cap(3);
+
+                        QRegExp rx2(QStringLiteral("\\((.*,)"));
+                        rx2.setMinimal(true);
+                        if (args.indexOf(",") > 0) args.replace(rx2, "(");
+                        else args = "()";
+
+                        if (objectList.contains(objectName)) {
+                            zval lzv = objectList.take(objectName);
+                            PHPQt5::plastiqConnect(&lzv, signalName + args,
+                                                   &zobject, functionName + args, false);
+                        }
+                    }
+                }
+            }
+        }
+    } ZEND_HASH_FOREACH_END();
+
+    PQDBG_LVL_DONE();
+}

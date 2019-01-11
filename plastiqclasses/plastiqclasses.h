@@ -11,4 +11,5 @@ public:
 private:
     static QHash<QByteArray, int> plastiqTypes;
 };
+
 #endif // PLASTIQCLASSES_H

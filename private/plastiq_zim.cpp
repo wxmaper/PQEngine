@@ -35,13 +35,18 @@ void PHPQt5::zim_qenum___construct(INTERNAL_FUNCTION_PARAMETERS)
     default:
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramer_class_error(1, (char*) "long", enum_zval);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameter_class_error(1, (char*) "long", enum_zval);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameter_class_error(1, (char*) "long", enum_zval);
+#else
+        zend_wrong_parameter_class_error(1, 1, (char*) "long", enum_zval);
 #endif
     }
 
     PQDBG_LVL_DONE();
 }
+
 
 void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
 {
@@ -81,12 +86,12 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
     PMOGStack stack = new PMOGStackItem[10];
     QList<pq_tmp_call_info> tciList;
 
-    for(int i = 0; i < argc; i++) {
+    for (int i = 0; i < argc; i++) {
         entry = &args[i];
         types << Z_TYPE_P(entry);
         int sidx = i + 1;
 
-        switch(Z_TYPE_P(entry)) {
+        switch (Z_TYPE_P(entry)) {
         case IS_TRUE:
             argsTypes += argsTypes.length()
                     ? ",bool" : "bool";
@@ -209,8 +214,12 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
             else {
 #if (PHP_VERSION_ID < 70101)
                 zend_wrong_paramer_class_error(i, (char*) "Object", entry);
-#else
+#elif (PHP_VERSION_ID < 70200)
                 zend_wrong_parameter_class_error(i, (char*) "Object", entry);
+#elif (PHP_VERSION_ID >= 70300)
+                zend_wrong_parameter_class_error(1, (char*) "long", entry);
+#else
+                zend_wrong_parameter_class_error(1, i, (char*) "Object", entry);
 #endif
             }
         } break;
@@ -232,7 +241,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
             className = QByteArray(ce->name->val);
             break;
         } else isWrapper = true; // php-class was extends a qt-class
-    } while(ce = ce->parent);
+    } while (ce = ce->parent);
 
     PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
     QByteArray signature = QString("%1(%2)").arg(className.constData()).arg(argsTypes).toUtf8();
@@ -259,7 +268,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
         QList<PlastiQCandidateMethod> candidates = metaObject.candidates(className, argc, PlastiQMethod::Constructor);
         PQDBGLPUP(QString("general call: candidates size: %1").arg(candidates.size()));
 
-        bool right;
+        bool right = false;
         for(int cid = 0; cid < candidates.size(); cid++) {
 
             QString d_argsTypes;
@@ -614,12 +623,13 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
             }
         }
 
-        if(right) {
+        if (right) {
             signature = QString("%1(%2)").arg(className.constData()).arg(QString(argsTypes).replace(" ", "")).toUtf8();
             PQDBGLPUP(QString("generated signature: %1").arg(signature.constData()));
             objectFactory()->createPlastiQObject(className, signature, getThis(), isWrapper, stack);
         }
         else {
+            //zend_throw_error(NULL, "Cannot create object: wrong param types");
             php_error(E_ERROR, "Cannot create object: wrong param types");
         }
     }
@@ -918,6 +928,143 @@ void PHPQt5::zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_DONE();
 }
 
+
+void PHPQt5::zim_plastiq___add(INTERNAL_FUNCTION_PARAMETERS)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("%1:%2 - z:%3")
+              .arg(Z_OBJCE_NAME_P(getThis()))
+              .arg("0")
+              .arg(Z_OBJ_HANDLE_P(getThis())));
+#endif
+
+    zval *arg;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &arg) == FAILURE) {
+        PQDBG_LVL_DONE();
+        return;
+    }
+
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+
+    zval argv;
+    array_init(&argv);
+    add_next_index_zval(&argv, arg);
+
+    zval retVal = plastiqCall(pqobject, QByteArrayLiteral("__add"), 1, &argv);
+
+    //zval_dtor(&argv);
+
+    if(Z_TYPE(retVal) != IS_UNDEF) {
+        RETVAL_ZVAL(&retVal, 1, 0);
+    }
+
+    PQDBG_LVL_DONE();
+}
+
+void PHPQt5::zim_plastiq___sub(INTERNAL_FUNCTION_PARAMETERS)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("%1:%2 - z:%3")
+              .arg(Z_OBJCE_NAME_P(getThis()))
+              .arg("0")
+              .arg(Z_OBJ_HANDLE_P(getThis())));
+#endif
+
+    zval *arg;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &arg) == FAILURE) {
+        PQDBG_LVL_DONE();
+        return;
+    }
+
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+
+    zval argv;
+    array_init(&argv);
+    add_next_index_zval(&argv, arg);
+
+    zval retVal = plastiqCall(pqobject, QByteArrayLiteral("__sub"), 1, &argv);
+
+    //zval_dtor(&argv);
+
+    if(Z_TYPE(retVal) != IS_UNDEF) {
+        RETVAL_ZVAL(&retVal, 1, 0);
+    }
+
+    PQDBG_LVL_DONE();
+}
+
+void PHPQt5::zim_plastiq___mul(INTERNAL_FUNCTION_PARAMETERS)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("%1:%2 - z:%3")
+              .arg(Z_OBJCE_NAME_P(getThis()))
+              .arg("0")
+              .arg(Z_OBJ_HANDLE_P(getThis())));
+#endif
+
+    zval *arg;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &arg) == FAILURE) {
+        PQDBG_LVL_DONE();
+        return;
+    }
+
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+
+    zval argv;
+    array_init(&argv);
+    add_next_index_zval(&argv, arg);
+
+    zval retVal = plastiqCall(pqobject, QByteArrayLiteral("__mul"), 1, &argv);
+
+    //zval_dtor(&argv);
+
+    if(Z_TYPE(retVal) != IS_UNDEF) {
+        RETVAL_ZVAL(&retVal, 1, 0);
+    }
+
+    PQDBG_LVL_DONE();
+}
+
+void PHPQt5::zim_plastiq___div(INTERNAL_FUNCTION_PARAMETERS)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+    PQDBGLPUP(QString("%1:%2 - z:%3")
+              .arg(Z_OBJCE_NAME_P(getThis()))
+              .arg("0")
+              .arg(Z_OBJ_HANDLE_P(getThis())));
+#endif
+
+    zval *arg;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &arg) == FAILURE) {
+        PQDBG_LVL_DONE();
+        return;
+    }
+
+    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+
+    zval argv;
+    array_init(&argv);
+    add_next_index_zval(&argv, arg);
+
+    zval retVal = plastiqCall(pqobject, QByteArrayLiteral("__div"), 1, &argv);
+
+    //zval_dtor(&argv);
+
+    if(Z_TYPE(retVal) != IS_UNDEF) {
+        RETVAL_ZVAL(&retVal, 1, 0);
+    }
+
+    PQDBG_LVL_DONE();
+}
+
 void PHPQt5::zim_plastiq___toString(INTERNAL_FUNCTION_PARAMETERS)
 {
 #ifdef PQDEBUG
@@ -1040,8 +1187,12 @@ void PHPQt5::zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS)
     default:
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(argc, 2, 4);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameters_count_error(argc, 2, 4);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameters_count_error(2, 4);
+#else
+        zend_wrong_parameters_count_error(1, argc, 2, 4);
 #endif
     }
 

@@ -1,6 +1,7 @@
 #include "phpqt5objectfactory.h"
 #include "phpqt5.h"
 
+#include "plastiqmetaobject.h"
 #include "plastiqobject.h"
 #include "phpqt5constants.h"
 
@@ -467,8 +468,6 @@ void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval 
 PHPQt5ObjectFactory::PHPQt5ObjectFactory(QObject *parent) :
     QObject(parent)
 {
-    qRegisterMetaType<pq_nullptr>("pq_nullptr");
-    qRegisterMetaType<pq_nullptr*>("pq_nullptr*");
     qRegisterMetaType<QObjectList>("QObjectList");
     qRegisterMetaType<QObjectList*>("QObjectList*");
 }
@@ -542,7 +541,7 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
             pqobject->userProperties = Q_NULLPTR;
         }
 
-        if(!pqobject->isExtra) {
+        if (!pqobject->isExtra || pqobject->isCopy) {
 #ifdef PQDEBUG
             pqdbg_send_message({
                                    { "command", "deleteObject" },

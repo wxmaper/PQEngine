@@ -1,4 +1,4 @@
-PQ_PHP_VERSION=7.1.1
+PQ_PHP_VERSION=7.3.1
 
 # Path to PHP sources
 PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
@@ -15,13 +15,16 @@ DEFINES += PQENGINE_LIBRARY
 DEFINES += PQSTATIC
 
 # Use this define for debug messages
-DEFINES += PQDEBUG
-DEFINES += PQDETAILEDDEBUG
+#DEFINES += PQDEBUG
+#DEFINES += PQDETAILEDDEBUG
 
 ##########################################
 ###### Don't change contents below! ######
 ##########################################
 QT += core xml
+
+CONFIG += c++11 qt
+QT -= gui
 
 contains(DEFINES, PQDEBUG) {
     QT += network
@@ -31,15 +34,45 @@ contains(DEFINES, PQDEBUG) {
 }
 
 contains(DEFINES, PQENGINE_LIBRARY) {
-    contains(DEFINES, PQENGINE_LIBRARY) {
-        CONFIG += staticlib
-    }
     TEMPLATE = lib
-    CONFIG += c++11 qt
+
+    contains(DEFINES, PQSTATIC): CONFIG += staticlib
+    !contains(DEFINES, PQSTATIC): DEFINES += PQEXPORT
 } else {
     TEMPLATE = app
-    CONFIG += c++11 qt
     SOURCES += main.cpp
+    DEFINES += PQEXPORT
+}
+
+equals(TEMPLATE, app) {
+    SOURCES += main.cpp
+}
+
+equals(TEMPLATE, app) || contains(DEFINES, PQEXPORT) {
+    SOURCES += plastiqclasses/plastiqclasses.cpp
+    include(plastiqextensions.pri)
+
+    for (PLASTIQ_EXTENSIONS_LIB, PLASTIQ_EXTENSIONS_LIBS) {
+        INCLUDEPATH += $${PLASTIQ_EXTENSIONS_SRC_PATH}/$$dirname(PLASTIQ_EXTENSIONS_LIB)
+        INCLUDEPATH += $${PLASTIQ_EXTENSIONS_SRC_PATH}/$$dirname(PLASTIQ_EXTENSIONS_LIB)/PlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)
+
+        !contains(QT, $$dirname(PLASTIQ_EXTENSIONS_LIB)) {
+            QT += $$dirname(PLASTIQ_EXTENSIONS_LIB)
+            message(Add Qt module: $$dirname(PLASTIQ_EXTENSIONS_LIB))
+        }
+
+        CONFIG(release, debug|release) {
+            LIBS += -L$${PLASTIQ_EXTENSIONS_LIB_PATH}/$$dirname(PLASTIQ_EXTENSIONS_LIB)/PlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)/release -lPlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)
+            message(Add PlastiQ extension: `$$dirname(PLASTIQ_EXTENSIONS_LIB)/PlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)' in `$${PLASTIQ_EXTENSIONS_LIB_PATH}' [release])
+        }
+
+        CONFIG(debug, debug|release) {
+            LIBS += -L$${PLASTIQ_EXTENSIONS_LIB_PATH}/$$dirname(PLASTIQ_EXTENSIONS_LIB)/PlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)/debug -lPlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)
+            message(Add PlastiQ extension: `$$dirname(PLASTIQ_EXTENSIONS_LIB)/PlastiQ$$basename(PLASTIQ_EXTENSIONS_LIB)' in `$${PLASTIQ_EXTENSIONS_LIB_PATH}' [debug])
+        }
+    }
+
+    INCLUDEPATH += $${PLASTIQ_EXTENSIONS_SRC_PATH}
 }
 
 win32 {
@@ -47,6 +80,7 @@ win32 {
     DEFINES += ZEND_WIN32
     DEFINES += PHP_WIN32
     DEFINES += WIN32
+    #DEFINES += "\"_MSC_VER=1900\"" // only for MSVC
 }
 
 unix {
@@ -88,7 +122,6 @@ SOURCES += \
     plastiqmethod.cpp \
     plastiqmetaobject.cpp \
     private/plastiq_zim.cpp \
-    private/plastiqmetaobjectfactory.cpp \
     private/plastiq_zif.cpp \
     plastiqproperty.cpp \
     private/plastiq.cpp \
@@ -96,13 +129,13 @@ SOURCES += \
     private/plastiq_connections.cpp \
     private/plastiqthreadcreator.cpp \
     private/qevent_cast.cpp \
-    private/plastiq_debug.cpp
+    private/plastiq_debug.cpp \
+    private/phpqt5objectfactory.cpp
 
 HEADERS += \
     pqengine.h\
     pqengine_global.h \
     ipqengineext.h \
-    private/pqengine_private.h \
     private/pqengine_private.h \
     private/phpqt5.h \
     private/simplecrypt.h \
@@ -117,3 +150,18 @@ HEADERS += \
     plastiqproperty.h \
     private/plastiqthreadcreator.h \
     private/phpqt5constants.h
+
+
+# installation
+#libs.path = D:/PQBuilder-0.6.1/Tools/PHPQt5/pqengine/lib
+includes.path = D:/PQBuilder-0.6.1/Tools/PHPQt5/pqengine/include
+
+sources.path = D:/PQBuilder-0.6.1/Tools/PHPQt5/pqengine/source
+private_sources.path = D:/PQBuilder-0.6.1/Tools/PHPQt5/pqengine/source/private
+plastiq_sources.path = D:/PQBuilder-0.6.1/Tools/PHPQt5/pqengine/source/plastiqclasses
+
+#libs.files = $$OUT_PWD/release/*
+sources.files = *.h *.cpp *.pro *.pri *.txt
+private_sources.files = private/*.h private/*.cpp private/*.txt
+plastiq_sources.files = plastiqclasses/*.h plastiqclasses/*.cpp plastiqclasses/*.txt
+INSTALLS += sources private_sources plastiq_sources #libs

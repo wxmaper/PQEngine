@@ -14,6 +14,7 @@
 **
 ****************************************************************************/
 
+#include <QtGlobal>
 #include <QTextStream>
 #include "pqtypes.h"
 #include "pqengine.h"

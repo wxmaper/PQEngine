@@ -17,15 +17,18 @@
 #include "pqengine_private.h"
 #include "phpqt5.h"
 
+#include <QTextCodec>
+
 int PQEnginePrivate::php_pqengine_startup(sapi_module_struct *sapi_module)
 {
     Q_UNUSED(sapi_module)
 
-    /*
-    if (php_module_startup(sapi_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
+    zend_module_entry entry[1];
+    entry[0] = *PHPQt5::phpqt5_module_entry();
+
+    if (php_module_startup(sapi_module, entry, 1) == FAILURE) {
         return FAILURE;
     }
-    */
 
     return SUCCESS;
 }
@@ -68,16 +71,22 @@ void PQEnginePrivate::php_pqengine_register_variables(zval *track_vars_array)
     PQDBG("PQEnginePrivate::php_pqengine_register_variables()");
 #endif
 
-    php_register_variable((char*)"PHP_SELF", (char*)"-", NULL);
+    php_import_environment_variables(track_vars_array);
+    php_register_variable((char*)"PHP_SELF", (char*)"", track_vars_array);
+    php_register_variable((char*)"SCRIPT_NAME", (char*)"", track_vars_array);
+    php_register_variable((char*)"SCRIPT_FILENAME", (char*)"", track_vars_array);
+    php_register_variable((char*)"PATH_TRANSLATED", (char*)"", track_vars_array);
+    php_register_variable((char*)"DOCUMENT_ROOT", (char*)"", track_vars_array);
 
+    /*
     char buf[128];
     char **env, *p, *t = buf;
     size_t alloc_size = sizeof(buf);
-    unsigned long nlen; /* ptrdiff_t is not portable */
+    unsigned long nlen; /* ptrdiff_t is not portable *
 
     for (env = environ; env != NULL && *env != NULL; env++) {
         p = strchr(*env, '=');
-        if (!p) {				/* malformed entry? */
+        if (!p) {				/* malformed entry? *
             continue;
         }
         nlen = p - *env;
@@ -92,14 +101,22 @@ void PQEnginePrivate::php_pqengine_register_variables(zval *track_vars_array)
     if (t != buf && t != NULL) {
         efree(t);
     }
+    */
 }
-#include <QTextCodec>
+
+#if (PHP_VERSION_ID < 70100)
+void PQEnginePrivate::php_pqengine_log_message(char *message)
+#else
 void PQEnginePrivate::php_pqengine_log_message(char *message, int syslog_type_int)
+#endif
 {
 #ifdef PQDEBUG
     PQDBG2("PQEnginePrivate::php_pqengine_log_message()", message);
 #endif
 
+#if (PHP_VERSION_ID >= 70100)
     Q_UNUSED(syslog_type_int)
+#endif
+
     pq_ub_write(PHPQt5::toUTF8(message));
 }

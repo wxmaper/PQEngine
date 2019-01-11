@@ -77,6 +77,9 @@ void PHPQt5::pq_prepare_args(int argc,
 
     ZVAL_LONG(&zargc, argc);
 
+    //SG(request_info).argc=argc;
+    //memcpy(SG(request_info).argv,argv,sizeof(argv));
+
     zend_hash_str_update(&EG(symbol_table), "argv", 4, &z_argv);
     zend_hash_str_add(&EG(symbol_table), "argc", 4, &zargc);
 
@@ -359,7 +362,7 @@ void PHPQt5::pq_qdbg_message(zval *value, zval *return_value, const QString &fty
 
 #ifdef PQDEBUG
     QString msg(Z_STRVAL_P(return_value));
-    default_ub_write(msg, QStringLiteral("qCritical"));
+    default_ub_write(msg, ftype);
 
     pqdbg_send_message({
                            { "command", ftype },
@@ -394,7 +397,8 @@ void PHPQt5::pq_update_wrapper_props(zval *zv, qint64 uid)
 zval PHPQt5::pq_create_extra_object(const QByteArray &className,
                                     void *obj,
                                     bool addToFactoryHash,
-                                    bool isExtra)
+                                    bool isExtra,
+                                    bool isCopy)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
@@ -404,8 +408,8 @@ zval PHPQt5::pq_create_extra_object(const QByteArray &className,
     PlastiQMetaObject metaObject = objectFactory()->getMetaObject(className);
     PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
 
-    PlastiQObject *senderObject = metaObject.createInstanceFromData(reinterpret_cast<void*>(obj));
-    PQDBGLPUP(QString("created object: %1").arg(senderObject->plastiq_metaObject()->className()));
+    PlastiQObject *object = metaObject.createInstanceFromData(reinterpret_cast<void*>(obj));
+    PQDBGLPUP(QString("created object: %1").arg(object->plastiq_metaObject()->className()));
 
     PQDBGLPUP("object_init_ex");
     zval zobject;
@@ -413,9 +417,52 @@ zval PHPQt5::pq_create_extra_object(const QByteArray &className,
 
     PQDBGLPUP("fetch_pqobject");
     PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ(zobject));
-    pqobject->object = senderObject;
+    pqobject->object = object;
     pqobject->isExtra = isExtra;
     pqobject->isValid = true;
+    pqobject->isCopy = isCopy;
+
+    PlastiQ::ObjectType objectType = *(object->plastiq_metaObject()->d.objectType);
+    switch(objectType) {
+    case PlastiQ::IsQtItem: {
+        PQDBGLPUP("object type: IsQtItem");
+
+        pqobject->thread = QThread::currentThread();
+        PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
+                  .arg(reinterpret_cast<quint64>(QThread::currentThread()))
+                  .arg(reinterpret_cast<quint64>(pqobject->ctx)));
+    } break;
+
+    case PlastiQ::IsQtObject: {
+        PQDBGLPUP("object type: IsQtObject");
+        pqobject->thread = QThread::currentThread();
+        PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
+                  .arg(reinterpret_cast<quint64>(QThread::currentThread()))
+                  .arg(reinterpret_cast<quint64>(pqobject->ctx)));
+    } break;
+
+    case PlastiQ::IsQObject:
+    case PlastiQ::IsQWidget:
+    case PlastiQ::IsQWindow: {
+        PQDBGLPUP("object type: IsQObject");
+        PMOGStack stack = new PMOGStackItem[1];
+        metaObject.invokeMethod(object, "thread()", stack);
+        QThread *thread = reinterpret_cast<QThread*>(stack[0].s_voidp);
+        pqobject->thread = thread;
+        PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
+                  .arg(reinterpret_cast<quint64>(thread))
+                  .arg(reinterpret_cast<quint64>(pqobject->ctx)));
+
+        delete [] stack;
+    } break;
+
+    default:
+        PQDBGLPUP("object type: IsObject");
+        pqobject->thread = QThread::currentThread();
+        PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
+                  .arg(reinterpret_cast<quint64>(QThread::currentThread()))
+                  .arg(reinterpret_cast<quint64>(pqobject->ctx)));
+    }
 
     quint64 objectId = reinterpret_cast<quint64>(obj);
     pq_update_wrapper_props(&zobject, objectId);

@@ -20,6 +20,8 @@
 #include "zend_exceptions.h"
 #include <QCryptographicHash>
 
+ZEND_TSRMLS_CACHE_DEFINE()
+
 /* Static variables */
 PQExtensionList PQEnginePrivate::pqExtensions;
 qlonglong PQEnginePrivate::pqHashKey;
@@ -90,12 +92,16 @@ QString normalizePathName(const QString &name) {
 
 static void pqengine_ini_defaults(HashTable *configuration_hash)
 {
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__)
+#endif
+
     INI_DEFAULT("max_execution_time", "0");
     INI_DEFAULT("memory_limit", "3096M");
     INI_DEFAULT("max_input_time", "0");
     INI_DEFAULT("register_argc_argv", "1");
     INI_DEFAULT("implicit_flush", "0");
-    //INI_DEFAULT("register_argc_argv", "1");
+    INI_DEFAULT("display_errors", "1");
 
     QString includePath = normalizePathName(qApp->applicationDirPath()).append("/");
     QString extPath = normalizePathName(qApp->applicationDirPath()).append("/ext");
@@ -104,13 +110,14 @@ static void pqengine_ini_defaults(HashTable *configuration_hash)
     INI_DEFAULT("extension_dir", extPath.replace("/","\\").toUtf8().constData());
     INI_DEFAULT("include_path", includePath.replace("/","\\").toUtf8().constData());
     INI_DEFAULT("windows_show_crt_warnings", "1");
-    INI_DEFAULT("windows.show_crt_warnings", "1");
 #else
     INI_DEFAULT("extension_dir", extPath.toUtf8().constData());
     INI_DEFAULT("include_path", includePath.toUtf8().constData());
 #endif
 
     Q_UNUSED(configuration_hash);
+
+    PQDBG_LVL_DONE();
 }
 
 /* Methods */
@@ -153,12 +160,9 @@ PQEnginePrivate::PQEnginePrivate(PQExtensionList extensions, QObject *parent)
 
     php_pqengine_module.php_ini_ignore = 0;
     php_pqengine_module.php_ini_ignore_cwd = 1;
-    //php_pqengine_module.php_ini_path_override = (char*)"pqengine.ini";
-    //php_pqengine_module.ini_entries = (char *)"extension_dir=\"ext\";";
     php_pqengine_module.ini_defaults = pqengine_ini_defaults;
     php_pqengine_module.phpinfo_as_text = 1;
 }
-
 
 bool test_pmd5(const QString &pmd5) {
     bool php7ts_file_ok = false;
@@ -285,7 +289,10 @@ bool PQEnginePrivate::init(int argc, char **argv, const QString &coreName, const
     pqHashKey = strtoll(hashKey_ba.constData(), 0, 16);
     pqCoreName = coreName;
 
-    php_pqengine_module.executable_location = QByteArray(normalizePathName(qApp->applicationDirPath()).toUtf8()).data();
+    //php_pqengine_module.executable_location = QByteArray(normalizePathName(qApp->applicationDirPath()).toUtf8()).data();
+    QString appPath = normalizePathName(qApp->applicationDirPath());
+    php_pqengine_module.executable_location = (char*) malloc((appPath.length()+1) * sizeof(char));
+    strcpy(php_pqengine_module.executable_location, appPath.toUtf8().constData());
 
     QByteArray iniPath = normalizePathName(qApp->applicationDirPath()).append("/pqengine.ini").toUtf8();
 #ifdef WIN32
@@ -341,6 +348,9 @@ bool PQEnginePrivate::sapi_init()
 
     tsrm_startup(128, 1, 0, NULL);
     ts_resource(0);
+    ZEND_TSRMLS_CACHE_UPDATE();
+
+    zend_signal_startup();
 
     sapi_startup(&php_pqengine_module);
 
@@ -351,10 +361,12 @@ bool PQEnginePrivate::sapi_init()
         return false;
     }
 
+    /*
     if(php_module_startup(&php_pqengine_module, PHPQt5::phpqt5_module_entry(), 1) == FAILURE) {
         PQDBG_LVL_DONE_LPUP();
         return false;
     }
+    */
 
     if(php_request_startup() == FAILURE) {
         PQDBG_LVL_DONE_LPUP();
@@ -371,9 +383,24 @@ void PQEnginePrivate::shutdown(PQDBG_LVL_D)
     PQDBG_LVL_PROCEED(__FUNCTION__);
 #endif
 
+#if (PHP_VERSION_ID >= 70300)
+    // Bug with config_zval_dtor in php 7.3.*
+    zend_unregister_ini_entries(0);
+    HashTable *configuration_hash = php_ini_get_configuration_hash();
+    configuration_hash->pDestructor = NULL;
+    SG(server_context) = NULL;
+#endif
+
+    PQDBGLPUP("php_request_shutdown");
     php_request_shutdown((void *) 0);
+
+    PQDBGLPUP("php_module_shutdown");
     php_module_shutdown();
+
+    PQDBGLPUP("sapi_shutdown");
     sapi_shutdown();
+
+    PQDBGLPUP("tsrm_shutdown");
     tsrm_shutdown();
 
     PQDBG_LVL_DONE_LPUP();
@@ -395,50 +422,44 @@ int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
     if(file.exists()) {
         if(qApp != Q_NULLPTR) delete qApp;
 
+        void *TSRMLS_CACHE = NULL;
+        TSRMLS_CACHE_UPDATE();
+
         zend_file_handle file_handle;
         file_handle.type = ZEND_HANDLE_FILENAME;
         file_handle.filename = script;
         file_handle.free_filename = 0;
         file_handle.opened_path = NULL;
 
-        //        old old implementation
-        //        if(php_execute_script(&file_handle) == SUCCESS)
-        //            return 0;
-        //        else
-        //            return 1;
-
-        //        old implementation
-        //        zend_try {
-        //            if (php_execute_simple_script(&file_handle, &ret) == FAILURE) {
-        //                ZVAL_LONG(&ret, 1);
-        //            }
-        //        } zend_end_try();
-
-        //      new implementation
         zval ret;
+        ZVAL_UNDEF(&ret);
 
-        void *TSRMLS_CACHE = 0;
-        TSRMLS_CACHE_UPDATE();
+#ifdef PQDEBUG
+        php_execute_simple_script(&file_handle, &ret);
+#else
+        // eaten runtime errors. Omnomnom
         zend_try {
             zend_op_array *op_array = compile_file(&file_handle, ZEND_INCLUDE); // dont use zend_compile_file
             if (op_array) {
                 zend_execute(op_array, &ret);
+
+                destroy_op_array(op_array);
+                efree(op_array);
+
                 zend_exception_restore();
                 zend_try_exception_handler();
 
                 if (EG(exception)) {
                     zend_exception_error(EG(exception), E_ERROR);
                 }
-
-                destroy_op_array(op_array);
-                efree_size(op_array, sizeof(zend_op_array));
             }
             else {
-                // error on compile file
+                // error while compiling file
                 php_execute_script(&file_handle);
                 ZVAL_LONG(&ret, 1);
             }
         } zend_end_try();
+#endif
 
         int scret;
 
@@ -465,7 +486,7 @@ int PQEnginePrivate::exec(const char *script PQDBG_LVL_DC)
         return scret;
     }
     else {
-        pq_ub_write(QString("<b>%1</b> (%2): <font color='red'>file not found</font> \n<br>in %3")
+        pq_ub_write(QString("`%1` (%2): file not found in `%3`")
                     .arg(script)
                     .arg(file.fileName())
                     .arg(normalizePathName(qApp->applicationDirPath())));

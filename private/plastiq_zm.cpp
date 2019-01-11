@@ -263,4 +263,14 @@ int PHPQt5::zm_startup_phpqt5(INIT_FUNC_ARGS)
     return SUCCESS;
 }
 
+int PHPQt5::zm_activate_phpqt5(int type, int module_number)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    PQDBG_LVL_DONE_LPUP();
+    return SUCCESS;
+}
+
 

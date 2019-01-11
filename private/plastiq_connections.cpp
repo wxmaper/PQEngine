@@ -452,6 +452,10 @@ bool PlastiQ_activate(PQObjectWrapper *sender, const char *signal,
     PQDBG_LVL_START(__FUNCTION__);
     PQDBGLPUP(QString("sender: %1").arg(reinterpret_cast<quint64>(sender)));
     PQDBGLPUP(QString("receiver: %1").arg(reinterpret_cast<quint64>(receiver)));
+
+    THREAD_T thread_id;
+    thread_id = tsrm_thread_id();
+    PQDBGLPUP(QString("thread_id: %1").arg(thread_id));
 #endif
 
     if(sender != Q_NULLPTR) {
@@ -494,21 +498,32 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
+    if (sender != Q_NULLPTR && sender->object != Q_NULLPTR) {
+        PQDBGLPUP(QString("sender: %1").arg(reinterpret_cast<quint64>(sender->object->plastiq_data())));
+        PQDBGLPUP(QString("sender thread: %1").arg(reinterpret_cast<quint64>(sender->thread)));
+    }
+    else {
+        PQDBGLPUP(QString("sender: 0"));
+        PQDBGLPUP(QString("sender thread: 0"));
+    }
+
+    if (receiver != Q_NULLPTR && receiver->object != Q_NULLPTR) {
+        PQDBGLPUP(QString("receiver: %1").arg(reinterpret_cast<quint64>(receiver->object->plastiq_data())));
+        PQDBGLPUP(QString("receiver thread: %1").arg(reinterpret_cast<quint64>(receiver->thread)));
+    }
+    else {
+        PQDBGLPUP(QString("receiver: 0"));
+        PQDBGLPUP(QString("receiver thread: 0"));
+    }
 #endif
 
-    //PQDBGLPUP(QString("sender: %1").arg(reinterpret_cast<quint64>(sender != Q_NULLPTR ? sender->object->plastiq_data() : 0)));
-    //PQDBGLPUP(QString("sender thread: %1").arg(sender != Q_NULLPTR ? reinterpret_cast<quint64>(sender->thread) : 0));
-    //!!!! PQDBGLPUP(QString("receiver: %1").arg(receiver != Q_NULLPTR ? reinterpret_cast<quint64>(receiver->object) : 0));
-    //PQDBGLPUP(QString("receiver thread: %1").arg(receiver != Q_NULLPTR ? reinterpret_cast<quint64>(receiver->thread) : 0));
+    PQDBGLPUP(QString("current thread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
 
     static QMutex workersMutex;
     static QHash<QByteArray,PlastiQThreadWorker*> workers;
 
-    if(sender != Q_NULLPTR &&
-            sender->thread != receiver->thread) {
+    if(sender != Q_NULLPTR && sender->thread != receiver->thread) {
         PQDBGLPUP("THREAD CONNECTION to receiver");
-
-        PQDBGLPUP(QString("sender thread: %1").arg(reinterpret_cast<quint64>(sender->thread)));
 
         QByteArray thSig = QString("%1:%2").arg(reinterpret_cast<quint64>(sender->thread)).arg(reinterpret_cast<quint64>(receiver->thread)).toUtf8();
 
@@ -517,11 +532,11 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
 
         if(!worker) {
             PQDBGLPUP("create worker");
-            worker = new PlastiQThreadWorker;
-            worker->moveToThread(receiver->thread);
+            worker = new PlastiQThreadWorker(receiver->thread);
+            //worker->moveToThread(receiver->thread);
 
-            QObject::connect(worker, SIGNAL(ready(int)),
-                             worker, SLOT(activate(int)));
+            QObject::connect(worker, &PlastiQThreadWorker::ready,
+                             worker, &PlastiQThreadWorker::activate);
 
             QObject::connect(receiver->thread, SIGNAL(destroyed(QObject*)),
                              worker, SLOT(deleteLater()));
@@ -554,7 +569,7 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
 
         if(!worker) {
             PQDBGLPUP("create worker");
-            worker = new PlastiQThreadWorker;
+            worker = new PlastiQThreadWorker(QThread::currentThread());
             worker->moveToThread(QThread::currentThread());
 
             QObject::connect(worker, SIGNAL(ready(int)),
@@ -591,6 +606,7 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
     return false;
 }
 
+// NOTE: Called in receiver thread!
 bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
                                   PQObjectWrapper *receiver, const char *slot,
                                   int argc, zval *params, bool dtor_params)
@@ -602,22 +618,34 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
 #endif
 
     PQDBGLPUP("TSRMLS_CACHE_UPDATE");
-    void *old_tsrmls_cache = Q_NULLPTR;
-    void *TSRMLS_CACHE = Q_NULLPTR;
-    TSRMLS_CACHE_UPDATE();
+    void *parentContext = Q_NULLPTR;
+    void *context = tsrm_get_ls_cache();
 
-    PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
+    PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(context)));
     PQDBGLPUP(QString("QThread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
 
-    if (TSRMLS_CACHE == Q_NULLPTR || TSRMLS_CACHE == 0) {
-        TSRMLS_CACHE = PlastiQThreadCreator::get_tsrmls_cache(QThread::currentThread());
-        PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
-        //PQDBGLPUP("tsrm_new_interpreter_context");
-        //TSRMLS_CACHE = tsrm_new_interpreter_context();
+    //if (!context) {
+    //    parentContext = sender->ctx;
+    //    tsrm_set_interpreter_context(sender->ctx);
+    //    parentContext = PHPQt5::threadCreator()->setContextThread(QThread::currentThread());
+    //        context = tsrm_get_ls_cache();
+    //        PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(context)));
+    //
+    //  }
 
-        // PQDBGLPUP("php_request_startup");
-        // php_request_startup();
+    /*
+    if (sender->ctx != receiver->ctx) {
+        PQDBGLPUP("ZEND_TSRMLS_CACHE_UPDATE");
+        ZEND_TSRMLS_CACHE_UPDATE();
+        PQDBGLPUP("tsrm_new_interpreter_context");
+        void *ctx = tsrm_new_interpreter_context();
+        PQDBGLPUP("ZEND_TSRMLS_CACHE_UPDATE");
+        ZEND_TSRMLS_CACHE_UPDATE();
+        PQDBGLPUP("php_request_startup");
+        php_request_startup();
+        PQDBGLPUP("ok");
     }
+*/
 
     /*
     if(sender != Q_NULLPTR &&
@@ -684,7 +712,7 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     fci.param_count = argc;
     fci.params = params;
     fci.retval = &retval;
-    fci.no_separation = 0;
+    fci.no_separation = 1;
 
 #if (PHP_VERSION_ID < 70101)
     fci.function_table = NULL; // removed in php 7.1.1
@@ -744,13 +772,14 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
 
     // zval_dtor(&symbol_table); // не нужно (!)
 
-    if (old_tsrmls_cache != Q_NULLPTR) {
-        TSRMLS_CACHE = tsrm_set_interpreter_context(old_tsrmls_cache);
+    if (parentContext != Q_NULLPTR) {
+        context = tsrm_set_interpreter_context(parentContext);
 
         PQDBGLPUP(QString("tsrm_set_interpreter_context from `%1` to `%2`")
-                  .arg(reinterpret_cast<quint64>(TSRMLS_CACHE))
-                  .arg(reinterpret_cast<quint64>(old_tsrmls_cache)));
+                  .arg(reinterpret_cast<quint64>(context))
+                  .arg(reinterpret_cast<quint64>(parentContext)));
     }
+
 
 #ifdef PQDEBUG
     if (sender != Q_NULLPTR) {
@@ -789,37 +818,8 @@ void VirtualMethod::call(PQObjectWrapper *pqobject, PMOGStack stack) const
         ZVAL_ZVAL(&params[i], &tmpz, 1, 0);
     }
 
-    PHPQt5::doActivateConnection(Q_NULLPTR, "VirtualMethod::call", pqobject,
+    PHPQt5::doActivateConnection(pqobject, "VirtualMethod::call", pqobject,
                                  _functionName.constData(), _argc, params, true);
-
-    /*
-    PQDBGLPUP("generate call info");
-    zval retval;
-    zend_fcall_info fci;
-    fci.size = sizeof(fci);
-    fci.object = &pqobject->zo;
-    fci.param_count = _argc;
-    fci.params = params;
-    fci.retval = &retval;
-    fci.no_separation = 0;
-
-    PQDBGLPUP("symbol_table");
-    ZVAL_STRINGL(&fci.function_name,
-                 _functionName.constData(),
-                 _functionName.length());
-
-    // call cache
-    PQDBGLPUP("check call cache");
-    zend_fcall_info_cache fcc = zend_fcall_info_cache({ 0 });
-
-    PQDBGLPUP("zend_call_function");
-    if(zend_call_function(&fci, &fcc) == SUCCESS) {
-        stack[0] = PHPQt5::plastiq_cast_to_stackItem(&retval);
-    }
-    else {
-        PQDBGLPUP("ERROR");
-    }
-    */
 
     PQDBG_LVL_DONE_LPUP();
 }
@@ -830,7 +830,6 @@ void PlastiQ_connectSlotsByName(PQObjectWrapper *pqobject)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    // connect slots by name
     ulong num_key;
     zend_string *key;
     zval *zv;
@@ -838,8 +837,6 @@ void PlastiQ_connectSlotsByName(PQObjectWrapper *pqobject)
 
     HashTable *ht = (&pqobject->zo.ce->function_table);
 
-    //PQObjectWrapper *pqobjectWidget = fetch_pqobject(Z_OBJ(zWidget));
-    //QObject *widget = pqobjectWidget->object->plastiq_toQObject();
     QHash<QString,zval> objectList; // objectName -> zval
     objectList = PHPQt5::loadChilds(pqobject->object->plastiq_toQObject());
 
@@ -847,32 +844,69 @@ void PlastiQ_connectSlotsByName(PQObjectWrapper *pqobject)
     ZVAL_OBJ(&zobject, &pqobject->zo);
 
     ZEND_HASH_FOREACH_KEY_VAL(ht, num_key, key, zv) {
-        if (key) { //HASH_KEY_IS_STRING
+        if (key) {
             const QString functionName(key->val);
 
-            int endObjectName = functionName.indexOf("_", 4);
+            void *ptr = Z_PTR_P(zv);
+            op_array = reinterpret_cast<zend_op_array*>(ptr);
 
-            if (functionName.startsWith("on_") && endObjectName > 0) {
-                op_array = (zend_op_array*) Z_PTR_P(zv);
-                if (op_array->doc_comment && op_array->doc_comment->val) {
-                    const QString docComment(op_array->doc_comment->val);
-                    const QRegExp rx(QStringLiteral("@slot on_(.*)_(.*)(\\(.*\\))"));
+            // int endObjectName = functionName.indexOf("_", 4); // DEPRECATED
+            PQDBGLPUP(QStringLiteral("check method %1 (%2)")
+                      .arg(functionName)
+                      .arg(op_array->type));
 
-                    if (rx.indexIn(docComment) > 0) {
-                        const QString objectName = rx.cap(1);
-                        const QString signalName = rx.cap(2);
-                        QString args = rx.cap(3);
+            if (op_array->type == 2
+                    && op_array->doc_comment
+                    && op_array->doc_comment->len
+                    && op_array->doc_comment->val
+                    && functionName.startsWith(QStringLiteral("on")) /*&& endObjectName > 0*/) {
+                const QString docComment(op_array->doc_comment->val);
+                const QRegExp rxOldDeprecated(QStringLiteral("@slot on_(.*)_(.*)(\\(.*\\))"));
+                const QRegExp rx(QStringLiteral("@slot *([_0-9a-zA-Z]*)::([_0-9a-zA-Z]*)"));
+                const QRegExp rxParam(QStringLiteral("@param *([_0-9a-zA-Z\\*&]*) *(\\$[_0-9a-zA-Z]*)"));
 
-                        QRegExp rx2(QStringLiteral("\\((.*,)"));
-                        rx2.setMinimal(true);
-                        if (args.indexOf(",") > 0) args.replace(rx2, "(");
-                        else args = "()";
+                int paramOffset = 0;
 
-                        if (objectList.contains(objectName)) {
-                            zval lzv = objectList.take(objectName);
-                            PHPQt5::plastiqConnect(&lzv, signalName + args,
-                                                   &zobject, functionName + args, false);
-                        }
+                if (rxOldDeprecated.indexIn(docComment) > 0) {
+                    // DEPRECATED
+                    const QString objectName = rxOldDeprecated.cap(1);
+                    const QString signalName = rxOldDeprecated.cap(2);
+                    QString args = rxOldDeprecated.cap(3);
+
+                    QRegExp rx2(QStringLiteral("\\((.*,)"));
+                    rx2.setMinimal(true);
+                    if (args.indexOf(",") > 0) args.replace(rx2, "(");
+                    else args = "()";
+
+                    if (objectList.contains(objectName)) {
+                        zval lzv = objectList.take(objectName);
+                        PHPQt5::plastiqConnect(&lzv, signalName + args,
+                                               &zobject, functionName + args, false);
+                    }
+                }
+                else if (rx.indexIn(docComment) > 0
+                         && (paramOffset = rxParam.indexIn(docComment)) > 0) {
+                    const QString objectName = rx.cap(1).trimmed();
+                    const QString signalName = rx.cap(2).trimmed();
+
+                    QString args;
+                    // args.append(rxParam.cap(1).trimmed()); // no need:
+                    paramOffset += rxParam.matchedLength();   // first match is a `$object` (!)
+
+                    while ((paramOffset = rxParam.indexIn(docComment, paramOffset)) > 0) {
+                        if (!args.isEmpty())
+                            args.append(QLatin1Char(','));
+
+                        args.append(rxParam.cap(1).trimmed());
+                        paramOffset += rxParam.matchedLength();
+                    }
+
+                    args.prepend(QLatin1Char('(')).append(QLatin1Char(')'));
+
+                    if (objectList.contains(objectName)) {
+                        zval lzv = objectList.take(objectName);
+                        PHPQt5::plastiqConnect(&lzv, signalName + args,
+                                               &zobject, functionName + args, false);
                     }
                 }
             }

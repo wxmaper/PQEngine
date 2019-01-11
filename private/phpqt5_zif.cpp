@@ -194,10 +194,13 @@ void PHPQt5::zif_qenum(INTERNAL_FUNCTION_PARAMETERS)
     default:
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramer_class_error(1, (char*) "long", enum_zval);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameter_class_error(1, (char*) "long", enum_zval);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameter_class_error(1, (char*) "long", enum_zval);
+#else
+        zend_wrong_parameter_class_error(1, 1, (char*) "long", enum_zval);
 #endif
-
     }
 
     RETVAL_ZVAL(&zenum, 0, 0);
@@ -246,9 +249,9 @@ void PHPQt5::zif_disconnect(INTERNAL_FUNCTION_PARAMETERS)
     zval *z_slot;
 
     if (zend_parse_parameters(ZEND_NUM_ARGS(), "zzzz", &z_sender, &z_signal, &z_receiver, &z_slot) == FAILURE) {
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
+#ifdef PQDEBUG
+        PQDBG_LVL_DONE();
+#endif
 
         return;
     }
@@ -326,9 +329,9 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
 
     if(zend_parse_parameters(ZEND_NUM_ARGS(), "s|s",
                              &tr_lang, &tr_lang_len, &tr_path, &tr_path_len)) {
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
+#ifdef PQDEBUG
+        PQDBG_LVL_DONE();
+#endif
 
         return;
     }
@@ -352,8 +355,8 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
     if (!trFile.open(QIODevice::ReadOnly | QIODevice::Text))
     {
         pq_ub_write(QString("Cannot open translation file `%1/%2.xml`")
-                             .arg(path.absolutePath())
-                             .arg(tr_lang));
+                    .arg(path.absolutePath())
+                    .arg(tr_lang));
         PQDBG_LVL_DONE();
         RETURN_FALSE;
     }
@@ -366,7 +369,7 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
 
     if(pqenginetr.nodeName() != "pqenginetr") {
         pq_ub_write(QString("Bad translation file `tr/%1.xml`: 'pqenginetr' node not found.")
-                             .arg(tr_lang));
+                    .arg(tr_lang));
         trFile.close();
 
         PQDBG_LVL_DONE();
@@ -375,7 +378,7 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
 
     if(!pqenginetr.hasAttribute("lang")) {
         pq_ub_write(QString("Bad translation file `tr/%1.xml`: 'lang' attribute not found.")
-                             .arg(tr_lang));
+                    .arg(tr_lang));
         trFile.close();
 
         PQDBG_LVL_DONE();
@@ -385,9 +388,9 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
     QString trLang = pqenginetr.attribute("lang", "");
     if(trLang != tr_lang) {
         pq_ub_write(QString("Bad translation file `tr/%1.xml`: incorrect 'lang' attribute:\n%2 != %3")
-                             .arg(tr_lang)
-                             .arg(trLang)
-                             .arg(tr_lang));
+                    .arg(tr_lang)
+                    .arg(trLang)
+                    .arg(tr_lang));
         trFile.close();
 
         PQDBG_LVL_DONE();
@@ -412,8 +415,8 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
             if(source.isEmpty()
                     || translate.isEmpty()) {
                 pq_ub_write(QString("Bad translation file `tr/%1.xml`: incorrect unit at line %2:\nempty value of <source> or <tr> node.")
-                                     .arg(tr_lang)
-                                     .arg(unit.lineNumber()));
+                            .arg(tr_lang)
+                            .arg(unit.lineNumber()));
                 trData.clear();
                 trFile.close();
 
@@ -425,9 +428,9 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
         }
         else {
             pq_ub_write(QString("Bad translation file `tr/%1.xml`: unexpected node <%2> at line %3")
-                                 .arg(tr_lang)
-                                 .arg(unit.tagName())
-                                 .arg(unit.lineNumber()));
+                        .arg(tr_lang)
+                        .arg(unit.tagName())
+                        .arg(unit.lineNumber()));
             trData.clear();
             trFile.close();
 
@@ -440,7 +443,7 @@ void PHPQt5::zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS)
 
     if(trData.size() == 0) {
         pq_ub_write(QString("Empty translation file `tr/%1.xml`")
-                             .arg(tr_lang));
+                    .arg(tr_lang));
         trData.clear();
         trFile.close();
 
@@ -477,7 +480,9 @@ void PHPQt5::zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS)
         add_assoc_string(&array, "QT_VERSION_MINOR", (char *)QT_VERSION_MINOR);
         add_assoc_string(&array, "QT_VERSION_PATCH", (char *)QT_VERSION_PATCH);
 
+#ifdef _MSC_FULL_VER
         add_assoc_string(&array, "MSC_FULL_VER", (char *)_MSC_FULL_VER);
+#endif
 
         add_assoc_string(&array, "ZEND_VERSION", (char *)ZEND_VERSION);
         add_assoc_long(&array, "PHP_MAJOR_VERSION", PHP_MAJOR_VERSION);
@@ -511,7 +516,11 @@ void PHPQt5::zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS)
                                 "<b>PQEngine version</b>: %5 (%6)<br>\n"
                                 "<b>PQExtensions API version</b>: %7<br>\n")
                 .arg(QT_VERSION_STR)
+        #ifdef _MSC_FULL_VER
                 .arg(_MSC_FULL_VER)
+        #else
+                .arg("-")
+        #endif
                 .arg(ZEND_VERSION)
                 .arg(PHP_VERSION)
                 .arg(PQENGINE_VERSION)
@@ -542,9 +551,9 @@ void PHPQt5::zif_pqpack(INTERNAL_FUNCTION_PARAMETERS)
 
     if(zend_parse_parameters(ZEND_NUM_ARGS(), "ss",
                              &key, &key_len, &filename, &filename_len) == FAILURE) {
-        #ifdef PQDEBUG
-            PQDBG_LVL_DONE();
-        #endif
+#ifdef PQDEBUG
+        PQDBG_LVL_DONE();
+#endif
 
         return;
     }
@@ -652,7 +661,7 @@ void PHPQt5::zif_pqpack(INTERNAL_FUNCTION_PARAMETERS)
     add_assoc_long(&point, "s", s);\
     \
     add_next_index_zval(&array, &point);\
-}
+    }
 
 void PHPQt5::zif_qDebug(INTERNAL_FUNCTION_PARAMETERS)
 {
@@ -803,8 +812,12 @@ void PHPQt5::zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS)
     default:
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(argc, 1, 2);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameters_count_error(argc, 1, 2);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameters_count_error(1, 2);
+#else
+        zend_wrong_parameters_count_error(1, argc, 1, 2);
 #endif
 
         PQDBG_LVL_DONE();
@@ -814,8 +827,12 @@ void PHPQt5::zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS)
     if(Z_TYPE_P(zobject) != IS_OBJECT) {
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramer_type_error(1, zend_expected_type(IS_OBJECT), zobject);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameter_type_error(1, zend_expected_type(IS_OBJECT), zobject);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameter_type_error(1, zend_expected_type(IS_OBJECT), zobject);
+#else
+        zend_wrong_parameter_type_error(1, 1, zend_expected_type(IS_OBJECT), zobject);
 #endif
         PQDBG_LVL_DONE();
         RETURN_NULL();

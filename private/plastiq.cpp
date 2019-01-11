@@ -207,8 +207,12 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             else {
 #if (PHP_VERSION_ID < 70101)
                 zend_wrong_paramer_class_error(argnum, (char*) "Object", entry);
-#else
+#elif (PHP_VERSION_ID < 70200)
                 zend_wrong_parameter_class_error(argnum, (char*) "Object", entry);
+#elif (PHP_VERSION_ID >= 70300)
+                zend_wrong_parameter_class_error(1, (char*) "long", entry);
+#else
+                zend_wrong_parameter_class_error(1, argnum, (char*) "Object", entry);
 #endif
             }
         } break;
@@ -302,9 +306,10 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                 argsTypes += argsTypes.length() ? "," + fMethodType : fMethodType;
                 int sidx = idx + 1;
 
-                PQDBGLPUP(QString("idx: %1; methodType: %2")
+                PQDBGLPUP(QString("idx: %1; methodType: %2 (%3)")
                           .arg(idx)
-                          .arg(methodType));
+                          .arg(methodType)
+                          .arg(Z_TYPE_P(entry)));
 
                 zval *entry = &Z_ARRVAL_P(argv)->arData[idx].val;
 
@@ -668,7 +673,15 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
                                             if(methodName == "moveToThread") {
                                                 QThread *thread = reinterpret_cast<QThread*>(epqobject->object->plastiq_data());
-                                                // pqobject->ctx = PHPQt5::threadCreator()->get_tsrmls_cache(thread);
+                                                /*
+                                                void *parentContext = PHPQt5::threadCreator()->setContextThread(thread);
+                                                pqobject->ctx = tsrm_get_ls_cache();
+
+                                                PQDBGLPUP(QString("change context from `%1' to `%2'")
+                                                          .arg(reinterpret_cast<quint64>(pqobject->ctx))
+                                                          .arg(reinterpret_cast<quint64>(parentContext)));
+                                                tsrm_set_interpreter_context(parentContext);
+                                                */
 
                                                 PQDBGLPUP(QString("change thread %1[id:%2] -> %3")
                                                           .arg(pqobject->zo.ce->name->val)
@@ -676,6 +689,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                                           .arg(reinterpret_cast<quint64>(thread)));
 
                                                 pqobject->thread = thread;
+                                                pqobject->ctx = 0;
 
                                                 PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
                                                           .arg(reinterpret_cast<quint64>(thread))
@@ -792,8 +806,8 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             }
         }
 
-        if(right) {
-            if(pqobject) {
+        if (right) {
+            if (pqobject) {
                 bool haveParentBefore = object->plastiq_haveParent();
                 ZVAL_OBJ(&zobject, &pqobject->zo);
                 tciList << pq_tmp_call_info { pqobject, &zobject, haveParentBefore };
@@ -807,7 +821,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
         }
         else {
             // FIXME
-            if(ambiguous) {
+            if (ambiguous) {
                 PQDBGLPUP(QString("Call to %1::%2() is ambiguous")
                           .arg(metaObject->className())
                           .arg(methodName.constData()).toUtf8().constData());
@@ -992,7 +1006,7 @@ void PlastiQ_self_destroy(PQObjectWrapper *pqobject)
 
         if (Z_REFCOUNT(zobject) == 1) {
             PQDBGLPUP("ZVAL_DESTRUCTOR");
-            ZVAL_DESTRUCTOR(&zobject);
+            zval_dtor(&zobject);
         }
         else {
             zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, 0);
@@ -1181,8 +1195,8 @@ zval PHPQt5::plastiq_cast_to_zval(const PMOGStackItem &stackItem)
             delete objectList;
         }
         else if (objectFactory()->havePlastiQMetaObject(stackItem.name)) {
-            retval = pq_create_extra_object(stackItem.name, stackItem.s_voidp, true, stackItem.isRef);
-            Z_DELREF(retval);// FIXME: проверить!
+            retval = pq_create_extra_object(stackItem.name, stackItem.s_voidp, true, stackItem.isRef, stackItem.isCopy);
+            Z_DELREF(retval); // FIXME: проверить!
         }
         else {
             zend_throw_error(0, QString("class '%1' not found")
@@ -1333,7 +1347,12 @@ zval PHPQt5::plastiq_cast_to_zval(const QVariant &value, const QByteArray &typeN
     return retval;
 }
 
-zval PHPQt5::plastiq_stringlist_to_array(const QStringList &list) {
+zval PHPQt5::plastiq_stringlist_to_array(const QStringList &list)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
     zval retval;
     array_init(&retval);
 
@@ -1342,6 +1361,7 @@ zval PHPQt5::plastiq_stringlist_to_array(const QStringList &list) {
         add_next_index_stringl(&retval, ba.constData(), ba.length());
     }
 
+    PQDBG_LVL_DONE();
     return retval;
 }
 
@@ -1605,8 +1625,8 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                     add_next_index_zval(&argv, &_title);
                     add_next_index_zval(&argv, &_message);
                     plastiqCall(Q_NULLPTR, QByteArrayLiteral("critical"), 3, &argv, &metaObject);
-                    PQDBGLPUP("php_request_shutdown");
-                    php_request_shutdown(Q_NULLPTR);
+                    //PQDBGLPUP("php_request_shutdown");
+                    //php_request_shutdown(Q_NULLPTR); // zend_mm_heap corrupted
                     break;
 
                 case E_WARNING:
@@ -1618,8 +1638,8 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                     add_next_index_zval(&argv, &_title);
                     add_next_index_zval(&argv, &_message);
                     plastiqCall(Q_NULLPTR, QByteArrayLiteral("warning"), 3, &argv, &metaObject);
-                    PQDBGLPUP("php_request_shutdown");
-                    php_request_shutdown(Q_NULLPTR);
+                    //PQDBGLPUP("php_request_shutdown");
+                    //php_request_shutdown(Q_NULLPTR); // zend_mm_heap corrupted
                     break;
 
                 case E_NOTICE:

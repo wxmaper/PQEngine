@@ -40,19 +40,14 @@ zend_object *PHPQt5::pqobject_create(zend_class_entry *ce)
     PQDBGLPUP(ce->name->val);
 #endif
 
-    void *TSRMLS_CACHE = Q_NULLPTR;
-    TSRMLS_CACHE_UPDATE();
-
     PQObjectWrapper *pqobject = (PQObjectWrapper*)
-            ecalloc(1,
-                    sizeof(PQObjectWrapper) +
-                    zend_object_properties_size(ce));
+            ecalloc(1, sizeof(PQObjectWrapper) + zend_object_properties_size(ce));
 
     zend_object_std_init(&pqobject->zo, ce);
     object_properties_init(&pqobject->zo, ce);
 
     pqobject->zo.handlers = &pqobject_handlers;
-    pqobject->ctx = TSRMLS_CACHE;
+    pqobject->ctx = tsrm_get_ls_cache();
 
     PQDBG_LVL_DONE();
     return &pqobject->zo;
@@ -542,4 +537,5 @@ int PHPQt5::pqobject_has_property(zval *object,
     return retval;
 }
 */
+
 

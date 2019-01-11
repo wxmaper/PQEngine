@@ -11,7 +11,7 @@
 #include "plastiqproperty.h"
 #include "plastiq.h"
 
-enum Call;
+//enum Call;
 class PlastiQObject;
 struct PlastiQMetaObject;
 struct PlastiQCandidateMethod;
@@ -21,6 +21,7 @@ struct PMOGStackItem {
     PlastiQ::ItemType type;
     QByteArray name;
     bool isRef = false;
+    bool isCopy = false;
 
     void* s_voidp = Q_NULLPTR;
     void** s_voidpp;

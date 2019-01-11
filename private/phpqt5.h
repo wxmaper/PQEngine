@@ -33,19 +33,34 @@ ZEND_ARG_INFO(0, name)
 ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_setupUi, 0, 0, 2)
+ZEND_BEGIN_ARG_INFO_EX(phpqt5_setupUi, 0, 0, 1)
+ZEND_ARG_INFO(0, parent)
 ZEND_ARG_INFO(0, path)
-ZEND_ARG_INFO(1, parent)
+ZEND_ARG_INFO(1, retWidget)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(phpqt5__get, 0, 0, 1)
 ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
 
-#define ZHANDLE(zobject) (zobject)->handle
+ZEND_BEGIN_ARG_INFO_EX(phpqt5__add, 0, 0, 1)
+ZEND_ARG_INFO(0, val)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO_EX(phpqt5__sub, 0, 0, 1)
+ZEND_ARG_INFO(0, val)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO_EX(phpqt5__mul, 0, 0, 1)
+ZEND_ARG_INFO(0, val)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO_EX(phpqt5__div, 0, 0, 1)
+ZEND_ARG_INFO(0, val)
+ZEND_END_ARG_INFO()
 
-#define PQTHREAD __pq_th
-#define FETCH_PQTHREAD() QThread *PQTHREAD = QThread::currentThread();
+#if (PHP_VERSION_ID >= 70300)
+#define ZEND_FN_CALL_SPEC ZEND_FASTCALL
+#else
+#define ZEND_FN_CALL_SPEC
+#endif
 
 struct ConnectionData {
     PQObjectWrapper *sender;
@@ -58,13 +73,14 @@ typedef QHash<QByteArray, ConnectionData> ConnectionHash;
 
 class VirtualMethodList;
 struct PQObjectWrapper {
-    PlastiQObject *object;
+    PlastiQObject *object = Q_NULLPTR;
     bool isExtra = false;       // true if object created from return value
+    bool isCopy = false;        // true if is copy object created from return value
     bool isValid = false;       // false if object not created or has destroyed
     bool selfDestroy = false;   // true if object removed by parent
 
-    zend_object *zoptr;         // closure object
-    bool isClosure = false;     // true if this is a Closure object, then zoptr is a pointer to Closure object
+    zend_object *zoptr = Q_NULLPTR; // closure object
+    bool isClosure = false; // true if this is a Closure object, then zoptr is a pointer to Closure object
 
     quint64 enumVal = 0;
     bool isEnum = false;
@@ -73,10 +89,10 @@ struct PQObjectWrapper {
     QHash<QByteArray,zval> *userProperties = Q_NULLPTR;
     VirtualMethodList *virtualMethods = Q_NULLPTR;
 
-    void *ctx;
-    QThread *thread;
+    void *ctx = Q_NULLPTR;
+    QThread *thread = Q_NULLPTR;
 
-    zend_object zo;             // valid object if this is not Closure object
+    zend_object zo; // valid object if this is not Closure object
 };
 
 struct PQEnumWrapper {
@@ -95,14 +111,8 @@ typedef struct _pq_tmp_call_info {
     bool haveParent;
 } pq_tmp_call_info;
 
-
 extern void pq_ub_write(const QString &msg);
 extern void pq_pre(const QString &msg, const QString &title);
-//extern void pq_register_extra_zend_ce(const QString &className);
-//extern void pq_register_long_constant(const QString &className, const QString &constName, int value);
-//extern bool pq_register_long_constant_ex(const QString &className, const QString &constName, int value, QString ceName);
-//extern void pq_register_string_constant(const QString &className, const QString &constName, const QString &value);
-//extern void pq_register_string_constant_ex(const QString &className, const QString &constName, const QString &value, QString ceName);
 extern void pq_php_error(const QString &error);
 extern void pq_php_warning(const QString &warning);
 extern void pq_php_notice(const QString &notice);
@@ -134,7 +144,8 @@ public:
     static zval             pq_create_extra_object(const QByteArray &className,
                                                    void *obj,
                                                    bool addToFactoryHash,
-                                                   bool isExtra);
+                                                   bool isExtra,
+                                                   bool isCopy = false);
 
     /* HANDLERS */
     static zend_object *    pqobject_create(zend_class_entry *class_type);
@@ -177,35 +188,36 @@ public:
     static bool             downCastTest(const PlastiQMetaObject *metaObject, const QString &className);
 
     static int              zm_startup_phpqt5(INIT_FUNC_ARGS);
-    static void             zif_SIGNAL(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_SLOT(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_setEngineErrorHandler(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_connect(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_disconnect(INTERNAL_FUNCTION_PARAMETERS); // FIXME: to new API
-    static void             zif_c(INTERNAL_FUNCTION_PARAMETERS); // ?????????
-    static void             zif_tr(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS);
+    static int              zm_activate_phpqt5(INIT_FUNC_ARGS);
+    static void ZEND_FN_CALL_SPEC            zif_SIGNAL(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_SLOT(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_setEngineErrorHandler(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_connect(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_disconnect(INTERNAL_FUNCTION_PARAMETERS); // FIXME: to new API
+    static void ZEND_FN_CALL_SPEC            zif_c(INTERNAL_FUNCTION_PARAMETERS); // ?????????
+    static void ZEND_FN_CALL_SPEC            zif_tr(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_set_tr_lang(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS);
 
-    static void             zif_pqpack(INTERNAL_FUNCTION_PARAMETERS); // FIXME: move include lines before call
-    static void             zif_R(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_pqpack(INTERNAL_FUNCTION_PARAMETERS); // FIXME: move include lines before call
+    static void ZEND_FN_CALL_SPEC            zif_R(INTERNAL_FUNCTION_PARAMETERS);
     // static void             zif_emit(INTERNAL_FUNCTION_PARAMETERS); // FIXME: to new API
-    static void             zif_qenum(INTERNAL_FUNCTION_PARAMETERS); // FIXME: to new API
+    static void ZEND_FN_CALL_SPEC            zif_qenum(INTERNAL_FUNCTION_PARAMETERS); // FIXME: to new API
 
-    static void             zif_qApp(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC zif_qApp(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_qvariant_cast(INTERNAL_FUNCTION_PARAMETERS);
 
-    static void             zif_qDebug(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qWarning(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qCritical(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qInfo(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_qFatal(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_qDebug(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_qWarning(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_qCritical(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_qInfo(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_qFatal(INTERNAL_FUNCTION_PARAMETERS);
 
-    static void             zif_pqProperties(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_pqMethods(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_pqStaticFunctions(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_pqSignals(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zif_setupUi(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_pqProperties(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_pqMethods(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_pqStaticFunctions(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_pqSignals(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zif_setupUi(INTERNAL_FUNCTION_PARAMETERS);
 
     /* ... */
 
@@ -243,15 +255,15 @@ public:
             PHP_FE(pqSignals, NULL)
 
             PHP_FE(qvariant_cast, NULL)
-            PHP_FE(setupUi, arginfo_setupUi)
+            PHP_FE(setupUi, phpqt5_setupUi)
 
             { "qDebug", zif_qDebug, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qInfo", zif_qInfo, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qWarning", zif_qWarning, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qCritical", zif_qCritical, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             { "qFatal", zif_qFatal, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
-
             { "qApp", zif_qApp, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
+
             // { "emit", zif_emit, NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), 0 },
             ZEND_FE_END
         };
@@ -266,7 +278,7 @@ public:
             phpqt5_functions(),
             zm_startup_phpqt5,
             NULL,
-            NULL,
+            zm_activate_phpqt5,
             NULL,
             NULL,
             PQENGINE_VERSION,
@@ -276,31 +288,6 @@ public:
         return &instance;
     }
 
-    //    static zend_function_entry *phpqt5_generic_methods() {
-    //        static zend_function_entry instance[] = {
-    //            ZEND_ME(pqobject, __construct, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, __destruct, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, __set, phpqt5__set, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, __get, phpqt5__get, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, __call, phpqt5__call, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, __toString, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, __callStatic, phpqt5__call, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
-    //            ZEND_ME(pqobject, qobjInfo, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, qobjProperties, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, qobjMethods, NULL, ZEND_ACC_PUBLIC)
-    //            // ZEND_ME(pqobject, qobjSignals, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, qobjOnSignals, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, free, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, setEventListener, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, children, NULL, ZEND_ACC_PUBLIC)
-    //            ZEND_ME(pqobject, declareSignal, NULL, ZEND_ACC_PUBLIC)
-    //            { "emit", ZEND_MN(pqobject_emit), NULL, (uint32_t) (sizeof(NULL)/sizeof(struct _zend_internal_arg_info)-1), ZEND_ACC_PUBLIC },
-    //            ZEND_FE_END
-    //        };
-
-    //        return instance;
-    //    }
-
     static zend_function_entry *phpqt5_plastiq_methods() {
         static zend_function_entry plastiq_methods[] = {
             ZEND_ME(plastiq, __construct, NULL, ZEND_ACC_PUBLIC)
@@ -308,6 +295,10 @@ public:
             ZEND_ME(plastiq, __callStatic, phpqt5__call, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
             ZEND_ME(plastiq, __set, phpqt5__set, ZEND_ACC_PUBLIC)
             ZEND_ME(plastiq, __get, phpqt5__get, ZEND_ACC_PUBLIC)
+            ZEND_ME(plastiq, __add, phpqt5__add, ZEND_ACC_PUBLIC) // RFC
+            ZEND_ME(plastiq, __mul, phpqt5__mul, ZEND_ACC_PUBLIC) // RFC
+            ZEND_ME(plastiq, __sub, phpqt5__sub, ZEND_ACC_PUBLIC) // RFC
+            ZEND_ME(plastiq, __div, phpqt5__div, ZEND_ACC_PUBLIC) // RFC
             ZEND_ME(plastiq, __toString, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(plastiq, free, NULL, ZEND_ACC_PUBLIC)
             ZEND_ME(plastiq, connect, NULL, ZEND_ACC_PUBLIC)
@@ -376,20 +367,26 @@ private:
     static void             pq_emit(QObject *qo, const QByteArray signalSignature, zval *args);
 
     // QEnum
-    static void             zim_qenum___construct(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_qenum___call(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_qenum___construct(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_qenum___call(INTERNAL_FUNCTION_PARAMETERS);
 
     // PlastiQ
-    static void             zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq___call(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq___callStatic(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq___get(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq___toString(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq_free(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS);
-    static void             zim_plastiq_testFn(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___call(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___callStatic(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___get(INTERNAL_FUNCTION_PARAMETERS);
+
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___add(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___sub(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___mul(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___div(INTERNAL_FUNCTION_PARAMETERS);
+
+    static void ZEND_FN_CALL_SPEC            zim_plastiq___toString(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq_free(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq_connect(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS);
+    static void ZEND_FN_CALL_SPEC            zim_plastiq_testFn(INTERNAL_FUNCTION_PARAMETERS);
     static zval             plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName, int argc, zval *argv, const PlastiQMetaObject *metaObject = Q_NULLPTR);
     static void             plastiqErrorHandler(int error_num, const char *error_filename, const uint error_lineno, const char *format, va_list args);
     // static void             plastiqEventCast(QEvent *event);

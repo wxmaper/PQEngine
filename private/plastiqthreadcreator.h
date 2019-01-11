@@ -7,13 +7,13 @@
 
 struct PQObjectWrapper;
 struct _zval_struct;
-
+struct _sapi_module_struct;
 
 class PlastiQThreadWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit PlastiQThreadWorker(QObject *parent = 0);
+    explicit PlastiQThreadWorker(QThread *thread, QObject *parent = 0);
     int setReady(PQObjectWrapper *sender, const char *signal,
                  PQObjectWrapper *receiver, const char *slot,
                  int argc, _zval_struct *params, bool dtor_params);
@@ -43,7 +43,8 @@ class PlastiQThreadCreator : public QObject
     Q_OBJECT
 public:
     explicit PlastiQThreadCreator(QThread *thread, void *tsrmls_cache, QObject *parent = 0);
-    static void *get_tsrmls_cache(QThread *thread);
+    //static void *get_tsrmls_cache(QThread *thread);
+    void *setContextThread(QThread *thread);
     QThread *getThread(void *tsrmls_cache);
 
 public slots:

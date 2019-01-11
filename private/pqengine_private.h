@@ -27,32 +27,32 @@
 #include <QDataStream>
 #include <QDir>
 #include <QFile>
-#include <qglobal.h>
+//#include <qglobal.h>
 
 #include "pqengine_global.h"
 #include "ipqengineext.h"
 
 /* REMOVE MULTIPLE DEFINITION ERRORS :-[ */
-#include <QRectF>
-#include <QVector2D>
-
 #ifdef PHP_WIN32
-#include <time.h>
-#include <ws2tcpip.h>
+//#include <time.h>
+// //#include <ws2tcpip.h>
 #include <io.h>
 #endif
 
-#include <math.h>
-#include <inttypes.h>
-#include <sys/stat.h>
+//#include <math.h>
+//#include <inttypes.h>
+//#include <sys/stat.h>
 /* end */
 
 extern "C" {
 #include <php.h>
+#include <php_ini.h>
 #include <php_main.h>
 #include <TSRM.h>
 #include <SAPI.h>
 }
+
+ZEND_TSRMLS_CACHE_EXTERN()
 
 struct PQEngineInitConf;
 
@@ -95,7 +95,12 @@ private:
     static void             php_pqengine_flush(void *server_context);
     static void             php_pqengine_send_header(sapi_header_struct *sapi_header, void *server_context);
     static void             php_pqengine_register_variables(zval *track_vars_array);
+
+#if (PHP_VERSION_ID < 70100)
+    static void             php_pqengine_log_message(char *message);
+#else
     static void             php_pqengine_log_message(char *message, int syslog_type_int);
+#endif
 
     static size_t           pqengine_stream_reader(void *dataStreamPtr, char *buffer, size_t wantlen);
     static void             pqengine_stream_closer(void *dataStreamPtr);

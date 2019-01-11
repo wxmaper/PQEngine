@@ -1,6 +1,8 @@
 #include "plastiqthreadcreator.h"
 
 #include "phpqt5.h"
+#include "pqengine_private.h"
+#include <SAPI.h>
 
 PlastiQThreadCreator::PlastiQThreadCreator(QThread *thread, void *tsrmls_cache, QObject *parent)
     : QObject(parent)
@@ -8,6 +10,7 @@ PlastiQThreadCreator::PlastiQThreadCreator(QThread *thread, void *tsrmls_cache, 
     threads.insert(thread, tsrmls_cache);
 }
 
+/*
 void *PlastiQThreadCreator::get_tsrmls_cache(QThread *thread)
 {
 #ifdef PQDEBUG
@@ -19,15 +22,21 @@ void *PlastiQThreadCreator::get_tsrmls_cache(QThread *thread)
     void *TSRMLS_CACHE = tsrmls_c.value(thread, Q_NULLPTR);
 
     if(!TSRMLS_CACHE) {
+        THREAD_T thread_id;
+        thread_id = tsrm_thread_id();
 
-        // this->moveToThread(thread);
+        //PQDBGLPUP(QString("tsrm_startup"));
+        tsrm_startup(128, 1, TSRM_ERROR_LEVEL_ERROR,
+                     (QCoreApplication::applicationDirPath() + "tsrm_debug.log").toUtf8().data());
+        ts_resource(0);
 
-        PQDBGLPUP(QString("tsrm_new_interpreter_context in thread: %1")
-                  .arg(reinterpret_cast<quint64>(QThread::currentThread())));
-        TSRMLS_CACHE = tsrm_new_interpreter_context();
+        PQDBGLPUP(QString("tsrm_new_interpreter_context in thread: %1 (thread_id: %2)")
+                  .arg(reinterpret_cast<quint64>(QThread::currentThread()))
+                  .arg(thread_id));
+        //TSRMLS_CACHE = tsrm_new_interpreter_context();
 
-        tsrm_set_interpreter_context(TSRMLS_CACHE);
-        PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
+        PQDBGLPUP(QString("tsrm_set_interpreter_context: %1").arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
+        //tsrm_set_interpreter_context(TSRMLS_CACHE);
         //PQDBGLPUP(QString("QThread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
 
         //tsrm_set_interpreter_context(TSRMLS_CACHE);
@@ -42,6 +51,7 @@ void *PlastiQThreadCreator::get_tsrmls_cache(QThread *thread)
         PQDBGLPUP("php_request_startup");
         php_request_startup();
         //PG(during_request_startup) = 0;
+
 
         // connect(thread, SIGNAL(destroyed(QObject*)), this, SLOT(free_tsrmls_cache(QObject*)));
         tsrmls_c.insert(thread, TSRMLS_CACHE);
@@ -58,6 +68,57 @@ void *PlastiQThreadCreator::get_tsrmls_cache(QThread *thread)
     PQDBG_LVL_DONE();
     return TSRMLS_CACHE;
 }
+*/
+
+
+void *PlastiQThreadCreator::setContextThread(QThread *thread)
+{
+#ifdef PQDEBUG
+    PQDBG_LVL_START(__FUNCTION__);
+#endif
+
+    static QHash<QThread*, void*> tsrmls_c;
+
+    void *context = tsrmls_c.value(thread, Q_NULLPTR);
+    void *parentContext = Q_NULLPTR;
+
+    if(!context) {
+        void *ls = ts_resource(0);
+        PQDBGLPUP(QString("ts_resource: %1").arg(reinterpret_cast<quint64>(ls)));
+
+
+        parentContext = tsrm_get_ls_cache();
+        PQDBGLPUP(QString("current context: %1").arg(reinterpret_cast<quint64>(parentContext)));
+        PQDBGLPUP(QString("current thread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
+        PQDBGLPUP(QString("tsrm_new_interpreter_context for thread: %1").arg(reinterpret_cast<quint64>(thread)));
+       // context = tsrm_new_interpreter_context();
+
+
+
+        PQDBGLPUP(QString("tsrm_set_interpreter_context: %1").arg(reinterpret_cast<quint64>(context)));
+        //tsrm_set_interpreter_context(context);
+
+        ZEND_TSRMLS_CACHE_UPDATE();
+
+        //PG(expose_php) = 0;
+        //PG(auto_globals_jit) = 0;
+
+        PQDBGLPUP("php_request_startup");
+        php_request_startup();
+
+        //PG(during_request_startup) = 0;
+
+        // connect(thread, SIGNAL(destroyed(QObject*)), this, SLOT(free_tsrmls_cache(QObject*)));
+        tsrmls_c.insert(thread, context);
+    }
+    else {
+        PQDBGLPUP(QString("tsrm_set_interpreter_context: %1").arg(reinterpret_cast<quint64>(context)));
+        parentContext = tsrm_set_interpreter_context(context);
+    }
+
+    PQDBG_LVL_DONE_LPUP();
+    return parentContext;
+}
 
 QThread *PlastiQThreadCreator::getThread(void *tsrmls_cache)
 {
@@ -70,7 +131,7 @@ void PlastiQThreadCreator::free_tsrmls_cache(QObject *threadObject)
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
-
+;
     QThread *thread = qobject_cast<QThread*>(threadObject);
 
     void *tsrmls_cache = threads.value(thread, Q_NULLPTR);
@@ -91,9 +152,21 @@ void PlastiQThreadCreator::free_tsrmls_cache(QObject *threadObject)
     PQDBG_LVL_DONE();
 }
 
-PlastiQThreadWorker::PlastiQThreadWorker(QObject *parent)
+PlastiQThreadWorker::PlastiQThreadWorker(QThread *thread, QObject *parent)
     : QObject(parent)
 {
+    PQDBG_LVL_START(__FUNCTION__);
+
+//    void *parentContext = PHPQt5::threadCreator()->setContextThread(thread);
+//    void *context = tsrm_get_ls_cache();
+//    PQDBGLPUP(QString("change context from `%1' to `%2'")
+//              .arg(reinterpret_cast<quint64>(context))
+//              .arg(reinterpret_cast<quint64>(parentContext)));
+//    tsrm_set_interpreter_context(parentContext);
+
+
+
+    PQDBG_LVL_DONE();
 }
 
 int PlastiQThreadWorker::setReady(PQObjectWrapper *sender, const char *signal,
@@ -142,27 +215,9 @@ bool PlastiQThreadWorker::activate(int idx)
               .arg(reinterpret_cast<quint64>(d->sender))
               .arg(d->slot.constData()));
 
-
-    //void *old_tsrmls_cache = d->sender->ctx;
-    //PQDBGLPUP(QString("old_tsrmls_cache: %1").arg(reinterpret_cast<quint64>(old_tsrmls_cache)));
-    //void *tsrmls_cache = PHPQt5::threadCreator()->get_tsrmls_cache(old_tsrmls_cache, QThread::currentThread());
-
-    //PQDBGLPUP(QString("tsrm_set_interpreter_context from `%1` to `%2`")
-    //          .arg(reinterpret_cast<quint64>(old_tsrmls_cache))
-    //          .arg(reinterpret_cast<quint64>(tsrmls_cache)));
-    //PQDBGLPUP(QString("QThread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
-
-    // tsrm_set_interpreter_context(tsrmls_cache);
-
     bool ok = PHPQt5::doActivateConnection(d->sender, d->signal,
                                            d->receiver, d->slot,
                                            d->argc, d->params, d->dtor_params);
-
-    //PQDBGLPUP(QString("tsrm_set_interpreter_context from `%1` to `%2`")
-    //          .arg(reinterpret_cast<quint64>(tsrmls_cache))
-    //          .arg(reinterpret_cast<quint64>(old_tsrmls_cache)));
-
-    // tsrm_set_interpreter_context(old_tsrmls_cache);
 
     activateHash.remove(idx);
     delete d;

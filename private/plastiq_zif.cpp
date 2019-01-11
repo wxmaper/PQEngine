@@ -18,13 +18,7 @@ QHash<QString,zval> PHPQt5::loadChilds(QObject *object) {
         PQDBGLPUP(QString("objectName: %1").arg(objectName));
 
         if (objectName == "centralwidget") {
-            QHash<QString,zval> objectList2 = loadChilds(child);
-            QMutableHashIterator<QString,zval> objectListIt(objectList2);
-
-            while (objectListIt.hasNext()) {
-                objectListIt.next();
-                objectList.insert(objectListIt.key(), objectListIt.value());
-            }
+            objectList.unite(loadChilds(child));
         }
 
         if (!objectName.isEmpty() && objectName.at(0) != '_'
@@ -33,6 +27,7 @@ QHash<QString,zval> PHPQt5::loadChilds(QObject *object) {
             if (objectFactory()->havePlastiQMetaObject(child->metaObject()->className())) {
                 zval zChild = pq_create_extra_object(child->metaObject()->className(), child, true, true);
                 objectList.insert(objectName, zChild);
+                objectList.unite(loadChilds(child));
                 Z_ADDREF(zChild);
             }
         }
@@ -48,22 +43,17 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
+    using namespace PHPQt5NS;
+
     RETVAL_NULL();
     zval *zobject;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
+    char *uiPath;
+    int uiPathLen;
+    zval *retWidget;
+
+    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o|sz/", &zobject, &uiPath, &uiPathLen, &retWidget) == FAILURE) {
         return;
-    }
-
-    const char* fileName = zend_get_executed_filename();
-    QFileInfo fi(fileName);
-
-    IPQExtension *coreExt = PQEnginePrivate::pqExtensions.at(0);
-    PlastiQ::IPlastiQUi *ui = coreExt->plastiqForms().value(fi.fileName().toUtf8(), Q_NULLPTR);
-
-    if (!ui) {
-        php_error(E_ERROR, QString("setupUi: not found a UI interface for `%1'.")
-                  .arg(fi.fileName()).toUtf8().constData());
     }
 
     if (!pq_test_ce(zobject)) {
@@ -71,28 +61,118 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     }
 
     PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
-    switch (pqobject->object->plastiq_objectType()) {
-    case PlastiQ::IsQWidget:
-    case PlastiQ::IsQWindow: {
-        QObject *obj = pqobject->object->plastiq_toQObject();
-        ui->setupUi(pqobject, obj);
+    QObject *obj = pqobject->object->plastiq_toQObject();
 
-        zval retUi;
-        object_init(&retUi);
-        QHash<QString,zval> objectList = loadChilds(obj);
+    zval retUi;
+    object_init(&retUi);
 
-        QMutableHashIterator<QString,zval> it(objectList);
-        while (it.hasNext()) {
-            it.next();
-            zend_update_property(Z_OBJCE(retUi), &retUi,
-                                 it.key().toUtf8().constData(), it.key().length(), &it.value());
+    if (ZEND_NUM_ARGS() == 1) {
+        const char* fileName = zend_get_executed_filename();
+        QFileInfo fi(fileName);
+
+        IPQExtension *coreExt = PQEnginePrivate::pqExtensions.at(0);
+        PlastiQ::IPlastiQUi *ui = coreExt->plastiqForms().value(fi.fileName().toUtf8(), Q_NULLPTR);
+
+        if (!ui) {
+            php_error(E_ERROR, QString("setupUi: not found a UI interface for `%1'.")
+                      .arg(fi.fileName()).toUtf8().constData());
         }
 
-        RETVAL_ZVAL(&retUi, 1, 0);
-    } break;
+        switch (pqobject->object->plastiq_objectType()) {
+        case PlastiQ::IsQWidget:
+        case PlastiQ::IsQWindow: {
+            ui->setupUi(pqobject, obj);
 
-    default:
-        php_error(E_ERROR, "setupUi: parent class is not QWidget.");
+            QHash<QString,zval> objectList = loadChilds(obj);
+
+            QMutableHashIterator<QString,zval> it(objectList);
+            while (it.hasNext()) {
+                it.next();
+                zend_update_property(Z_OBJCE(retUi), &retUi,
+                                     it.key().toUtf8().constData(), it.key().length(), &it.value());
+            }
+
+            RETVAL_ZVAL(&retUi, 1, 0);
+        } break;
+
+        default:
+            php_error(E_ERROR, "setupUi: parent class is not QWidget");
+        }
+    }
+    else {
+        if (!objectFactory()->havePlastiQMetaObject(QUILOADER_CLASS)) {
+            php_error(E_ERROR, "unknown class QUiLoader");
+            PQDBG_LVL_DONE();
+        }
+
+        if (!objectFactory()->havePlastiQMetaObject(QFILE_CLASS)) {
+            php_error(E_ERROR, "unknown class QFile");
+            PQDBG_LVL_DONE();
+        }
+
+        QFile *file = new QFile(uiPath);
+        zval zFile = pq_create_extra_object(QFILE_CLASS, file, false, true);
+        Z_DELREF(zFile);
+
+        zval zUiLoader;
+        zend_class_entry *ce = objectFactory()->getClassEntry(QUILOADER_CLASS);
+        object_init_ex(&zUiLoader, ce);
+
+        PMOGStack stack = new PMOGStackItem[1];
+        objectFactory()->createPlastiQObject(QUILOADER_CLASS,
+                                             QByteArrayLiteral("QUiLoader()"),
+                                             &zUiLoader,
+                                             false,
+                                             stack);
+
+        PQObjectWrapper *pqobjectUiLoader = fetch_pqobject(Z_OBJ(zUiLoader));
+
+        file->open(QIODevice::ReadOnly);
+
+        int argc = 1;
+        zval argv;
+        array_init(&argv);
+        add_next_index_zval(&argv, &zFile);
+
+        zend_class_entry *zobjectce = Z_OBJCE_P(zobject);
+        do {
+            if (objectFactory()->havePlastiQMetaObject(zobjectce->name->val)) {
+                add_next_index_zval(&argv, zobject);
+                argc++;
+                break;
+            }
+        } while (zobjectce = zobjectce->parent);
+
+        zval zWidget = plastiqCall(pqobjectUiLoader,
+                                   QByteArrayLiteral("load"),
+                                   argc, &argv);
+
+        if (ZEND_NUM_ARGS() == 3) {
+            convert_to_object(retWidget);
+            ZVAL_ZVAL(retWidget, &zWidget, 1, 0);
+        }
+
+        file->close();
+        delete file;
+        delete [] stack;
+
+        switch (pqobject->object->plastiq_objectType()) {
+        case PlastiQ::IsQWidget:
+        case PlastiQ::IsQWindow: {
+            QHash<QString,zval> objectList = loadChilds(obj);
+            QMutableHashIterator<QString,zval> it(objectList);
+            while (it.hasNext()) {
+                it.next();
+                zend_update_property(Z_OBJCE(retUi), &retUi,
+                                     it.key().toUtf8().constData(), it.key().length(), &it.value());
+            }
+
+            RETVAL_ZVAL(&retUi, 1, 0);
+        } break;
+
+        default:
+            php_error(E_ERROR, "setupUi: parent class is not QWidget");
+        }
     }
 
     PQDBG_LVL_DONE();
@@ -138,8 +218,12 @@ void PHPQt5::zif_connect(INTERNAL_FUNCTION_PARAMETERS)
 
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(argc, 3, 4);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameters_count_error(argc, 3, 4);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameters_count_error(3, 4);
+#else
+        zend_wrong_parameters_count_error(1, argc, 3, 4);
 #endif
     }
 
@@ -194,8 +278,12 @@ void PHPQt5::zif_qApp(INTERNAL_FUNCTION_PARAMETERS)
     if(ZEND_NUM_ARGS() > 0) {
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(ZEND_NUM_ARGS(), 0 ,0);
-#else
+#elif (PHP_VERSION_ID < 70200)
         zend_wrong_parameters_count_error(ZEND_NUM_ARGS(), 0 ,0);
+#elif (PHP_VERSION_ID >= 70300)
+        zend_wrong_parameters_count_error(0 ,0);
+#else
+        zend_wrong_parameters_count_error(1, ZEND_NUM_ARGS(), 0 ,0);
 #endif
     }
 

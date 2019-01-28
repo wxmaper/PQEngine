@@ -346,7 +346,7 @@ void PHPQt5::zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS)
         zval array;
         array_init(&array);
 
-        add_assoc_string(&array, "QT_VERSION", (char *)QT_VERSION_STR);
+        add_assoc_string(&array, "QT_VERSION", QT_VERSION_STR);
         add_assoc_long(&array, "QT_VERSION_MAJOR", QT_VERSION_MAJOR);
         add_assoc_long(&array, "QT_VERSION_MINOR", QT_VERSION_MINOR);
         add_assoc_long(&array, "QT_VERSION_PATCH", QT_VERSION_PATCH);
@@ -355,25 +355,25 @@ void PHPQt5::zif_aboutPQ(INTERNAL_FUNCTION_PARAMETERS)
         add_assoc_long(&array, "MSC_FULL_VER", _MSC_FULL_VER);
 #endif
 
-        add_assoc_string(&array, "ZEND_VERSION", (char *)ZEND_VERSION);
+        add_assoc_string(&array, "ZEND_VERSION", ZEND_VERSION);
         add_assoc_long(&array, "PHP_MAJOR_VERSION", PHP_MAJOR_VERSION);
         add_assoc_long(&array, "PHP_MINOR_VERSION", PHP_MINOR_VERSION);
         add_assoc_long(&array, "PHP_RELEASE_VERSION", PHP_RELEASE_VERSION);
-        add_assoc_string(&array, "PHP_EXTRA_VERSION", (char *)PHP_EXTRA_VERSION);
-        add_assoc_string(&array, "PHP_VERSION", (char *)PHP_VERSION);
+        add_assoc_string(&array, "PHP_EXTRA_VERSION", PHP_EXTRA_VERSION);
+        add_assoc_string(&array, "PHP_VERSION", PHP_VERSION);
         add_assoc_long(&array, "PHP_VERSION_ID", PHP_VERSION_ID);
 
         add_assoc_long(&array, "PQENGINE_MAJOR_VERSION", PQENGINE_MAJOR_VERSION);
         add_assoc_long(&array, "PQENGINE_MINOR_VERSION", PQENGINE_MINOR_VERSION);
         add_assoc_long(&array, "PQENGINE_RELEASE_VERSION", PQENGINE_RELEASE_VERSION);
-        add_assoc_string(&array, "PQENGINE_CODENAME", (char *)PQENGINE_CODENAME);
-        add_assoc_string(&array, "PQENGINE_VERSION", (char *)PQENGINE_VERSION);
+        add_assoc_string(&array, "PQENGINE_CODENAME", PQENGINE_CODENAME);
+        add_assoc_string(&array, "PQENGINE_VERSION", PQENGINE_VERSION);
         add_assoc_long(&array, "PQENGINE_VERSION_ID", PQENGINE_VERSION_ID);
 
         add_assoc_long(&array, "PQENGINEEXT_MAJOR_VERSION", PQENGINEEXT_MAJOR_VERSION);
         add_assoc_long(&array, "PQENGINEEXT_MINOR_VERSION", PQENGINEEXT_MINOR_VERSION);
         add_assoc_long(&array, "PQENGINEEXT_RELEASE_VERSION", PQENGINEEXT_RELEASE_VERSION);
-        add_assoc_string(&array, "PQENGINEEXT_VERSION", (char *)PQENGINEEXT_VERSION);
+        add_assoc_string(&array, "PQENGINEEXT_VERSION", PQENGINEEXT_VERSION);
         add_assoc_long(&array, "PQENGINEEXT_VERSION_ID", PQENGINEEXT_VERSION_ID);
 
         PQDBG_LVL_DONE();

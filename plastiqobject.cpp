@@ -51,20 +51,20 @@ PlastiQObject::PlastiQObject(const QByteArray &typeName, int typeId, void *data)
     }
 }
 
-PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
-    : m_typeName(typeName),
-      m_isWrapper(false)//, QObject()
-{
-    m_typeId = PlastiQClasses::typeId(m_typeName);
-    dptr = data;
+//PlastiQObject::PlastiQObject(const QByteArray &typeName, void *data)
+//    : m_typeName(typeName),
+//      m_isWrapper(false)//, QObject()
+//{
+//    m_typeId = PlastiQClasses::typeId(m_typeName);
+//    dptr = data;
 
-    if(dptr != Q_NULLPTR) {
-        m_isNull = false;
-    }
-    else {
-        m_isNull = true;
-    }
-}
+//    if(dptr != Q_NULLPTR) {
+//        m_isNull = false;
+//    }
+//    else {
+//        m_isNull = true;
+//    }
+//}
 
 PlastiQObject::~PlastiQObject()
 {

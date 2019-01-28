@@ -101,18 +101,11 @@ int PlastiQMetaObject::constructorId(const QByteArray &signature) const
     return cid;
 }
 
-bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
-                                          int argc,
-                                          QByteArray &signature) const
+int PlastiQMetaObject::virtualMethodIndex(const QByteArray &methodName, quint32 argc) const
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
 #endif
-
-    static const char _comma = ',';
-    static const char _space = ' ';
-
-    signature.clear();
 
     const PlastiQMetaObject *pqmo = this;
     while (pqmo) {
@@ -124,9 +117,7 @@ bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
             const PlastiQMethod &m = i.value();
 
             if (m.name == methodName) {
-                int _argc = m.argTypes.isEmpty()
-                        ? 0
-                        : m.argTypes.split(_comma).size();
+                const quint32 _argc = m.argTypes.isEmpty() ? 0 : quint32(m.argTypes.split(',').size());
 
                 if (_argc != argc) {
                     PQDBG_LVL_DONE();
@@ -137,13 +128,8 @@ bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
                 case PlastiQMethod::Virtual:
                 case PlastiQMethod::VirtualProtected:
                 case PlastiQMethod::VirtualPublic:
-                    signature = m.returnType;
-                    signature.append(_space);
-                    signature.append(i.key());
-
                     PQDBG_LVL_DONE();
-                    return true;
-
+                    return m.index;
                 default:
                     continue;
                 }
@@ -154,7 +140,7 @@ bool PlastiQMetaObject::haveVirtualMethod(const QByteArray &methodName,
     }
 
     PQDBG_LVL_DONE();
-    return false;
+    return -1;
 }
 
 QObject* PlastiQMetaObject::toQObject(PlastiQObject *object)

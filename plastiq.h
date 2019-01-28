@@ -1,6 +1,7 @@
 #ifndef PLASTIQ_H
 #define PLASTIQ_H
 
+#include <QObject>
 #include <QByteArray>
 #include <QString>
 
@@ -9,9 +10,11 @@ class PlastiQObject;
 
 namespace PlastiQ {
 
-class IPlastiQUi {
+class IPlastiQUi
+{
 public:
     virtual void setupUi(PQObjectWrapper*, QObject*) = 0;
+    virtual ~IPlastiQUi() {}
 };
 
 enum ItemType {

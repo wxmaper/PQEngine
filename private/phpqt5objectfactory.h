@@ -57,7 +57,10 @@ extern "C" {
 #include <zend_types.h>
 #include <zend_closures.h>
 #include <zend_interfaces.h>
+#include <zend_string.h>
+#include <zend_hash.h>
 #include <php_streams.h>
+#include <basic_functions.h>
 }
 
 Q_DECLARE_METATYPE(QObjectList)

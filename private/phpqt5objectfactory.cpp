@@ -58,7 +58,7 @@ bool PHPQt5ObjectFactory::createPlastiQObject(const QByteArray &className,
     PlastiQMetaObject metaObject = m_plastiqClasses.value(className);
     PQDBGLPUP(QString("PlastiQMetaObject className: %1").arg(metaObject.className()));
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(pzval));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(pzval));
     pqobject->connections = new QHash<QByteArray,ConnectionHash*>();
     pqobject->userProperties = new QHash<QByteArray,zval>();
     pqobject->virtualMethods = new VirtualMethodList();
@@ -163,17 +163,7 @@ bool PHPQt5ObjectFactory::createPlastiQObject(const QByteArray &className,
                   .arg(reinterpret_cast<quint64>(pqobject->ctx)));
     }
 
-    zend_class_entry *ce = Z_OBJCE_P(pzval);
-
-    quint64 objectId = reinterpret_cast<quint64>(object->plastiq_data());
-    quint32 zhandle = Z_OBJ_HANDLE_P(pzval);
-
-    do {
-        zend_update_property_long(ce, pzval, PQ_UID, strlen(PQ_UID), objectId);
-        zend_update_property_long(ce, pzval, PQ_ZHANDLE, strlen(PQ_ZHANDLE), zhandle);
-    } while (ce = ce->parent);
-
-    addObject(pqobject, objectId);
+    addObject(pqobject);
 
     pqobject->isValid = true;
     pqobject->isExtra = false;
@@ -428,8 +418,8 @@ void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval 
             if (op_array->type == 2
                     && op_array->doc_comment
                     && op_array->doc_comment->len
-                    && op_array->doc_comment->val) {
-                const int argc = op_array->required_num_args;
+                    /*&& op_array->doc_comment->val*/) {
+                const quint32 argc = op_array->required_num_args;
                 const QString docComment(op_array->doc_comment->val);
                 const QRegExp rx(QStringLiteral("@override ([a-zA-Z][0-9a-zA-Z_]*)"));
 
@@ -440,22 +430,20 @@ void PHPQt5ObjectFactory::extractVirtualMethods(PQObjectWrapper *pqobject, zval 
                     const PlastiQMetaObject *metaObject = pqobject->object->plastiq_metaObject();
                     QByteArray signature;
                     if (methodName != ZSTR_VAL(op_array->function_name)) {
-                        php_error(E_ERROR, QStringLiteral("Mismatched names of the overridden "
-                                                          "function: `%1` and `%2`")
-                                  .arg(methodName.constData()).arg(ZSTR_VAL(op_array->function_name))
-                                  .toUtf8().constData());
+                        php_error(E_ERROR, "Mismatched names of the overridden function: `%s` and `%s`",
+                                  methodName.constData(),
+                                  ZSTR_VAL(op_array->function_name));
                     }
 
-                    if (metaObject->haveVirtualMethod(methodName, argc, signature)) {
-                        pqobject->virtualMethods->insert(signature,
-                                    VirtualMethod(methodName, argc));
+                    int virtualMethodIndex = metaObject->virtualMethodIndex(methodName, argc);
+                    if (virtualMethodIndex >= 0) {
+                        pqobject->virtualMethods->insert(quint32(virtualMethodIndex), VirtualMethod(methodName, argc));
 
                         PQDBGLPUP(QStringLiteral("Override virtual method: `%1`")
                                   .arg(signature.constData()));
                     }
                     else {
-                        php_error(E_ERROR, QStringLiteral("Can't override `%1` with %2 arguments")
-                                  .arg(functionName).arg(argc).toUtf8().constData());
+                        php_error(E_ERROR, "Can't override `%s` with %d arguments", functionName.toUtf8().constData(), argc);
                     }
                 }
             }
@@ -486,23 +474,11 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
                        });
 #endif
 
-    PQObjectWrapper *pqobject = fetch_pqobject(zobject);
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(zobject);
 
     if(pqobject->object != Q_NULLPTR && pqobject->isValid) {
-        const PlastiQ::ObjectType objectType = *(pqobject->object->plastiq_metaObject()->d.objectType);
-
         quint64 objectId = reinterpret_cast<quint64>(pqobject->object->plastiq_data());
         removeObject(pqobject, objectId);
-
-        /*
-        if (objectType == PlastiQ::IsQtItem && !pqobject->isExtra
-                && pqobject->object->plastiq_haveParent()) {
-            pqobject->isValid = false;
-            PQDBGLPUP("QtItem's with parents do not need to be removed");
-            PQDBG_LVL_DONE();
-            return;
-        }
-        */
 
         if(pqobject->userProperties != Q_NULLPTR) {
             QMutableHashIterator<QByteArray,zval> propertiesIter(*pqobject->userProperties);
@@ -588,50 +564,8 @@ void PHPQt5ObjectFactory::freeObject(zend_object *zobject)
     PQDBG_LVL_DONE_LPUP();
 }
 
-/*
- * no need more
-void PHPQt5ObjectFactory::freeObject_slot(QObject *qobject)
-{
-#ifdef PQDEBUG
-    PQDBG_LVL_START(__FUNCTION__);
-#endif
-
-    quint64 objectId = reinterpret_cast<quint64>(qobject);
-
-    PQObjectWrapper *pqobject = m_plastiqObjects.value(objectId, Q_NULLPTR);
-    if(pqobject != Q_NULLPTR) {
-        if(qobject->parent() && pqobject->isValid) {
-            zval zv;
-            ZVAL_OBJ(&zv, &pqobject->zo);
-            zend_update_property_long(Z_OBJCE(zv), &zv, "__pq_uid", sizeof("__pq_uid")-1, 0);
-
-            PQDBGLPUP("DELREF");
-            Z_DELREF(zv);
-        }
-
-#ifdef PQDEBUG
-        pqdbg_send_message({
-                               { "command", "freeObjectSlot" },
-                               { "thread", QString::number(reinterpret_cast<quint64>(QThread::currentThread())) },
-                               { "object", QString::number(reinterpret_cast<quint64>(pqobject->object)) },
-                               { "data", QString::number(reinterpret_cast<quint64>(pqobject->object->plastiq_data())) },
-                               { "class", pqobject->object->plastiq_metaObject()->className() }
-                           });
-#endif
-
-        pqobject->object = Q_NULLPTR;
-        pqobject->isValid = false;
-    }
-
-    m_plastiqObjects.remove(objectId);
-
-    PQDBG_LVL_DONE();
-}
-*/
-
 void PHPQt5ObjectFactory::registerZendClassEntry(QString className, zend_class_entry *ce_ptr)
 {
-    PHPQt5::pq_declare_wrapper_props(ce_ptr);
     z_classes.insert(className, ce_ptr);
 }
 

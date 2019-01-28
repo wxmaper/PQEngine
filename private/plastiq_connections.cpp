@@ -21,7 +21,7 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
             zend_function *closure = zend_get_closure_invoke_method(Z_OBJ_P(z_receiver));
 
             if(closure) {
-                PQObjectWrapper *sender_pqobject = fetch_pqobject(Z_OBJ_P(z_sender));
+                PQObjectWrapper *sender_pqobject = fetchPQObjectWrapper(Z_OBJ_P(z_sender));
                 PlastiQObject *sender = sender_pqobject->object;
                 const PlastiQMetaObject *sender_metaObject = sender->plastiq_metaObject();
 
@@ -233,10 +233,10 @@ bool PHPQt5::plastiqConnect(zval *z_sender,
         }
         PQDBGLPUP(QString("slot name: %1").arg(slotName.constData()));
 
-        PQObjectWrapper *sender_pqobject = fetch_pqobject(Z_OBJ_P(z_sender));
+        PQObjectWrapper *sender_pqobject = fetchPQObjectWrapper(Z_OBJ_P(z_sender));
         PlastiQObject *sender_object = sender_pqobject->object;
 
-        PQObjectWrapper *receiver_pqobject = fetch_pqobject(Z_OBJ_P(z_receiver));
+        PQObjectWrapper *receiver_pqobject = fetchPQObjectWrapper(Z_OBJ_P(z_receiver));
         PlastiQObject *receiver_object = receiver_pqobject->object;
 
         // отправитель должен быть объектом Q_OBJECT
@@ -390,7 +390,7 @@ bool PlastiQ_event(QObject *eventFilter, QObject *obj, QEvent *event)
         if (sender == Q_NULLPTR) {
             if (PHPQt5::objectFactory()->havePlastiQMetaObject(senderClassName)) {
                 zval sender_zv = PHPQt5::pq_create_extra_object(senderClassName, obj, true, true);
-                sender = fetch_pqobject(Z_OBJ(sender_zv));
+                sender = fetchPQObjectWrapper(Z_OBJ(sender_zv));
             }
             else {
                 PQDBG_LVL_DONE();
@@ -446,7 +446,7 @@ bool PlastiQ_anon_activate(QObject *receiverObject, const char *slot,
 
 bool PlastiQ_activate(PQObjectWrapper *sender, const char *signal,
                       PQObjectWrapper *receiver, const char *slot,
-                      int argc, const PMOGStack &stack)
+                      uint32_t argc, const PMOGStack &stack)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
@@ -458,35 +458,37 @@ bool PlastiQ_activate(PQObjectWrapper *sender, const char *signal,
     PQDBGLPUP(QString("thread_id: %1").arg(thread_id));
 #endif
 
-    if(sender != Q_NULLPTR) {
+    if (sender != Q_NULLPTR) {
         argc++; // becouse "PHP-7 doesn't support symbol_table substitution for functions"...
     }
 
     // params
     PQDBGLPUP(QString("prepare params [%1]").arg(argc));
-    zval *params = argc ? new zval[argc] : NULL;
+    zval *params = argc ? new zval[argc] : Q_NULLPTR;
 
-    int startIdx = 0;
-    if(sender != Q_NULLPTR) {
+    uint32_t startIdx = 0;
+    if (sender != Q_NULLPTR) {
         PQDBGLPUP("append sender object");
         zval z_sender;
         ZVAL_OBJ(&z_sender, &sender->zo);
+        Z_ADDREF(z_sender);
 
         params[0] = z_sender; // need becouse "PHP-7 doesn't support symbol_table substitution for functions"...
         startIdx = 1;
     }
 
-    for(int i = startIdx; i < argc; i++) {
+    for (uint32_t i = startIdx; i < argc; i++) {
         PQDBGLPUP(QString("plastiq_cast_to_zval(stack[%1])").arg(i-startIdx));
         params[i] = PHPQt5::plastiq_cast_to_zval(stack[i-startIdx]); // int i = 1; and [i-1] becouse "PHP-7 doesn't support symbol_table substitution for functions"...
     }
 
     bool ret = PHPQt5::activateConnection(sender, signal, receiver, slot, argc, params);
 
-    if(argc) {
-        delete [] params;
-        params = Q_NULLPTR;
-    }
+    // WARNING: FIXME
+    //if (argc) {
+    //delete [] params;
+    //params = Q_NULLPTR;
+    //}
 
     PQDBG_LVL_DONE();
     return ret;
@@ -494,7 +496,7 @@ bool PlastiQ_activate(PQObjectWrapper *sender, const char *signal,
 
 bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
                                 PQObjectWrapper *receiver, const char *slot,
-                                int argc, zval *params, bool dtor_params)
+                                uint32_t argc, zval *params)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
@@ -533,7 +535,7 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
         if(!worker) {
             PQDBGLPUP("create worker");
             worker = new PlastiQThreadWorker(receiver->thread);
-            //worker->moveToThread(receiver->thread);
+            worker->moveToThread(receiver->thread);
 
             QObject::connect(worker, &PlastiQThreadWorker::ready,
                              worker, &PlastiQThreadWorker::activate);
@@ -546,11 +548,11 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
 
         workersMutex.unlock();
 
-        //PQDBGLPUP("ADDREF for $sender");
-        //Z_ADDREF(params[0]);
+        // PQDBGLPUP("ADDREF for $sender");
+        Z_ADDREF_P(params);
 
         PQDBGLPUP("worker->setReady()");
-        worker->setReady(sender, signal, receiver, slot, argc, params, dtor_params);
+        worker->setReady(sender, signal, receiver, slot, argc, params, true);
 
         PQDBG_LVL_DONE_LPUP();
         return true;
@@ -587,7 +589,7 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
         //Z_ADDREF(params[0]);
 
         PQDBGLPUP("worker->setReady()");
-        worker->setReady(sender, signal, receiver, slot, argc, params, dtor_params);
+        worker->setReady(sender, signal, receiver, slot, argc, params, true);
 
         PQDBG_LVL_DONE_LPUP();
         return true;
@@ -596,7 +598,7 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
     else {
         PQDBGLPUP("GENERAL CONNECTION");
 
-        bool ok = doActivateConnection(sender, signal, receiver, slot, argc, params, dtor_params);
+        bool ok = doActivateConnection(sender, signal, receiver, slot, argc, params, true);
 
         PQDBG_LVL_DONE_LPUP();
         return ok;
@@ -606,10 +608,11 @@ bool PHPQt5::activateConnection(PQObjectWrapper *sender, const char *signal,
     return false;
 }
 
+
 // NOTE: Called in receiver thread!
 bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
                                   PQObjectWrapper *receiver, const char *slot,
-                                  int argc, zval *params, bool dtor_params)
+                                  uint32_t argc, zval *params, bool dtor_params)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
@@ -617,49 +620,41 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     Q_UNUSED(signal)
 #endif
 
-    PQDBGLPUP("TSRMLS_CACHE_UPDATE");
-    void *parentContext = Q_NULLPTR;
-    void *context = tsrm_get_ls_cache();
+    if (receiver->ctx == Q_NULLPTR) {
+        receiver->ctx = PHPQt5::threadCreator()->contextThread(receiver->thread);
+    }
 
-    PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(context)));
+    tsrm_set_interpreter_context(receiver->ctx);
+
+    //ZEND_TSRMLS_CACHE_UPDATE();
+
+   // void *context = tsrm_get_ls_cache();
+  //  bool newContext = false;
+
+   // PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(context)));
     PQDBGLPUP(QString("QThread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
 
-    //if (!context) {
-    //    parentContext = sender->ctx;
-    //    tsrm_set_interpreter_context(sender->ctx);
-    //    parentContext = PHPQt5::threadCreator()->setContextThread(QThread::currentThread());
-    //        context = tsrm_get_ls_cache();
-    //        PQDBGLPUP(QString("TSRMLS_CACHE: %1").arg(reinterpret_cast<quint64>(context)));
-    //
-    //  }
+  //  if (!context) {
+//        newContext = true;
+//        void *ls = ts_resource(0);
+//        ZEND_TSRMLS_CACHE_UPDATE();
 
-    /*
-    if (sender->ctx != receiver->ctx) {
-        PQDBGLPUP("ZEND_TSRMLS_CACHE_UPDATE");
-        ZEND_TSRMLS_CACHE_UPDATE();
-        PQDBGLPUP("tsrm_new_interpreter_context");
-        void *ctx = tsrm_new_interpreter_context();
-        PQDBGLPUP("ZEND_TSRMLS_CACHE_UPDATE");
-        ZEND_TSRMLS_CACHE_UPDATE();
-        PQDBGLPUP("php_request_startup");
-        php_request_startup();
-        PQDBGLPUP("ok");
-    }
-*/
+//        context = tsrm_get_ls_cache();
+//        SG(server_context) = (((sapi_globals_struct*) (*((void ***) ls))[TSRM_UNSHUFFLE_RSRC_ID(sapi_globals_id)])->server_context);
 
-    /*
-    if(sender != Q_NULLPTR &&
-            (sender->thread != receiver->thread ||
-             sender->thread != QThread::currentThread() ||
-             receiver->thread != QThread::currentThread())) {
-        old_tsrmls_cache = tsrm_set_interpreter_context(TSRMLS_CACHE);
-        PQDBGLPUP(QString("tsrm_set_interpreter_context from `%1` to `%2`")
-                  .arg(reinterpret_cast<quint64>(old_tsrmls_cache))
-                  .arg(reinterpret_cast<quint64>(TSRMLS_CACHE)));
-    }
-    */
+//        PG(expose_php) = 0;
+//        PG(auto_globals_jit) = 0;
 
-    static QMap<QByteArray, zend_fcall_info_cache> call_cache;
+//        php_request_startup();
+//        PG(during_request_startup) = 0;
+//        PG(report_memleaks) = 0;
+
+//        SG(sapi_started) = 0;
+//        SG(headers_sent) = 1;
+//        SG(request_info).no_headers = 1;
+
+//        EG(regular_list).pDestructor = Q_NULLPTR;
+   // }
 
     zval z_receiver;
     quint64 receiverId = 0;
@@ -674,10 +669,11 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
         receiverId = reinterpret_cast<quint64>(receiver->object->plastiq_data());
     }
 
+    zval z_sender;
+    ZVAL_OBJ(&z_sender, &sender->zo);
+
 #ifdef PQDEBUG
     if (sender != Q_NULLPTR) {
-        zval z_sender;
-        ZVAL_OBJ(&z_sender, &sender->zo);
 
         PQDBGLPUP(QString("activate connection: %1::%2 -> %3::%4")
                   .arg(Z_OBJCE_NAME(z_sender))
@@ -705,7 +701,10 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     // call info
     PQDBGLPUP("generate call info");
     PQDBGLPUP(QString("param_count: %1").arg(argc));
+    PQDBGLPUP(QString("function_name: %1").arg(slot));
+
     zval retval;
+
     zend_fcall_info fci;
     fci.size = sizeof(fci);
     fci.object = Z_OBJ(z_receiver);
@@ -714,41 +713,28 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     fci.retval = &retval;
     fci.no_separation = 1;
 
-#if (PHP_VERSION_ID < 70101)
-    fci.function_table = NULL; // removed in php 7.1.1
-#endif
-
-    PQDBGLPUP(QString("function_name: %1").arg(slot));
     ZVAL_STRINGL(&fci.function_name, slot, strlen(slot));
 
-#if (PHP_VERSION_ID < 70101)
-    PQDBGLPUP("symbol_table");
+    #if (PHP_VERSION_ID < 70101)
+    fci.function_table = NULL; // removed in php 7.1.1
     fci.symbol_table = NULL; // removed in php 7.1.1
-#endif
+    #endif
 
-    // call cache
-    PQDBGLPUP("check call cache");
-    QByteArray functionSig = QByteArray(Z_OBJCE_NAME(z_receiver)).append(receiverId).append(slot);
-    bool fcached = call_cache.contains(functionSig);
-    zend_fcall_info_cache fcc = fcached ? call_cache.value(functionSig) : zend_fcall_info_cache({ 0 });
+    zend_function *run = reinterpret_cast<zend_function *>(zend_hash_find_ptr(&Z_OBJCE(z_receiver)->function_table, fci.function_name.value.str));
+    zend_fcall_info_cache fcc;
+    fcc.function_handler = run;
+    fcc.calling_scope = Z_OBJCE(z_sender);
+    fcc.called_scope = Z_OBJCE(z_receiver);
+    fcc.object = Z_OBJ(z_receiver);
 
-    //    PQDBGLPUP("update scope");
-    //    zend_class_entry *old_scope = EG(scope);
-    //    EG(scope) = Z_OBJCE(z_receiver);
+    #if PHP_VERSION_ID < 70300
+    fcc.initialized = 1; // removed in php 7.3.0
+    #endif
 
     PQDBGLPUP("zend_call_function");
-    if (zend_call_function(&fci, &fcc) == SUCCESS) {
-        if(!fcached) {
-            PQDBGLPUP("update call cache");
-            call_cache.insert(functionSig, fcc);
-        }
-    }
-    else {
+    if (zend_call_function(&fci, &fcc) != SUCCESS) {
         PQDBGLPUP("ERROR");
     }
-
-    //    PQDBGLPUP("restore scope");
-    //    EG(scope) = old_scope;
 
     bool ret = false;
     if (Z_TYPE(retval) == IS_TRUE
@@ -761,25 +747,27 @@ bool PHPQt5::doActivateConnection(PQObjectWrapper *sender, const char *signal,
     zval_dtor(&fci.function_name);
 
     if (dtor_params) {
-        zval_dtor(params);
+        for (uint32_t i = 0; i < argc; i++) {
+            zval_dtor(&params[i]);
+        }
+
+        delete [] params;
+        params = Q_NULLPTR;
     }
 
     if (sender == Q_NULLPTR && receiver->isClosure) {
         Z_DELREF(z_receiver);
         delete receiver;
-        receiver = 0;
+        receiver = Q_NULLPTR;
     }
 
-    // zval_dtor(&symbol_table); // не нужно (!)
-
-    if (parentContext != Q_NULLPTR) {
-        context = tsrm_set_interpreter_context(parentContext);
-
-        PQDBGLPUP(QString("tsrm_set_interpreter_context from `%1` to `%2`")
-                  .arg(reinterpret_cast<quint64>(context))
-                  .arg(reinterpret_cast<quint64>(parentContext)));
-    }
-
+    tsrm_set_interpreter_context(sender->ctx);
+   // if (newContext) {
+        //zend_hash_apply(&EG(regular_list), [](zval *bucket) -> int { return ZEND_HASH_APPLY_REMOVE; });
+     //   ZEND_TSRMLS_CACHE_UPDATE();
+    //    php_request_shutdown(Q_NULLPTR);
+      //  ts_free_thread();
+  //  }
 
 #ifdef PQDEBUG
     if (sender != Q_NULLPTR) {
@@ -813,7 +801,7 @@ void VirtualMethod::call(PQObjectWrapper *pqobject, PMOGStack stack) const
 
     zval *params = new zval[_argc];
 
-    for (int i = 0; i < _argc; i++) {
+    for (uint32_t i = 0; i < _argc; i++) {
         zval tmpz = PHPQt5::plastiq_cast_to_zval(stack[i+1]);
         ZVAL_ZVAL(&params[i], &tmpz, 1, 0);
     }

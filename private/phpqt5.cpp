@@ -17,22 +17,6 @@
 #include "phpqt5.h"
 #include "phpqt5constants.h"
 
-QByteArray PHPQt5::W_CP = "UTF-8";
-
-QByteArray PHPQt5::toW(const QByteArray &ba)
-{
-    // QTextCodec *codec = QTextCodec::codecForName(W_CP);
-    // return codec->fromUnicode(ba);
-    return ba;
-}
-
-QByteArray PHPQt5::toUTF8(const QByteArray &ba)
-{
-    // QTextCodec *codec = QTextCodec::codecForName(W_CP);
-    // return codec->toUnicode(ba).toUtf8();
-    return ba;
-}
-
 zend_object *PHPQt5::pqobject_create(zend_class_entry *ce)
 {
 #ifdef PQDEBUG
@@ -40,8 +24,7 @@ zend_object *PHPQt5::pqobject_create(zend_class_entry *ce)
     PQDBGLPUP(ce->name->val);
 #endif
 
-    PQObjectWrapper *pqobject = (PQObjectWrapper*)
-            ecalloc(1, sizeof(PQObjectWrapper) + zend_object_properties_size(ce));
+    PQObjectWrapper *pqobject = reinterpret_cast<PQObjectWrapper*>(ecalloc(1, sizeof(PQObjectWrapper) + zend_object_properties_size(ce)));
 
     zend_object_std_init(&pqobject->zo, ce);
     object_properties_init(&pqobject->zo, ce);
@@ -82,10 +65,10 @@ int PHPQt5::pqobject_compare_objects(zval *obj1, zval *obj2)
 
     using namespace PHPQt5NS;
 
-    PQObjectWrapper *pqobject1 = fetch_pqobject(Z_OBJ_P(obj1));
+    PQObjectWrapper *pqobject1 = fetchPQObjectWrapper(Z_OBJ_P(obj1));
     const PlastiQMetaObject *mo1 = pqobject1->object->plastiq_metaObject();
 
-    PQObjectWrapper *pqobject2 = fetch_pqobject(Z_OBJ_P(obj2));
+    PQObjectWrapper *pqobject2 = fetchPQObjectWrapper(Z_OBJ_P(obj2));
     const PlastiQMetaObject *mo2 = pqobject2->object->plastiq_metaObject();
 
     if (pqobject1->isValid && pqobject2->isValid) {
@@ -146,13 +129,13 @@ int PHPQt5::pqobject_compare(zval *result, zval *op1, zval *op2)
     zval *zv2 = 0;
 
     if (Z_TYPE_P(op1) == IS_OBJECT) {
-        if (fetch_pqobject(Z_OBJ_P(op1))) {
+        if (fetchPQObjectWrapper(Z_OBJ_P(op1))) {
             zv1 = op1;
         }
     }
 
     if (Z_TYPE_P(op2) == IS_OBJECT) {
-        if (fetch_pqobject(Z_OBJ_P(op2))) {
+        if (fetchPQObjectWrapper(Z_OBJ_P(op2))) {
             zv2 = op2;
         }
     }
@@ -176,7 +159,7 @@ int PHPQt5::pqobject_compare(zval *result, zval *op1, zval *op2)
                 || Z_TYPE_P(zv2) == IS_FALSE
                 || Z_TYPE_P(zv2) == IS_NULL
                 || Z_TYPE_P(zv2) == IS_DOUBLE)) {
-        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zv1));
+        PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(zv1));
         const PlastiQMetaObject *mo = pqobject->object->plastiq_metaObject();
 
         QByteArray ba1;

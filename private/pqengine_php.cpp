@@ -40,7 +40,7 @@ int PQEnginePrivate::php_pqengine_deactivate()
 
 size_t PQEnginePrivate::php_pqengine_ub_write(const char *str, size_t str_length)
 {
-    pq_ub_write(PHPQt5::toUTF8(str));
+    pq_ub_write(str);
     return str_length;
 }
 
@@ -118,5 +118,5 @@ void PQEnginePrivate::php_pqengine_log_message(char *message, int syslog_type_in
     Q_UNUSED(syslog_type_int)
 #endif
 
-    pq_ub_write(PHPQt5::toUTF8(message));
+    pq_ub_write(message);
 }

@@ -52,15 +52,16 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
     int uiPathLen;
     zval *retWidget;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o|sz/", &zobject, &uiPath, &uiPathLen, &retWidget) == FAILURE) {
+    if (zend_parse_parameters(PQ_ZEND_NUM_ARGS(), "o|sz/", &zobject, &uiPath, &uiPathLen, &retWidget) == FAILURE) {
         return;
     }
 
     if (!pq_test_ce(zobject)) {
+        // плохая проверка, поменять
         php_error(E_ERROR, "setupUi: parent class is not QWidget.");
     }
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(zobject));
     QObject *obj = pqobject->object->plastiq_toQObject();
 
     zval retUi;
@@ -74,8 +75,8 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
         PlastiQ::IPlastiQUi *ui = coreExt->plastiqForms().value(fi.fileName().toUtf8(), Q_NULLPTR);
 
         if (!ui) {
-            php_error(E_ERROR, QString("setupUi: not found a UI interface for `%1'.")
-                      .arg(fi.fileName()).toUtf8().constData());
+            php_error(E_ERROR, "setupUi: not found a UI interface for `%s'.",
+                      fi.fileName().toUtf8().constData());
         }
 
         switch (pqobject->object->plastiq_objectType()) {
@@ -89,7 +90,7 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
             while (it.hasNext()) {
                 it.next();
                 zend_update_property(Z_OBJCE(retUi), &retUi,
-                                     it.key().toUtf8().constData(), it.key().length(), &it.value());
+                                     it.key().toUtf8().constData(), size_t(it.key().length()), &it.value());
             }
 
             RETVAL_ZVAL(&retUi, 1, 0);
@@ -125,7 +126,7 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
                                              false,
                                              stack);
 
-        PQObjectWrapper *pqobjectUiLoader = fetch_pqobject(Z_OBJ(zUiLoader));
+        PQObjectWrapper *pqobjectUiLoader = fetchPQObjectWrapper(Z_OBJ(zUiLoader));
 
         file->open(QIODevice::ReadOnly);
 
@@ -141,7 +142,8 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
                 argc++;
                 break;
             }
-        } while (zobjectce = zobjectce->parent);
+        }
+        while ((zobjectce = zobjectce->parent) != nullptr);
 
         zval zWidget = plastiqCall(pqobjectUiLoader,
                                    QByteArrayLiteral("load"),
@@ -164,7 +166,7 @@ void PHPQt5::zif_setupUi(INTERNAL_FUNCTION_PARAMETERS)
             while (it.hasNext()) {
                 it.next();
                 zend_update_property(Z_OBJCE(retUi), &retUi,
-                                     it.key().toUtf8().constData(), it.key().length(), &it.value());
+                                     it.key().toUtf8().constData(), size_t(it.key().length()), &it.value());
             }
 
             RETVAL_ZVAL(&retUi, 1, 0);
@@ -192,7 +194,7 @@ void PHPQt5::zif_connect(INTERNAL_FUNCTION_PARAMETERS)
     char *slot;
     int slot_len;
 
-    int argc = ZEND_NUM_ARGS();
+    const int argc = PQ_ZEND_NUM_ARGS();
 
     bool ok = false;
     switch(argc) {
@@ -242,7 +244,7 @@ void PHPQt5::zif_setEngineErrorHandler(INTERNAL_FUNCTION_PARAMETERS)
     zval *eh;
     zend_string *errorHandlerName = Q_NULLPTR;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "z", &eh) == FAILURE) {
+    if(zend_parse_parameters(PQ_ZEND_NUM_ARGS(), "z", &eh) == FAILURE) {
         return;
     }
 
@@ -275,7 +277,7 @@ void PHPQt5::zif_qApp(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    if(ZEND_NUM_ARGS() > 0) {
+    if (ZEND_NUM_ARGS() > 0) {
 #if (PHP_VERSION_ID < 70101)
         zend_wrong_paramers_count_error(ZEND_NUM_ARGS(), 0 ,0);
 #elif (PHP_VERSION_ID < 70200)
@@ -287,8 +289,7 @@ void PHPQt5::zif_qApp(INTERNAL_FUNCTION_PARAMETERS)
 #endif
     }
 
-
-    if(qApp == Q_NULLPTR) {
+    if (qApp == Q_NULLPTR) {
         PQDBG_LVL_DONE();
         RETURN_NULL();
     }
@@ -297,7 +298,7 @@ void PHPQt5::zif_qApp(INTERNAL_FUNCTION_PARAMETERS)
     quint64 objectId = reinterpret_cast<quint64>(qApp);
     PQObjectWrapper *pqobject;
 
-    if(pqobject = objectFactory()->getObject(objectId)) {
+    if ((pqobject = objectFactory()->getObject(objectId)) != nullptr) {
         ZVAL_OBJ(&zobject, &pqobject->zo);
         PQDBG_LVL_DONE();
         RETURN_ZVAL(&zobject, 1, 0);
@@ -327,34 +328,25 @@ void PHPQt5::zif_pqProperties(INTERNAL_FUNCTION_PARAMETERS)
 
     zval *zobject;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
+    if (zend_parse_parameters(PQ_ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
         return;
     }
 
-    QByteArray className = "";
-    zend_class_entry *ce = Z_OBJCE_P(zobject);
-
-    do {
-        if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
-            className = QByteArray(ce->name->val);
-            break;
-        }
-    } while(ce = ce->parent);
+    const QByteArray className = fetchClassName(zobject);
 
     zval zProps;
     array_init(&zProps);
 
-    if(className.length()) {
-        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    if (className.length()) {
+        PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(zobject));
 
         if(pqobject->isValid) {
             const QHash<QByteArray, PlastiQProperty> *properties = pqobject->object->plastiq_metaObject()->d.pq_properties;
-            foreach(const PlastiQProperty &property, *properties) {
-                QByteArray typeBa = QByteArray(property.type).replace("*", "").replace("&", "").replace("const ", "");
-
+            foreach (const PlastiQProperty &property, *properties) {
+                const QByteArray typeBa = QByteArray(property.type).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zProps,
-                                     property.name.constData(), property.name.length(),
-                                     (char*) typeBa.data(), typeBa.length());
+                                     property.name.constData(), size_t(property.name.length()),
+                                     typeBa.data(), size_t(typeBa.length()));
             }
         }
         else {
@@ -379,36 +371,28 @@ void PHPQt5::zif_pqMethods(INTERNAL_FUNCTION_PARAMETERS)
 
     zval *zobject;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
+    if (zend_parse_parameters(PQ_ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
         return;
     }
 
-    QByteArray className = "";
-    zend_class_entry *ce = Z_OBJCE_P(zobject);
-
-    do {
-        if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
-            className = QByteArray(ce->name->val);
-            break;
-        }
-    } while(ce = ce->parent);
+    const QByteArray className = fetchClassName(zobject);
 
     zval zMethods;
     array_init(&zMethods);
 
-    if(className.length()) {
-        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    if (className.length()) {
+        PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(zobject));
 
-        if(pqobject->isValid) {
+        if (pqobject->isValid) {
             const QHash<QByteArray, PlastiQMethod> *methods = pqobject->object->plastiq_metaObject()->d.pq_methods;
-            foreach(const PlastiQMethod &method, *methods) {
+            foreach (const PlastiQMethod &method, *methods) {
                 zval zMethodInfo;
                 array_init(&zMethodInfo);
 
                 QByteArray returnTypeBa = QByteArray(method.returnType).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zMethodInfo,
                                      "returnType", strlen("returnType"),
-                                     (char*) returnTypeBa.data(), returnTypeBa.length());
+                                     returnTypeBa.data(), size_t(returnTypeBa.length()));
 
                 QStringList argTypes = QString(method.argTypes).split(",");
                 int argc = method.argTypes.length() ? argTypes.size() : 0;
@@ -419,18 +403,18 @@ void PHPQt5::zif_pqMethods(INTERNAL_FUNCTION_PARAMETERS)
                 QByteArray argTypesBa = QByteArray(method.argTypes).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zMethodInfo,
                                      "argTypes", strlen("argTypes"),
-                                     (char*) argTypesBa.data(), argTypesBa.length());
+                                     argTypesBa.data(), size_t(argTypesBa.length()));
 
                 add_assoc_long_ex(&zMethodInfo,
                                   "type", strlen("type"),
-                                  (zend_long) method.type);
+                                  zend_long(method.type));
 
                 add_assoc_long_ex(&zMethodInfo,
                                   "access", strlen("access"),
-                                  (zend_long) method.access);
+                                  zend_long(method.access));
 
                 add_assoc_zval_ex(&zMethods,
-                                  method.name.constData(), method.name.length(),
+                                  method.name.constData(), size_t(method.name.length()),
                                   &zMethodInfo);
             }
         }
@@ -456,29 +440,21 @@ void PHPQt5::zif_pqStaticFunctions(INTERNAL_FUNCTION_PARAMETERS)
 
     zval *zobject;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
+    if (zend_parse_parameters(PQ_ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
         return;
     }
 
-    QByteArray className = "";
-    zend_class_entry *ce = Z_OBJCE_P(zobject);
-
-    do {
-        if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
-            className = QByteArray(ce->name->val);
-            break;
-        }
-    } while(ce = ce->parent);
+    const QByteArray className = fetchClassName(zobject);
 
     zval zMethods;
     array_init(&zMethods);
 
-    if(className.length()) {
-        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    if (className.length()) {
+        PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(zobject));
 
-        if(pqobject->isValid) {
+        if (pqobject->isValid) {
             const QHash<QByteArray, PlastiQMethod> *methods = pqobject->object->plastiq_metaObject()->d.pq_methods;
-            foreach(const PlastiQMethod &method, *methods) {
+            foreach (const PlastiQMethod &method, *methods) {
                 if(method.access != PlastiQMethod::StaticPublic) {
                     continue;
                 }
@@ -489,7 +465,7 @@ void PHPQt5::zif_pqStaticFunctions(INTERNAL_FUNCTION_PARAMETERS)
                 QByteArray returnTypeBa = QByteArray(method.returnType).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zMethodInfo,
                                      "returnType", strlen("returnType"),
-                                     (char*) returnTypeBa.data(), returnTypeBa.length());
+                                     returnTypeBa.data(), size_t(returnTypeBa.length()));
 
                 QStringList argTypes = QString(method.argTypes).split(",");
                 int argc = method.argTypes.length() ? argTypes.size() : 0;
@@ -500,18 +476,18 @@ void PHPQt5::zif_pqStaticFunctions(INTERNAL_FUNCTION_PARAMETERS)
                 QByteArray argTypesBa = QByteArray(method.argTypes).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zMethodInfo,
                                      "argTypes", strlen("argTypes"),
-                                     (char*) argTypesBa.data(), argTypesBa.length());
+                                     argTypesBa.data(), size_t(argTypesBa.length()));
 
                 add_assoc_long_ex(&zMethodInfo,
                                   "type", strlen("type"),
-                                  (zend_long) method.type);
+                                  zend_long(method.type));
 
                 add_assoc_long_ex(&zMethodInfo,
                                   "access", strlen("access"),
-                                  (zend_long) method.access);
+                                  zend_long(method.access));
 
                 add_assoc_zval_ex(&zMethods,
-                                  method.name.constData(), method.name.length(),
+                                  method.name.constData(), size_t(method.name.length()),
                                   &zMethodInfo);
             }
         }
@@ -537,36 +513,28 @@ void PHPQt5::zif_pqSignals(INTERNAL_FUNCTION_PARAMETERS)
 
     zval *zobject;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
+    if(zend_parse_parameters(PQ_ZEND_NUM_ARGS(), "o", &zobject) == FAILURE) {
         return;
     }
 
-    QByteArray className = "";
-    zend_class_entry *ce = Z_OBJCE_P(zobject);
-
-    do {
-        if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
-            className = QByteArray(ce->name->val);
-            break;
-        }
-    } while(ce = ce->parent);
+    const QByteArray className = fetchClassName(zobject);
 
     zval zSignals;
     array_init(&zSignals);
 
-    if(className.length()) {
-        PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(zobject));
+    if (className.length()) {
+        PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(zobject));
 
         if(pqobject->isValid) {
             const QHash<QByteArray, PlastiQMethod> *pqSignals = pqobject->object->plastiq_metaObject()->d.pq_signals;
-            foreach(const PlastiQMethod &signal, *pqSignals) {
+            foreach (const PlastiQMethod &signal, *pqSignals) {
                 zval zSignalInfo;
                 array_init(&zSignalInfo);
 
                 QByteArray returnTypeBa = QByteArray(signal.returnType).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zSignalInfo,
                                      "returnType", strlen("returnType"),
-                                     (char*) returnTypeBa.data(), returnTypeBa.length());
+                                     returnTypeBa.data(), size_t(returnTypeBa.length()));
 
                 QStringList argTypes = QString(signal.argTypes).split(",");
                 int argc = signal.argTypes.length() ? argTypes.size() : 0;
@@ -577,18 +545,18 @@ void PHPQt5::zif_pqSignals(INTERNAL_FUNCTION_PARAMETERS)
                 QByteArray argTypesBa = QByteArray(signal.argTypes).replace("*", "").replace("&", "").replace("const ", "");
                 add_assoc_stringl_ex(&zSignalInfo,
                                      "argTypes", strlen("argTypes"),
-                                     (char*) argTypesBa.data(), argTypesBa.length());
+                                     argTypesBa.data(), size_t(argTypesBa.length()));
 
                 add_assoc_long_ex(&zSignalInfo,
                                   "type", strlen("type"),
-                                  (zend_long) signal.type);
+                                  zend_long(signal.type));
 
                 add_assoc_long_ex(&zSignalInfo,
                                   "access", strlen("access"),
-                                  (zend_long) signal.access);
+                                  zend_long(signal.access));
 
                 add_assoc_zval_ex(&zSignals,
-                                  signal.name.constData(), signal.name.length(),
+                                  signal.name.constData(), size_t(signal.name.length()),
                                   &zSignalInfo);
             }
         }

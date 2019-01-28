@@ -9,14 +9,14 @@ PHP_SRC_PATH="D:/src/php-$${PQ_PHP_VERSION}-src"
 PHP_LIB_PATH="D:/src/php-$${PQ_PHP_VERSION}-src/dev"
 
 # Remove this define if need to build the standalone app
-DEFINES += PQENGINE_LIBRARY
+#DEFINES += PQENGINE_LIBRARY
 
 # Use this define for build a statically library
 DEFINES += PQSTATIC
 
 # Use this define for debug messages
-#DEFINES += PQDEBUG
-#DEFINES += PQDETAILEDDEBUG
+DEFINES += PQDEBUG
+DEFINES += PQDETAILEDDEBUG
 
 ##########################################
 ###### Don't change contents below! ######
@@ -80,7 +80,6 @@ win32 {
     DEFINES += ZEND_WIN32
     DEFINES += PHP_WIN32
     DEFINES += WIN32
-    #DEFINES += "\"_MSC_VER=1900\"" // only for MSVC
 }
 
 unix {

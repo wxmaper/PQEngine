@@ -87,7 +87,7 @@ struct PlastiQMetaObject
     int methodId(const QByteArray &signature, PlastiQMethod::Access filter = PlastiQMethod::None) const;
     int signalId(const QByteArray &signature) const;
     int constructorId(const QByteArray &signature) const;
-    bool haveVirtualMethod(const QByteArray &methodName, int argc, QByteArray &signature) const;
+    int virtualMethodIndex(const QByteArray &methodName, quint32 argc) const;
 
     static QObject *toQObject(PlastiQObject *object);
     static bool haveParent(PlastiQObject *object);

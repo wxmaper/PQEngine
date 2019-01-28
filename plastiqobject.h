@@ -34,31 +34,33 @@
 
 extern bool PlastiQ_activate(PQObjectWrapper *sender, const char *signal,
                              PQObjectWrapper *receiver, const char *slot,
-                             int argc, const PMOGStack &stack);
+                             uint32_t argc, const PMOGStack &stack);
 extern bool PlastiQ_anon_activate(QObject *receiverObject, const char *slot,
                                   int argc, const PMOGStack &stack);
 extern bool PlastiQ_event(QObject *eventFilter, QObject *obj, QEvent *event);
 extern PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem);
-extern bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature);
-extern void PlastiQ_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature, PMOGStack stack);
+//extern bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature);
+//extern void PlastiQ_virtual_call(PQObjectWrapper *pqobject, const QByteArray &methodSignature, PMOGStack stack);
 extern void PlastiQ_self_destroy(PQObjectWrapper *pqobject);
 extern void PlastiQ_connectSlotsByName(PQObjectWrapper *pqobject);
 
-class VirtualMethod {
+class VirtualMethod
+{
     QByteArray _functionName;
-    int _argc;
+    uint32_t _argc;
 
 public:
     VirtualMethod() {}
     VirtualMethod(const QByteArray &functionName,
-                  int argc) :
+                  uint32_t argc) :
         _functionName(functionName),
         _argc(argc) {}
 
     void call(PQObjectWrapper *pqobject, PMOGStack stack) const;
 };
 
-class VirtualMethodList : public QHash<QByteArray,VirtualMethod> {};
+// class VirtualMethodList : public QHash<QByteArray,VirtualMethod> {};
+class VirtualMethodList : public QHash<quint32,VirtualMethod> {};
 
 class PlastiQObject // : public QObject
 {
@@ -68,7 +70,7 @@ class PlastiQObject // : public QObject
 public:
     PlastiQObject();
     PlastiQObject(const QByteArray &typeName, int typeId, void *plastiq_data);
-    PlastiQObject(const QByteArray &typeName, void *plastiq_data = Q_NULLPTR);
+//    PlastiQObject(const QByteArray &typeName, void *plastiq_data = Q_NULLPTR);
     virtual ~PlastiQObject();
 
     void plastiq_setData(void *plastiq_data, PlastiQObject *ddata);

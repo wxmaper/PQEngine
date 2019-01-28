@@ -18,14 +18,14 @@ void PHPQt5::zim_qenum___construct(INTERNAL_FUNCTION_PARAMETERS)
         return;
     }
 
-    PQObjectWrapper *pqenum = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqenum = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
     pqenum->object = Q_NULLPTR;
     pqenum->isEnum = true;
     pqenum->isValid = true;
 
     switch(Z_TYPE_P(enum_zval)) {
     case IS_LONG:
-        pqenum->enumVal = qint64(Z_LVAL_P(enum_zval));
+        pqenum->enumVal = Z_LVAL_P(enum_zval);
         break;
 
     case IS_DOUBLE:
@@ -158,7 +158,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
             }
 
             if(className.length()) {
-                PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(entry));
+                PQObjectWrapper *epqobject = fetchPQObjectWrapper(Z_OBJ_P(entry));
                 PlastiQObject *eobject = epqobject->object;
 
                 if(epqobject->isEnum) {
@@ -486,7 +486,7 @@ void PHPQt5::zim_plastiq___construct(INTERNAL_FUNCTION_PARAMETERS)
                     }
 
                     if(className.length()) {
-                        PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(entry));
+                        PQObjectWrapper *epqobject = fetchPQObjectWrapper(Z_OBJ_P(entry));
                         PlastiQObject *object = epqobject->object;
 
                         if(epqobject->isEnum) {
@@ -688,7 +688,7 @@ void PHPQt5::zim_plastiq___call(INTERNAL_FUNCTION_PARAMETERS)
 
     PQDBGLPUP(QString("call: %1").arg(method));
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
 
     zval retVal = plastiqCall(pqobject, QByteArray(method), Z_ARRVAL_P(args)->nNumOfElements, args);
 
@@ -730,19 +730,20 @@ void PHPQt5::zim_plastiq___callStatic(INTERNAL_FUNCTION_PARAMETERS)
 #endif
 
     QByteArray objectClassName(ce->name->val);
-    int argc = Z_ARRVAL_P(args)->nNumOfElements;
+    quint32 argc = Z_ARRVAL_P(args)->nNumOfElements;
 
     PQDBGLPUP(QString("static call: %1::%2").arg(objectClassName.constData()).arg(method));
 
     QByteArray className;
     PlastiQMetaObject metaObject;
     do {
-        if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
+        if (objectFactory()->havePlastiQMetaObject(ce->name->val)) {
             className = QByteArray(ce->name->val);
             metaObject = objectFactory()->getMetaObject(className);
             break;
         }
-    } while(ce = ce->parent);
+    }
+    while ((ce = ce->parent) != nullptr);
 
     PQDBGLPUP(QString("static call: %1::%2").arg(className.constData()).arg(method));
 
@@ -774,7 +775,7 @@ void PHPQt5::zim_plastiq___get(INTERNAL_FUNCTION_PARAMETERS)
               .arg(propertyName)
               .arg(Z_OBJ_HANDLE_P(getThis())));
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
     if(pqobject->isValid) {
         const PlastiQMetaObject *metaObject = pqobject->object->plastiq_metaObject();
 
@@ -875,7 +876,7 @@ void PHPQt5::zim_plastiq___set(INTERNAL_FUNCTION_PARAMETERS)
         }
     }
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
     const PlastiQMetaObject *metaObject = pqobject->object->plastiq_metaObject();
 
     zval argv;
@@ -946,7 +947,7 @@ void PHPQt5::zim_plastiq___add(INTERNAL_FUNCTION_PARAMETERS)
         return;
     }
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
 
     zval argv;
     array_init(&argv);
@@ -980,7 +981,7 @@ void PHPQt5::zim_plastiq___sub(INTERNAL_FUNCTION_PARAMETERS)
         return;
     }
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
 
     zval argv;
     array_init(&argv);
@@ -1014,7 +1015,7 @@ void PHPQt5::zim_plastiq___mul(INTERNAL_FUNCTION_PARAMETERS)
         return;
     }
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
 
     zval argv;
     array_init(&argv);
@@ -1048,7 +1049,7 @@ void PHPQt5::zim_plastiq___div(INTERNAL_FUNCTION_PARAMETERS)
         return;
     }
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
 
     zval argv;
     array_init(&argv);
@@ -1071,7 +1072,7 @@ void PHPQt5::zim_plastiq___toString(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
     QString ret;
     QString objectName;
 
@@ -1130,7 +1131,7 @@ void PHPQt5::zim_plastiq_free(INTERNAL_FUNCTION_PARAMETERS)
     PQDBG_LVL_START(__FUNCTION__);
 #endif
 
-    zend_update_property_long(Z_OBJCE_P(getThis()), getThis(), "__pq_uid", sizeof("__pq_uid")-1, 0);
+    // zend_update_property_long(Z_OBJCE_P(getThis()), getThis(), "__pq_uid", sizeof("__pq_uid")-1, 0);
     objectFactory()->freeObject(Z_OBJ_P(getThis()));
 
     zend_class_entry *ce = objectFactory()->getClassEntry("PlastiQDestroyedObject");
@@ -1211,14 +1212,14 @@ void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
     int signal_signature_len;
     zval *argv;
 
-    if(zend_parse_parameters(ZEND_NUM_ARGS(), "sa", &signal_signature, &signal_signature_len, &argv) == FAILURE) {
+    if(zend_parse_parameters(int(ZEND_NUM_ARGS()), "sa", &signal_signature, &signal_signature_len, &argv) == FAILURE) {
         PQDBG_LVL_DONE();
         return;
     }
 
     PQDBGLPUP(QString("%1::emit -> %2").arg(Z_OBJCE_NAME_P(getThis())).arg(signal_signature));
 
-    PQObjectWrapper *pqobject = fetch_pqobject(Z_OBJ_P(getThis()));
+    PQObjectWrapper *pqobject = fetchPQObjectWrapper(Z_OBJ_P(getThis()));
 
     PlastiQ::ObjectType objectType = pqobject->object->plastiq_objectType();
     if(objectType != PlastiQ::IsQObject
@@ -1234,7 +1235,7 @@ void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
     ConnectionHash *connections = pqobject->connections->value(normalizedSignature, Q_NULLPTR );
 
     if(connections != Q_NULLPTR) {
-        int argc = Z_ARRVAL_P(argv)->nNumOfElements + 1;
+        uint32_t argc = Z_ARRVAL_P(argv)->nNumOfElements + 1;
 
         zval *params = new zval[argc];
         ZVAL_COPY_VALUE(&params[0], getThis());
@@ -1261,16 +1262,17 @@ void PHPQt5::zim_plastiq_emit(INTERNAL_FUNCTION_PARAMETERS)
             iter.next();
 
             const ConnectionData &c = iter.value();
-            activateConnection(pqobject, normalizedSignature.constData(), c.receiver, c.slot.constData(), argc, params, false);
+            activateConnection(pqobject, normalizedSignature.constData(), c.receiver, c.slot.constData(), argc, params);
             // FIXME: нет проверки на кол-во передаваемых аргументов
         }
 
-        for(int i = 0; i < argc; i++) {
-            zval_dtor(&params[i]);
-        }
+        // WARNING: FIXME
+        //for(int i = 0; i < argc; i++) {
+        //    zval_dtor(&params[i]);
+        //}
 
-        delete [] params;
-        params = 0;
+        //delete [] params;
+        //params = 0;
     }
     else {
         php_error(E_ERROR,

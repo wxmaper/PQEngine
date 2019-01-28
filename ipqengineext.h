@@ -30,8 +30,11 @@
 #define PQENGINEEXT_VERSION "0.5"
 #define PQENGINEEXT_VERSION_ID 50
 
+namespace PlastiQ {
+class IPlastiQUi;
+}
+
 class IPQExtension;
-class PlastiQ::IPlastiQUi;
 class QMetaObjectList : public QList<QMetaObject> {};
 class PlastiQMetaObjectList : public QList<PlastiQMetaObject> {};
 typedef QHash<QByteArray,PlastiQ::IPlastiQUi*> PlastiQUiHash;
@@ -43,6 +46,7 @@ public:
     virtual QMetaObjectList classes() = 0;
     virtual bool start() = 0;
     virtual bool finalize() = 0;
+    virtual ~IPQExtension() {}
 };
 
 class PQExtensionList : public QList<IPQExtension*> {};

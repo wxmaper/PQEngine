@@ -67,7 +67,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
     zval *entry;
     ulong argnum;
-    int sidx;
+    ulong sidx;
 
     QList<pq_tmp_call_info> tciList;
 
@@ -91,7 +91,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             // определение типа данных
             QString str = QString::fromLatin1(Z_STRVAL_P(entry));
 
-            if(str.length() == Z_STR_P(entry)->len) {
+            if (size_t(str.length()) == Z_STR_P(entry)->len) {
                 // vargs << QString::fromUtf8(Z_STRVAL_P(entry)); // возврат к utf8
                 argsTypes += argsTypes.length()
                         ? ",QString" : "QString";
@@ -133,23 +133,24 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             zend_class_entry *ce = Z_OBJCE_P(entry);
             QByteArray className;
 
-            if(Z_OBJCE_NAME_P(entry) == QByteArray("QEnum")) {
+            if (Z_OBJCE_NAME_P(entry) == QByteArray("QEnum")) {
                 className = "QEnum";
             }
             else {
                 do {
-                    if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
+                    if (objectFactory()->havePlastiQMetaObject(ce->name->val)) {
                         className = QByteArray(ce->name->val);
                         break;
                     }
-                } while(ce = ce->parent);
+                }
+                while ((ce = ce->parent) != nullptr);
             }
 
             if(className.length()) {
-                PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(entry));
+                PQObjectWrapper *epqobject = fetchPQObjectWrapper(Z_OBJ_P(entry));
                 PlastiQObject *eobject = epqobject->object;
 
-                if(epqobject->isEnum) {
+                if (epqobject->isEnum) {
                     PQDBGLPUP(QString("arg object: QEnum(%1)").arg(epqobject->enumVal));
 
                     argsTypes += argsTypes.length()
@@ -157,7 +158,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
                     stack[sidx].s_enum = epqobject->enumVal;
                 }
-                else if(eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
+                else if (eobject != Q_NULLPTR && eobject->plastiq_data() != Q_NULLPTR) {
                     PQDBGLPUP(QString("arg object: %1").arg(eobject->plastiq_metaObject()->className()));
 
                     argsTypes += argsTypes.length()
@@ -199,7 +200,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                               .toUtf8().constData());
                 }
             }
-            else if(Z_OBJCE_NAME_P(entry) == QByteArray("Closure")) {
+            else if (Z_OBJCE_NAME_P(entry) == QByteArray("Closure")) {
                 PQDBGLPUP("ADD CLOSURE");
                 argsTypes += argsTypes.length()
                         ? ",Closure" : "Closure";
@@ -239,14 +240,14 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
             : PlastiQMetaObject::InvokeMethod;
 
     /* FIXME evil shit code for refernces :-) */
-    QString *strvala;
-    QStringList *slvala;
-    QByteArray *bavala;
-    long *lvala;
-    int *ivala;
-    bool *bvala;
-    double *dvala;
-    float *fvala;
+    QString *strvala = nullptr;
+    QStringList *slvala = nullptr;
+    QByteArray *bavala = nullptr;
+    long *lvala = nullptr;
+    int *ivala = nullptr;
+    bool *bvala = nullptr;
+    double *dvala = nullptr;
+    float *fvala = nullptr;
 
     bool fastCall = false;
     bool right = false;
@@ -254,8 +255,8 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
     int mid = metaObject->methodId( QByteArray(methodName).append("(").append(argsTypes).append(")"), access );
 
-    if(mid >= 0) {
-        if(pqobject) {
+    if (mid >= 0) {
+        if (pqobject) {
             bool haveParentBefore = object->plastiq_haveParent();
             ZVAL_OBJ(&zobject, &pqobject->zo);
             tciList << pq_tmp_call_info { pqobject, &zobject, haveParentBefore };
@@ -268,23 +269,13 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
         fastCall = true;
     }
     else {
-        /* FIXME evil shit code for refernces :-) */
-        strvala = new QString[argc+1];
-        slvala = new QStringList[argc+1];
-        bavala = new QByteArray[argc+1];
-        lvala = new long[argc+1];
-        ivala = new int[argc+1];
-        bvala = new bool[argc+1];
-        dvala = new double[argc+1];
-        fvala = new float[argc+1];
-
         QList<PlastiQCandidateMethod> candidates = metaObject->candidates(methodName, argc, PlastiQMethod::Method, access);
         PQDBGLPUP(QString("general call: candidates size: %1").arg(candidates.size()));
 
         tciList.clear();
 
         right = candidates.size() > 0;
-        for(int cid = 0; cid < candidates.size(); cid++) {
+        for (int cid = 0; cid < candidates.size(); cid++) {
             QString d_argsTypes;
             foreach(QString at, candidates.at(cid).argTypes) {
                 d_argsTypes += d_argsTypes.length() ? "," + at : at;
@@ -321,8 +312,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     else if (methodType == "char" && ZSTR_LEN(Z_STR_P(entry)) == 1) {
                         stack[sidx].s_char = Z_STRVAL_P(entry)[0];
                     }
-                    else if(methodType == "QString") {
-                        if(isref) {
+                    else if (methodType == "QString") {
+                        if (isref) {
+                            if (strvala == nullptr) strvala = new QString[argc+1];
                             strvala[sidx] = QString::fromUtf8(Z_STRVAL_P(entry));
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&strvala[sidx]);
                         }
@@ -333,9 +325,10 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     else if(methodType == "QByteArray") {
                         QString str = QString::fromLatin1(Z_STRVAL_P(entry));
 
-                        if(str.length() == Z_STR_P(entry)->len) {
-                            if(isref) {
+                        if (str.length() == Z_STR_P(entry)->len) {
+                            if (isref) {
                                 //stack[sidx].s_voidp = &QByteArray(Z_STRVAL_P(entry));
+                                if (bavala == nullptr) bavala = new QByteArray[argc+1];
                                 bavala[sidx] = QByteArray(Z_STRVAL_P(entry));
                                 stack[sidx].s_voidp = reinterpret_cast<void*>(&bavala[sidx]);
                             }
@@ -344,7 +337,8 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             }
                         }
                         else {
-                            if(isref) {
+                            if (isref) {
+                                if (bavala == nullptr) bavala = new QByteArray[argc+1];
                                 bavala[sidx] = QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
                                 stack[sidx].s_voidp = reinterpret_cast<void*>(&bavala[sidx]);
                                 //stack[sidx].s_voidp = &QByteArray::fromRawData(Z_STRVAL_P(entry), Z_STR_P(entry)->len);
@@ -374,8 +368,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                 } break;
 
                 case IS_LONG:
-                    if(methodType == "long") {
-                        if(isref) {
+                    if (methodType == "long") {
+                        if (isref) {
+                            if (lvala == nullptr) lvala = new long[argc+1];
                             lvala[sidx] = Z_LVAL_P(entry);
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&lvala[sidx]);
                         }
@@ -383,19 +378,20 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             stack[sidx].s_long = Z_LVAL_P(entry);
                         }
                     }
-                    else if(methodType == "int") {
-                        if(isref) {
-                            ivala[sidx] = (int) Z_LVAL_P(entry);
+                    else if (methodType == "int") {
+                        if (isref) {
+                            if (ivala == nullptr) ivala = new int[argc+1];
+                            ivala[sidx] = int(Z_LVAL_P(entry));
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&ivala[sidx]);
                         }
                         else {
                             stack[sidx].s_int = Z_LVAL_P(entry);
                         }
                     }
-                    else if(methodType == "enum") {
+                    else if (methodType == "enum") {
                         stack[sidx].s_enum = qint64(Z_LVAL_P(entry));
                     }
-                    else if(methodType == "QVariant") {
+                    else if (methodType == "QVariant") {
                         if(!isref) {
                             stack[sidx].s_variant = QVariant(Z_LVAL_P(entry));
                         }
@@ -437,8 +433,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     break;
 
                 case IS_TRUE: {
-                    if(methodType == "bool") {
-                        if(isref) {
+                    if (methodType == "bool") {
+                        if (isref) {
+                            if (bvala == nullptr) bvala = new bool[argc+1];
                             bvala[sidx] = true;
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&bvala[sidx]);
                         }
@@ -446,14 +443,14 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             stack[sidx].s_bool = true;
                         }
                     }
-                    else if(methodType == "QVariant") {
-                        if(!isref) {
+                    else if (methodType == "QVariant") {
+                        if (!isref) {
                             stack[sidx].s_variant = QVariant(true);
                         }
                         else right = false;
                     }
-                    else if(methodType == "int") {
-                        if(candidates.size() == 1) {
+                    else if (methodType == "int") {
+                        if (candidates.size() == 1) {
                             stack[sidx].s_int = 1;
                         }
                         else {
@@ -472,8 +469,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                 } break;
 
                 case IS_FALSE: {
-                    if(methodType == "bool") {
-                        if(isref) {
+                    if (methodType == "bool") {
+                        if (isref) {
+                            if (bvala == nullptr) bvala = new bool[argc+1];
                             bvala[sidx] = false;
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&bvala[sidx]);
                         }
@@ -481,14 +479,14 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             stack[sidx].s_bool = false;
                         }
                     }
-                    else if(methodType == "QVariant") {
-                        if(!isref) {
+                    else if (methodType == "QVariant") {
+                        if (!isref) {
                             stack[sidx].s_variant = QVariant(false);
                         }
                         else right = false;
                     }
-                    else if(methodType == "int") {
-                        if(candidates.size() == 1) {
+                    else if (methodType == "int") {
+                        if (candidates.size() == 1) {
                             stack[sidx].s_int = 0;
                         }
                         else {
@@ -507,8 +505,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                 } break;
 
                 case IS_DOUBLE: {
-                    if(methodType == "double") {
-                        if(isref) {
+                    if (methodType == "double") {
+                        if (isref) {
+                            if (dvala == nullptr) dvala = new double[argc+1];
                             dvala[sidx] = Z_DVAL_P(entry);
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&dvala[sidx]);
                         }
@@ -516,13 +515,14 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             stack[sidx].s_double = Z_DVAL_P(entry);
                         }
                     }
-                    if(methodType == "float") {
-                        if(isref) {
-                            fvala[sidx] = (float) Z_DVAL_P(entry);
+                    if (methodType == "float") {
+                        if (isref) {
+                            if (fvala == nullptr) fvala = new float[argc+1];
+                            fvala[sidx] = float(Z_DVAL_P(entry));
                             stack[sidx].s_voidp = reinterpret_cast<void*>(&fvala[sidx]);
                         }
                         else {
-                            stack[sidx].s_float = (float) Z_DVAL_P(entry);
+                            stack[sidx].s_float = float(Z_DVAL_P(entry));
                         }
                     }
                     else if(methodType == "enum") {
@@ -590,6 +590,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                             php_output_discard();
                         }
 
+                        if (slvala == nullptr) slvala = new QStringList[argc+1];
                         slvala[sidx] = sl;
 
                         if(methodType == "QStringList") {
@@ -619,7 +620,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     }
 
                     if(className.length()) {
-                        PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(entry));
+                        PQObjectWrapper *epqobject = fetchPQObjectWrapper(Z_OBJ_P(entry));
                         PlastiQObject *eobject = epqobject->object;
 
                         if(epqobject->isEnum) {
@@ -689,7 +690,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                                           .arg(reinterpret_cast<quint64>(thread)));
 
                                                 pqobject->thread = thread;
-                                                pqobject->ctx = 0;
+                                                pqobject->ctx = Q_NULLPTR;
 
                                                 PQDBGLPUP(QString("thread: %1; TSRMLS_CACHE: %2")
                                                           .arg(reinterpret_cast<quint64>(thread))
@@ -747,12 +748,13 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                                         }
                                     }
                                     else continue;
-                                } while(metaObject = metaObject->d.superdata);
+                                }
+                                while ((metaObject = metaObject->d.superdata) != nullptr);
 
-                                if(cancast) {
+                                if (cancast) {
                                     PlastiQ::ObjectType objectType = *(eobject->plastiq_metaObject()->d.objectType);
 
-                                    switch(objectType) {
+                                    switch (objectType) {
                                     case PlastiQ::IsQtObject:
                                     case PlastiQ::IsQObject:
                                     case PlastiQ::IsQWidget:
@@ -771,8 +773,9 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                         }
                         else right = false;
                     }
+
                     /* FunctorOrLambda */
-                    else if(Z_OBJCE_NAME_P(entry) == QByteArray("Closure") && methodType == "FunctorOrLambda") {
+                    else if (Z_OBJCE_NAME_P(entry) == QByteArray("Closure") && methodType == "FunctorOrLambda") {
                         PQDBGLPUP("methodType == FunctorOrLambda");
 
                         PQObjectWrapper *receiver_pqobject = new PQObjectWrapper;
@@ -796,11 +799,12 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
                     }
                     else right = false;
 
-                default: right = false;
+                default:
+                    right = false;
                 }
             }
 
-            if(right) {
+            if (right) {
                 mid = candidates.at(cid).idx;
                 break;
             }
@@ -848,18 +852,17 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
     }
 
     PQDBGLPUP("check parents");
-    foreach(pq_tmp_call_info tci, tciList) {
+    foreach (pq_tmp_call_info tci, tciList) {
         bool haveParentBefore = tci.haveParent;
         bool haveParentAfter = tci.pqo->object->plastiq_haveParent();
-        const PlastiQ::ObjectType objectType = *(tci.pqo->object->plastiq_metaObject()->d.objectType);
 
         // не было родителя и появился
-        if(!haveParentBefore && haveParentAfter) {
+        if (!haveParentBefore && haveParentAfter) {
             PQDBGLPUP("ADDREF");
             Z_ADDREF_P(tci.zv);
         }
         // был родитель и не стало
-        else if(haveParentBefore && !haveParentAfter) {
+        else if (haveParentBefore && !haveParentAfter) {
             PQDBGLPUP("DELREF");
             Z_DELREF_P(tci.zv);
         }
@@ -871,7 +874,7 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
     }
 
     PQDBGLPUP(QString("rettype: %1").arg(stack[0].type));
-    if(stack[0].type != PlastiQ::Void && right) {
+    if (stack[0].type != PlastiQ::Void && right) {
         retVal = plastiq_cast_to_zval(stack[0]);
     }
     else {
@@ -880,15 +883,15 @@ zval PHPQt5::plastiqCall(PQObjectWrapper *pqobject, const QByteArray &methodName
 
     delete [] stack;
 
-    if(!fastCall) {
-        delete [] strvala;
-        delete [] slvala;
-        delete [] bavala;
-        delete [] lvala;
-        delete [] ivala;
-        delete [] bvala;
-        delete [] dvala;
-        delete [] fvala;
+    if (!fastCall) {
+        if (strvala != nullptr) delete [] strvala;
+        if (slvala != nullptr) delete [] slvala;
+        if (bavala != nullptr) delete [] bavala;
+        if (lvala != nullptr) delete [] lvala;
+        if (ivala != nullptr) delete [] ivala;
+        if (bvala != nullptr) delete [] bvala;
+        if (dvala != nullptr) delete [] dvala;
+        if (fvala != nullptr) delete [] fvala;
     }
 
     PQDBG_LVL_DONE();
@@ -950,7 +953,7 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
         if (PHPQt5::objectFactory()->havePlastiQMetaObject(className)) {
             zval zobject = PHPQt5::pq_create_extra_object(className, d, true, true);
             Z_DELREF(zobject); // FIXME: проверить, надо ли? :/
-            pqobject = fetch_pqobject(Z_OBJ(zobject));
+            pqobject = fetchPQObjectWrapper(Z_OBJ(zobject));
         }
     }
 
@@ -958,6 +961,7 @@ PQObjectWrapper *PlastiQ_getWrapper(const PMOGStackItem &stackItem)
     return pqobject;
 }
 
+/*
 bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject,
                                const QByteArray &methodSignature) {
 #ifdef PQDEBUG
@@ -972,7 +976,8 @@ bool PlastiQ_have_virtual_call(PQObjectWrapper *pqobject,
     PQDBG_LVL_DONE();
     return false;
 }
-
+*/
+/*
 void PlastiQ_virtual_call(PQObjectWrapper *pqobject,
                           const QByteArray &methodSignature,
                           PMOGStack stack)
@@ -987,7 +992,7 @@ void PlastiQ_virtual_call(PQObjectWrapper *pqobject,
 
     PQDBG_LVL_DONE();
 }
-
+*/
 void PlastiQ_self_destroy(PQObjectWrapper *pqobject)
 {
 #ifdef PQDEBUG
@@ -1001,15 +1006,16 @@ void PlastiQ_self_destroy(PQObjectWrapper *pqobject)
         ZVAL_OBJ(&zobject, &pqobject->zo);
         PQDBGLPUP(QStringLiteral("className: %1").arg(Z_OBJCE_NAME(zobject)));
 
-        //PQDBGLPUP(QString("REFCOUNT: %1").arg(Z_REFCOUNT(zobject)));
-        //Z_DELREF(zobject);
+        QString className = Z_OBJCE_NAME(zobject);
+        className = Z_OBJCE_NAME(zobject);
 
-        if (Z_REFCOUNT(zobject) == 1) {
+        // if (Z_REFCOUNT(zobject) == 1) {
+        if (Z_REFCOUNT(zobject) > 1) {
             PQDBGLPUP("ZVAL_DESTRUCTOR");
             zval_dtor(&zobject);
         }
         else {
-            zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, 0);
+            // zend_update_property_long(Z_OBJCE(zobject), &zobject, "__pq_uid", sizeof("__pq_uid")-1, 0);
             PHPQt5::objectFactory()->freeObject(&pqobject->zo);
 
             zend_class_entry *ce = PHPQt5::objectFactory()->getClassEntry("PlastiQDestroyedObject");
@@ -1433,20 +1439,21 @@ PMOGStackItem PHPQt5::plastiq_cast_to_stackItem(zval *zv)
         zend_class_entry *ce = Z_OBJCE_P(zv);
         QByteArray className;
 
-        if(Z_OBJCE_NAME_P(zv) == QByteArrayLiteral("QEnum")) {
+        if (Z_OBJCE_NAME_P(zv) == QByteArrayLiteral("QEnum")) {
             className = QByteArrayLiteral("QEnum");
         }
         else {
             do {
-                if(objectFactory()->havePlastiQMetaObject(ce->name->val)) {
+                if (objectFactory()->havePlastiQMetaObject(ce->name->val)) {
                     className = QByteArray(ce->name->val);
                     break;
                 }
-            } while(ce = ce->parent);
+            }
+            while ((ce = ce->parent) != nullptr);
         }
 
         if(className.length()) {
-            PQObjectWrapper *epqobject = fetch_pqobject(Z_OBJ_P(zv));
+            PQObjectWrapper *epqobject = fetchPQObjectWrapper(Z_OBJ_P(zv));
             PlastiQObject *eobject = epqobject->object;
 
             if(epqobject->isEnum) {
@@ -1598,20 +1605,21 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                     Z_DELREF(zQApp);
 
                     delete [] stack;
-                    stack = 0;
+                    stack = nullptr;
 
                     delete [] _argv;
-                    _argv = 0;
+                    _argv = nullptr;
                 }
             }
 
             if (qApp != Q_NULLPTR) {
-                zval argv, _parent, _title, _message;
+                zval argv, _parent, _title, _message, _okBtn;
 
                 PlastiQMetaObject metaObject = objectFactory()->getMetaObject(messageBoxClassName);
                 ZVAL_NULL(&_parent);
                 ZVAL_STRING(&_message,
                             fullError.replace("\n", "<br>").replace("\t", "    ").toUtf8().constData());
+                ZVAL_LONG(&_okBtn, 0x00000400);
 
                 array_init(&argv);
                 add_next_index_zval(&argv, &_parent);
@@ -1624,7 +1632,8 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                     ZVAL_STRING(&_title, "Error");
                     add_next_index_zval(&argv, &_title);
                     add_next_index_zval(&argv, &_message);
-                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("critical"), 3, &argv, &metaObject);
+                    add_next_index_zval(&argv, &_okBtn);
+                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("critical"), 4, &argv, &metaObject);
                     //PQDBGLPUP("php_request_shutdown");
                     //php_request_shutdown(Q_NULLPTR); // zend_mm_heap corrupted
                     break;
@@ -1637,7 +1646,8 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                     ZVAL_STRING(&_title, "Warning");
                     add_next_index_zval(&argv, &_title);
                     add_next_index_zval(&argv, &_message);
-                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("warning"), 3, &argv, &metaObject);
+                    add_next_index_zval(&argv, &_okBtn);
+                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("warning"), 4, &argv, &metaObject);
                     //PQDBGLPUP("php_request_shutdown");
                     //php_request_shutdown(Q_NULLPTR); // zend_mm_heap corrupted
                     break;
@@ -1647,7 +1657,8 @@ void PHPQt5::plastiqErrorHandler(int error_num, const char *error_filename, cons
                     ZVAL_STRING(&_title, "Notice");
                     add_next_index_zval(&argv, &_title);
                     add_next_index_zval(&argv, &_message);
-                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("information"), 3, &argv, &metaObject);
+                    add_next_index_zval(&argv, &_okBtn);
+                    plastiqCall(Q_NULLPTR, QByteArrayLiteral("information"), 4, &argv, &metaObject);
                     break;
 
                 default: ;

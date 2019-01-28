@@ -19,10 +19,10 @@
 
 #define PQENGINE_MAJOR_VERSION 0
 #define PQENGINE_MINOR_VERSION 6
-#define PQENGINE_RELEASE_VERSION 8
+#define PQENGINE_RELEASE_VERSION 9
 #define PQENGINE_CODENAME "ANDROMEDA"
-#define PQENGINE_VERSION "0.6.8"
-#define PQENGINE_VERSION_ID 68
+#define PQENGINE_VERSION "0.6.9"
+#define PQENGINE_VERSION_ID 69
 
 extern void default_ub_write(const QString &msg, const QString &title);
 extern void error_ub_write(const QString &msg, const QString &title);
@@ -63,10 +63,10 @@ extern void pqdbg_send_message(const QMap<QString,QString> &msgmap);
     /* Print debug message */
     #define PQDBGL(msg) {\
         pqdbg_current_line_inc();\
-        QString m(msg);\
-        for(int l = 0; l < PQDBG_LVL_C; l++) { m.prepend("  "); }\
+        QString mm(msg);\
+        for(int l = 0; l < PQDBG_LVL_C; l++) { mm.prepend("  "); }\
         /*default_ub_write(m, QString("D%1 L%2").arg(pqdbg_get_current_line()).arg(PQDBG_LVL_C));*/\
-        pqdbg_send_message(PQDBG_LVL_C, m, pqdbg_get_current_line());\
+        pqdbg_send_message(PQDBG_LVL_C, mm, pqdbg_get_current_line());\
     }
 
     /* Start new debug with level 0 */

@@ -86,22 +86,19 @@ void *PlastiQThreadCreator::setContextThread(QThread *thread)
         void *ls = ts_resource(0);
         PQDBGLPUP(QString("ts_resource: %1").arg(reinterpret_cast<quint64>(ls)));
 
-
         parentContext = tsrm_get_ls_cache();
         PQDBGLPUP(QString("current context: %1").arg(reinterpret_cast<quint64>(parentContext)));
         PQDBGLPUP(QString("current thread: %1").arg(reinterpret_cast<quint64>(QThread::currentThread())));
         PQDBGLPUP(QString("tsrm_new_interpreter_context for thread: %1").arg(reinterpret_cast<quint64>(thread)));
-       // context = tsrm_new_interpreter_context();
-
-
+        context = tsrm_new_interpreter_context();
 
         PQDBGLPUP(QString("tsrm_set_interpreter_context: %1").arg(reinterpret_cast<quint64>(context)));
-        //tsrm_set_interpreter_context(context);
+        tsrm_set_interpreter_context(context);
 
         ZEND_TSRMLS_CACHE_UPDATE();
 
-        //PG(expose_php) = 0;
-        //PG(auto_globals_jit) = 0;
+        PG(expose_php) = 0;
+        PG(auto_globals_jit) = 0;
 
         PQDBGLPUP("php_request_startup");
         php_request_startup();
@@ -124,6 +121,17 @@ QThread *PlastiQThreadCreator::getThread(void *tsrmls_cache)
 {
     QThread *thread = threads.key(tsrmls_cache);
     return thread;
+}
+
+void *PlastiQThreadCreator::contextThread(QThread *thread)
+{
+    PlastiQThreadCtxCreator *ctxCreator = new PlastiQThreadCtxCreator;
+    ctxCreator->moveToThread(thread);
+
+    connect(thread, &QThread::finished,
+            ctxCreator, &PlastiQThreadCtxCreator::shutdown, Qt::DirectConnection);
+
+    return ctxCreator->contextThread();
 }
 
 void PlastiQThreadCreator::free_tsrmls_cache(QObject *threadObject)
@@ -164,14 +172,12 @@ PlastiQThreadWorker::PlastiQThreadWorker(QThread *thread, QObject *parent)
 //              .arg(reinterpret_cast<quint64>(parentContext)));
 //    tsrm_set_interpreter_context(parentContext);
 
-
-
     PQDBG_LVL_DONE();
 }
 
 int PlastiQThreadWorker::setReady(PQObjectWrapper *sender, const char *signal,
                                   PQObjectWrapper *receiver, const char *slot,
-                                  int argc, _zval_struct *params, bool dtor_params)
+                                  uint32_t argc, _zval_struct *params, bool dtor_params)
 {
 #ifdef PQDEBUG
     PQDBG_LVL_START(__FUNCTION__);
@@ -224,4 +230,36 @@ bool PlastiQThreadWorker::activate(int idx)
 
     PQDBG_LVL_DONE();
     return ok;
+}
+
+void *PlastiQThreadCtxCreator::contextThread()
+{
+    ctx = ts_resource(0);
+    TSRMLS_CACHE_UPDATE();
+
+    SG(server_context) = ((sapi_globals_struct*) (*((void ***) ctx))[TSRM_UNSHUFFLE_RSRC_ID(sapi_globals_id)])->server_context;
+
+    PG(expose_php) = 0;
+    PG(auto_globals_jit) = 0;
+
+    php_request_startup();
+    PG(during_request_startup) = 0;
+    PG(report_memleaks) = 0;
+
+    SG(sapi_started) = 1;
+    SG(headers_sent) = 1;
+    SG(request_info).no_headers = 1;
+
+    return ctx;
+}
+
+void PlastiQThreadCtxCreator::shutdown()
+{
+    void *octx = tsrm_set_interpreter_context(ctx);
+    php_request_shutdown(Q_NULLPTR);
+    tsrm_free_interpreter_context(ctx);
+    ctx = Q_NULLPTR;
+    // ts_free_thread();
+    tsrm_set_interpreter_context(octx);
+    deleteLater();
 }

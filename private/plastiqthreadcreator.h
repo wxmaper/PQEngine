@@ -13,17 +13,17 @@ class PlastiQThreadWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit PlastiQThreadWorker(QThread *thread, QObject *parent = 0);
+    explicit PlastiQThreadWorker(QThread *thread, QObject *parent = Q_NULLPTR);
     int setReady(PQObjectWrapper *sender, const char *signal,
                  PQObjectWrapper *receiver, const char *slot,
-                 int argc, _zval_struct *params, bool dtor_params);
+                 uint32_t argc, _zval_struct *params, bool dtor_params);
 
     struct ActivationData {
         PQObjectWrapper *sender;
         QByteArray signal;
         PQObjectWrapper *receiver;
         QByteArray slot;
-        int argc;
+        uint32_t argc;
         _zval_struct *params;
         bool dtor_params;
     };
@@ -38,14 +38,27 @@ private:
     QHash<int,ActivationData*> activateHash;
 };
 
+class PlastiQThreadCtxCreator : public QObject
+{
+    Q_OBJECT
+public:
+    void *contextThread();
+    void *ctx = Q_NULLPTR;
+
+public slots:
+    void shutdown();
+};
+
 class PlastiQThreadCreator : public QObject
 {
     Q_OBJECT
 public:
-    explicit PlastiQThreadCreator(QThread *thread, void *tsrmls_cache, QObject *parent = 0);
+    explicit PlastiQThreadCreator(QThread *thread, void *tsrmls_cache, QObject *parent = Q_NULLPTR);
     //static void *get_tsrmls_cache(QThread *thread);
     void *setContextThread(QThread *thread);
     QThread *getThread(void *tsrmls_cache);
+
+    void *contextThread(QThread *thread);
 
 public slots:
     void free_tsrmls_cache(QObject *threadObject);

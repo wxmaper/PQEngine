@@ -9,9 +9,6 @@ namespace PHPQt5NS {
     const char QBYTEARRAY_CLASS[] = "QByteArray";
     const char QUILOADER_CLASS[] = "QUiLoader";
     const char QFILE_CLASS[] = "QFile";
-
-    const char PQ_UID[] = "__pq_uid";
-    const char PQ_ZHANDLE[] = "__pq_zhandle";
 }
 
 #endif // PHPQT5CONSTANTS_H

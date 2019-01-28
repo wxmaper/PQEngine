@@ -346,7 +346,7 @@ bool PQEnginePrivate::sapi_init()
     PQDBG_LVL_START(__FUNCTION__)
 #endif
 
-    tsrm_startup(128, 1, 0, NULL);
+    tsrm_startup(1, 1, 0, Q_NULLPTR);
     ts_resource(0);
     ZEND_TSRMLS_CACHE_UPDATE();
 
@@ -387,12 +387,12 @@ void PQEnginePrivate::shutdown(PQDBG_LVL_D)
     // Bug with config_zval_dtor in php 7.3.*
     zend_unregister_ini_entries(0);
     HashTable *configuration_hash = php_ini_get_configuration_hash();
-    configuration_hash->pDestructor = NULL;
-    SG(server_context) = NULL;
+    configuration_hash->pDestructor = Q_NULLPTR;
+    SG(server_context) = Q_NULLPTR;
 #endif
 
     PQDBGLPUP("php_request_shutdown");
-    php_request_shutdown((void *) 0);
+    php_request_shutdown(Q_NULLPTR);
 
     PQDBGLPUP("php_module_shutdown");
     php_module_shutdown();
